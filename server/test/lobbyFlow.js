@@ -77,8 +77,8 @@ check("lounge → kitchen allowed", m3.ok === true && m3.room === "kitchen");
 // stepping into the corridor: allowed, and investigation is then refused
 const mc = await ask(A, "region:enter", { room: "kitchen", inCorridor: true });
 check("stepping into the corridor is accepted", mc.ok === true && mc.inCorridor === true);
-const invCorridor = await ask(A, "investigate", {});
-check("cannot investigate from the corridor", invCorridor.ok === false && /room/i.test(invCorridor.error));
+const invCorridor = await ask(A, "hotspot:examine", { hotspotId: "kitchen_pantry" });
+check("cannot examine from the corridor", invCorridor.ok === false && /room/i.test(invCorridor.error));
 await ask(A, "region:enter", { room: "kitchen", inCorridor: false }); // back inside → A ends in kitchen
 
 const mB1 = await ask(B, "region:enter", { room: "dining" });        // study → dining
@@ -98,39 +98,41 @@ check("chat text never names a room", chatLeak === false);
 // --- investigation (step 7): reveal a room's clues at once, real counts ---
 log("\n[8] Investigation reveals the player's clues for their room:");
 // A is in the kitchen, B in the conservatory (from the moves above).
-const invA1 = await ask(A, "investigate", {});
-check("A investigates (kitchen) → ok", invA1.ok === true);
-check("A found at least one clue", invA1.revealed?.length >= 1);
-check("revealed clue carries prose text", typeof invA1.revealed[0]?.text === "string" && invA1.revealed[0].text.length > 0);
-check("revealed clue does NOT leak the 'eliminates' solver key", !("eliminates" in invA1.revealed[0]));
+const invA1 = await ask(A, "hotspot:examine", { hotspotId: "kitchen_pantry" });
+check("A examines kitchen_pantry → ok + clue found", invA1.ok === true && invA1.found === true);
+check("examined clue carries prose text", typeof invA1.clue?.text === "string" && invA1.clue.text.length > 0);
+check("examined clue does NOT leak the 'eliminates' solver key", !("eliminates" in invA1.clue));
 
-const invA2 = await ask(A, "investigate", {});
-check("A re-searches same room → 'already searched'", invA2.ok === false && invA2.alreadySearched === true);
+const invA2 = await ask(A, "hotspot:examine", { hotspotId: "kitchen_pantry" });
+check("A re-examines same hotspot → 'already'", invA2.ok === false && invA2.already === true);
 
-const invB1 = await ask(B, "investigate", {});
-check("B investigates (conservatory) → ok + found a clue", invB1.ok === true && invB1.revealed.length >= 1);
+const invAempty = await ask(A, "hotspot:examine", { hotspotId: "kitchen_sink" });
+check("A examines an empty hotspot → ok, no clue", invAempty.ok === true && invAempty.found === false);
+
+const invB1 = await ask(B, "hotspot:examine", { hotspotId: "conservatory_fountain" });
+check("B examines conservatory_fountain → ok + clue found", invB1.ok === true && invB1.found === true);
 
 const stA = await ask(A, "state:request", {});
 const stB = await ask(B, "state:request", {});
 check("A's own clueCount is now 1", stA.view.you.clueCount === 1);
 check("A sees opponent (Watson) count 1", stA.view.opponent.clueCount === 1);
 check("B's own clueCount is now 1", stB.view.you.clueCount === 1);
-check("A's searched-room list includes kitchen", stA.view.you.investigated.includes("kitchen"));
+check("A's examined-hotspot list includes kitchen_pantry", stA.view.you.examinedHotspots.includes("kitchen_pantry"));
 log(`      tracker — ${stA.view.you.name}: ${stA.view.you.clueCount}/${stA.view.progressTotal} | ${stA.view.opponent.name}: ${stA.view.opponent.clueCount}/${stA.view.progressTotal}`);
 
 // notebook source data (step 9): view carries full found clues for the player
 const fcA = stA.view.you.foundClues;
 check("foundClues present in A's view", Array.isArray(fcA) && fcA.length === 1);
-check("found clue carries prose + tag + found_in", typeof fcA[0].text === "string" && typeof fcA[0].tag === "string" && fcA[0].found_in === "kitchen");
+check("found clue carries prose + tag + found_in + hotspot", typeof fcA[0].text === "string" && typeof fcA[0].tag === "string" && fcA[0].found_in === "kitchen" && fcA[0].hotspot === "kitchen_pantry");
 check("found clue does NOT leak 'eliminates'", !("eliminates" in fcA[0]));
 
 // --- red herrings are revealed but DON'T count toward the 7 ---
 log("\n[8b] Red herrings show up but never inflate the progress count:");
 const mA5 = await ask(A, "region:enter", { room: "library" });   // kitchen ↔ library
 check("A moves kitchen → library", mA5.ok === true);
-const invA3 = await ask(A, "investigate", {});
-check("A investigates (library) → ok", invA3.ok === true);
-check("library reveals 2 clues (one real + one herring)", invA3.revealed.length === 2);
+const invA3a = await ask(A, "hotspot:examine", { hotspotId: "library_writing_desk" }); // shared-2 (real)
+const invA3b = await ask(A, "hotspot:examine", { hotspotId: "library_bookshelves" });  // rh-p1 (herring)
+check("A examines library desk + bookshelves → both found", invA3a.found === true && invA3b.found === true);
 const stA2 = await ask(A, "state:request", {});
 check("A now holds 3 found clue ids", stA2.view.you.clues.length === 3);
 check("but clueCount stays 2 (herring excluded)", stA2.view.you.clueCount === 2);
@@ -200,11 +202,13 @@ log("\n[10] Accusation — lock-in, privacy boundary, reveal & scoring:");
 {
   const { h, w } = await freshRoom("Sherlock", "John");
   // Gather evidence: Holmes searches the study (2 clues); Watson study then dining.
-  const hInv = await ask(h, "investigate", {});
-  check("Holmes finds 2 clues in the study", hInv.revealed.length === 2);
-  await ask(w, "investigate", {});            // study → shared-3
+  const he1 = await ask(h, "hotspot:examine", { hotspotId: "study_desk" });     // shared-3
+  const he2 = await ask(h, "hotspot:examine", { hotspotId: "study_armchair" });  // p1-4
+  check("Holmes finds 2 clues in the study", he1.found === true && he2.found === true);
+  await ask(w, "hotspot:examine", { hotspotId: "study_desk" });      // shared-3
   await ask(w, "region:enter", { room: "dining" });
-  await ask(w, "investigate", {});            // dining → shared-1, p2-1
+  await ask(w, "hotspot:examine", { hotspotId: "dining_table" });     // shared-1
+  await ask(w, "hotspot:examine", { hotspotId: "dining_sideboard" }); // p2-1
 
   // privacy BEFORE any lock-in
   const preH = await ask(h, "state:request", {});
@@ -243,7 +247,8 @@ log("\n[10] Accusation — lock-in, privacy boundary, reveal & scoring:");
 log("\n[11] Timer transitions:");
 {
   const { h, w } = await freshRoom("Speedy", "Slow");
-  await ask(h, "investigate", {}); // 2 clues so Holmes can lock
+  await ask(h, "hotspot:examine", { hotspotId: "study_desk" });    // shared-3
+  await ask(h, "hotspot:examine", { hotspotId: "study_armchair" }); // p1-4 — 2 clues so Holmes can lock
   const revH = wait(h, "game:reveal");
   const revW = wait(w, "game:reveal");
   await ask(h, "accuse:lock", { culpritId: "s3", weaponId: "w5", roomId: "library", clueIds: ["shared-3", "p1-4"] });

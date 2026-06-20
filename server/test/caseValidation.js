@@ -79,5 +79,34 @@ console.log("\n[7] A suspect with no evidence tell is rejected.");
   check("reason mentions evidence response", res.reasons.some((r) => /evidence response/i.test(r)));
 }
 
+console.log("\n[8] A clue with an unknown hotspot is rejected.");
+{
+  const bad = clone(base);
+  bad.clues.player1_private[0].hotspot = "study_nonexistent";
+  const res = validateCase(bad);
+  check("unknown hotspot is rejected", res.ok === false);
+  check("reason mentions hotspot", res.reasons.some((r) => /hotspot/i.test(r)));
+}
+
+console.log("\n[9] A clue whose hotspot is in the wrong room is rejected.");
+{
+  const bad = clone(base);
+  // shared-3 lives in the study; point it at a kitchen hotspot
+  bad.clues.shared[2].hotspot = "kitchen_stove";
+  const res = validateCase(bad);
+  check("room/hotspot mismatch is rejected", res.ok === false);
+  check("reason mentions the mismatch", res.reasons.some((r) => /not its found_in|is in room/i.test(r)));
+}
+
+console.log("\n[10] Two of a player's clues sharing a hotspot is rejected.");
+{
+  const bad = clone(base);
+  // make p1-4 (study) collide with shared-3 (study_desk) for player 1
+  bad.clues.player1_private[3].hotspot = "study_desk";
+  const res = validateCase(bad);
+  check("duplicate hotspot per player is rejected", res.ok === false);
+  check("reason mentions sharing a hotspot", res.reasons.some((r) => /share hotspot/i.test(r)));
+}
+
 console.log(`\n=== ${failures === 0 ? "ALL CHECKS PASSED ✓" : failures + " CHECK(S) FAILED ✗"} ===`);
 process.exit(failures === 0 ? 0 : 1);

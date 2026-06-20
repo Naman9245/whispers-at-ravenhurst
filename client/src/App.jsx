@@ -11,6 +11,7 @@ import TimerBar from "./components/TimerBar.jsx";
 import DeductionNotebook from "./components/DeductionNotebook.jsx";
 import SuspectModal from "./components/SuspectModal.jsx";
 import AccusationModal from "./components/AccusationModal.jsx";
+import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
 import { unlockAudio, playTick, setMuted } from "./game/sound.js";
 import "./index.css";
@@ -35,6 +36,7 @@ export default function App() {
   const [showHints, setShowHints] = useState(false);
   const [showSuspects, setShowSuspects] = useState(false);
   const [showAccuse, setShowAccuse] = useState(false);
+  const [examineResult, setExamineResult] = useState(null);
   const [reveal, setReveal] = useState(null);
   const [dialogues, setDialogues] = useState({});
   const [region, setRegion] = useState(null);   // local movement: { room, inCorridor }
@@ -79,6 +81,7 @@ export default function App() {
       accuseAnnounced.current = false;
       oppLockedAnnounced.current = false;
       tickBurstFired.current = false;
+      setExamineResult(null);
       setShowActivity(false); setShowNotebook(false); setShowMenu(false);
       setSeen(1); setPingDot(false);
       setChat([{ who: "System", color: "#9ad6a0", kind: "system", ts: Date.now(), text: "Both detectives have entered Ravenhurst." }]);
@@ -141,18 +144,18 @@ export default function App() {
     [view]
   );
 
-  const handleInvestigate = useCallback(async () => {
-    const res = await net.investigate();
-    if (!res?.ok) return flash(res?.error || "Can't investigate here.");
-    const where = roomLabelOf(res.room);
-    if (res.revealed.length === 0) {
-      pushChat({ who: "System", color: "#9ad6a0", kind: "system", text: `You search the ${where} but find nothing of note.` });
-      return;
+  const handleExamine = useCallback(async (hotspotId) => {
+    const res = await net.examine(hotspotId);
+    if (!res?.ok) return flash(res?.error || "Can't examine that.");
+    setExamineResult(res);
+    if (res.found) {
+      flash("Evidence found!");
+      pushChat({ who: "System", color: "#f0b85c", kind: "clue", text: `You examined ${res.hotspotName} and found evidence:` });
+      pushChat({ who: "Clue", color: "#f0b85c", kind: "clue", text: res.clue.text });
+    } else {
+      pushChat({ who: "System", color: "#9ad6a0", kind: "system", text: `You examined ${res.hotspotName} — nothing of interest.` });
     }
-    flash(`You found ${res.revealed.length} clue${res.revealed.length > 1 ? "s" : ""}!`);
-    pushChat({ who: "System", color: "#f0b85c", kind: "clue", text: `You discovered evidence in the ${where}:` });
-    for (const cl of res.revealed) pushChat({ who: "Clue", color: "#f0b85c", kind: "clue", text: cl.text });
-  }, [flash, pushChat, roomLabelOf]);
+  }, [flash, pushChat]);
 
   const askSuspect = useCallback(async (suspectId, questionId, questionText) => {
     const res = await net.askSuspect(suspectId, questionId);
@@ -180,7 +183,7 @@ export default function App() {
   }, [flash]);
 
   const backToLobby = useCallback(() => {
-    setReveal(null); setView(null); setShowAccuse(false);
+    setReveal(null); setView(null); setShowAccuse(false); setExamineResult(null);
     setShowSuspects(false); setDialogues({}); setChat([]); setRegion(null);
     setShowActivity(false); setShowNotebook(false); setShowMenu(false);
   }, []);
@@ -232,14 +235,13 @@ export default function App() {
 
   const handleAction = useCallback((key) => {
     if (youLocked) return flash("You've locked in — awaiting your opponent.");
-    if (key === "INVESTIGATE") return handleInvestigate();
     if (key === "QUESTION SUSPECT") return setShowSuspects(true);
     if (key === "ACCUSE") {
       if (canAccuse) return setShowAccuse(true);
       return flash(`Accusations open in ${fmtMs(gateMsLeft)}.`);
     }
     flash("Coming soon.");
-  }, [flash, handleInvestigate, canAccuse, youLocked, gateMsLeft]);
+  }, [flash, canAccuse, youLocked, gateMsLeft]);
 
   const openActivity = useCallback(() => {
     setShowActivity(true); setSeen(chat.length); setPingDot(false); setShowMenu(false);
@@ -258,8 +260,7 @@ export default function App() {
   // Current region: local movement is authoritative for UI; fall back to server.
   const curRoom = region?.room ?? view.you.room;
   const inCorridor = region?.inCorridor ?? view.you.inCorridor ?? false;
-  const investigatedHere = !inCorridor && view.you.investigated?.includes(curRoom);
-  const modalOpen = showSuspects || showAccuse;
+  const modalOpen = showSuspects || showAccuse || Boolean(examineResult);
   const unread = Math.max(0, chat.length - seen);
 
   return (
@@ -291,8 +292,6 @@ export default function App() {
       {/* ===== Compact action pills ===== */}
       <ActionBar
         showHints={showHints}
-        investigatedHere={investigatedHere}
-        canInvestigate={!inCorridor}
         accuseLabel={accuseLabel}
         canAccuse={canAccuse}
         accuseUrgent={accuseUrgent}
@@ -308,6 +307,8 @@ export default function App() {
           startRoom={view.you.room}
           showReachable={showHints}
           inputEnabled={!modalOpen && !youLocked}
+          examined={view.you.examinedHotspots || []}
+          onExamine={handleExamine}
           onRegionChange={handleRegionChange}
         />
         {toast && <div className="toast">{toast}</div>}
@@ -327,7 +328,7 @@ export default function App() {
           <DeductionNotebook
             caseInfo={view.caseInfo}
             foundClues={view.you.foundClues}
-            investigated={view.you.investigated}
+            examinedHotspots={view.you.examinedHotspots || []}
           />
         </aside>
       )}
@@ -361,6 +362,10 @@ export default function App() {
           onSubmit={submitAccusation}
           onClose={() => setShowAccuse(false)}
         />
+      )}
+
+      {examineResult && (
+        <ExamineModal result={examineResult} onClose={() => setExamineResult(null)} />
       )}
     </div>
   );

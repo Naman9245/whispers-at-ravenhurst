@@ -21,6 +21,7 @@
 - 🛡️ **Server-authoritative anti-cheat** — the solution never reaches a client until the reveal.
 - ⚖️ **Dual-window accusation system** with **reasoning-based scoring** (base + reasoning + speed).
 - 🔎 **Private clue investigation** — 3 shared clues + 4 private per player, plus red herrings.
+- 🔦 **Hotspot exploration** — search specific furniture (walk up + press **E**, or click) to uncover evidence, instead of one generic button.
 - 🗣️ **Pre-generated suspect dialogue trees** with evidence confrontation and behavioral "tells."
 - 🔌 **Real-time multiplayer** over WebSockets, with disconnect detection and a reconnect grace window.
 - 🎨 **Indie pixel-art Victorian noir** aesthetic, drawn on a raw HTML5 canvas (no game engine).
@@ -71,7 +72,7 @@ The game auto-starts when both detectives are present.
 ## Game Rules (short version)
 
 - **Two detectives, one mansion, one murder.** Solve *culprit + weapon + room*.
-- Both players **move freely** (WASD / arrow keys), **investigate** rooms, and **question** suspects — simultaneously, no turns.
+- Both players **move freely** (WASD / arrow keys), **examine furniture hotspots** (walk up + press **E**, or click) to find clues, and **question** suspects — simultaneously, no turns.
 - You gather **3 shared clues** (either player can find them) and **4 private clues** (yours alone), plus the occasional **red herring** that looks real but secretly contradicts the truth and never counts toward your total.
 - The **ACCUSE** button unlocks after a gate (**5 minutes** in production, **20 seconds** in Dev Mode) so there's time to actually deduce.
 - The **first lock-in** opens a final window for the other detective; when both lock in (or time expires) the case resolves.
@@ -85,9 +86,10 @@ The game auto-starts when both detectives are present.
 whispers-at-ravenhurst/
 ├── shared/              # SINGLE SOURCE OF TRUTH (imported by client AND server)
 │   ├── mapData.js           # rooms, connection graph, walkable geometry
+│   ├── roomHotspots.js      # the 4 searchable hotspots per room (24 total)
 │   ├── constants.js         # timers, clue counts, question cap, move speed
 │   ├── questions.js         # the 10-question suspect pool
-│   └── caseSchema.js        # case JSON shape + solvability validator
+│   └── caseSchema.js        # case JSON shape + solvability + hotspot validator
 ├── server/              # Node + Express + Socket.io (authoritative game state)
 │   ├── index.js             # bootstrap + per-connection handler wiring
 │   ├── rooms.js             # RoomStore + lobby (create/join/disconnect)

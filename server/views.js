@@ -56,7 +56,7 @@ export function buildView(room, playerId) {
       clues: me.clues,                     // private clue ids found so far
       foundClues: room.foundCluesFor(me),  // full clue objects for the notebook
       clueCount: room.progressCount(me),   // non-herring count for the tracker
-      investigated: me.investigated,       // rooms already searched (button state)
+      examinedHotspots: me.examinedHotspots, // hotspot ids this player has examined
       questioning: room.questioningStateFor(me), // per-suspect asked/confronted (own)
       lockedIn: me.lockedIn,
       connected: me.connected,

@@ -49,34 +49,37 @@ the game is playable end-to-end; Phase 2 is the next focus.
 - 3-retry logic with fallback to the baked case on failure.
 - **Estimated effort:** ~1 hour.
 
-### 2.2 — Hotspot Exploration System 🔜 *(FLAGSHIP FEATURE)*
+### 2.2 — Hotspot Exploration System ✅ *(FLAGSHIP FEATURE — DONE)*
 
-Transform menu-click investigation into actual room searching.
+Investigation is now active, spatial searching instead of one button.
 
-**Design**
-- 3–4 interactable hotspots per room (e.g. *Library:* bookshelf, desk, fireplace,
-  reading chair).
-- Subtle indicators (magnifying-glass icons) appear above hotspots on room entry.
-- Walking near a hotspot triggers a **"Press E to examine"** prompt.
-- Press **E** → modal shows what was found.
-- Per-hotspot outcomes: real clue (~60%), red herring (~15%), flavor text only (~25%).
-- Examined hotspots show a ✓ checkmark.
-- Tracked per-player for privacy.
+**Shipped**
+- **4 hotspots per room** (24 total) in `shared/roomHotspots.js`, positioned over the
+  drawn furniture.
+- Entering a room shows its 4 subtle pulsing magnifying-glass indicators (**current
+  room only**); examined spots show a faded ✓.
+- Walk within ~48px → a **"Press E to examine"** prompt; **the E key or a
+  proximity-gated mouse click** examines it.
+- Each hotspot yields the player's clue placed there (if any) or "Nothing of interest
+  here." — one outcome per hotspot per player, tracked privately.
+- The old **INVESTIGATE button was removed**; examination replaces it.
+- Notebook evidence shows "Room — Hotspot name"; the Rooms tab shows per-room search
+  progress (`n/4` → ✓ Searched).
 
-**Data changes**
-- Add `shared/roomHotspots.js`.
-- Update `shared/caseSchema.js` (clues gain a `hotspot` field).
-- Update the validator (`validateCase`) — hotspot-validity check.
-- Update `server/handlers/investigate.js` (accepts a `hotspot_id`).
-- Update `server/ai/fallbackCase.json` with hotspot mappings.
+**Anti-cheat:** the hotspot→clue mapping never leaves the server until the player
+examines that exact spot (`tryExamine` in `server/game.js`, event `hotspot:examine`).
 
-**Why:** a spatial puzzle layer, a real detective feel, and a massive differentiator
-from typical student projects.
+**Files:** `shared/roomHotspots.js` (new) · `shared/caseSchema.js` (+hotspot checks) ·
+`server/ai/fallbackCase.json` (every clue gets a `hotspot`) · `server/game.js`
+(`tryExamine`, `examinedHotspots`) · `server/handlers/investigate.js` · `server/views.js` ·
+client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`,
+`App.jsx`, `ActionBar.jsx`, `DeductionNotebook.jsx`). Tests: new `server/test/hotspots.js`
++ updated `lobbyFlow` / `lockout` / `caseValidation`.
 
-**Alternative lighter version:** a single "search location" picker per room
-(~30% of the work, ~80% of the feel).
-
-**Estimated effort:** ~3–5 hours.
+> Note vs. the original spec: clues keep the existing `found_in` / `eliminates` fields
+> (not `room` / `points_to`); validation lives in `shared/caseSchema.js` (there is no
+> `server/ai/validateCase.js`); the full walk-up + E version was shipped (not the
+> lighter modal-picker fallback).
 
 ### 2.3 — Audio Polish 🔜
 - Footstep sounds (a *tum-tum-tum* loop during Walking, silent on Idle).

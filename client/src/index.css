@@ -608,6 +608,26 @@ body {
 .confirm-text { color: var(--cream); font-size: 15px; margin: 0 0 16px; }
 .confirm-row { display: flex; gap: 10px; justify-content: center; }
 
+/* ===== Examine (hotspot) modal ===== */
+.examine-modal {
+  position: relative; width: min(420px, 92vw);
+  background: #1d1428; border: 2px solid var(--gold); border-radius: 10px;
+  box-shadow: 0 0 0 2px #000, 8px 8px 0 rgba(0,0,0,0.5); padding: 20px 22px;
+}
+.examine-title { font-size: 17px; font-weight: 800; color: var(--cream); margin-bottom: 6px; }
+.examine-atmos { font-size: 13px; color: rgba(240,230,210,0.6); font-style: italic; margin: 0 0 12px; }
+.examine-clue { background: #fff8e8; border: 1px solid #d8c89a; border-radius: 6px; padding: 10px 12px; }
+.examine-clue .nb-tag { display: inline-block; margin-bottom: 6px; }
+.examine-clue-text { margin: 0; font-size: 13px; line-height: 1.4; color: #2a2218; }
+.examine-empty { font-size: 14px; color: rgba(240,230,210,0.7); font-style: italic; margin: 0; }
+.examine-ok {
+  width: 100%; margin-top: 14px; font-family: inherit; font-size: 14px; font-weight: 800; letter-spacing: 1px;
+  color: #1d1428; background: var(--amber); border: none; border-radius: 6px; padding: 10px; cursor: pointer;
+}
+.examine-ok:hover { filter: brightness(1.08); }
+/* partial room-search indicator in the notebook (n/4 examined) */
+.nb-searched.partial { color: #8a6a2a; background: rgba(201,162,63,0.15); border-color: #c9a23f; }
+
 /* ===== Reveal screen ===== */
 .reveal-screen {
   position: fixed; inset: 0; overflow-y: auto; background: radial-gradient(circle at 50% 20%, #2a1d3c, #160f1f);

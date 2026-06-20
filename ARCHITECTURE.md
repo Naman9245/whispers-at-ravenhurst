@@ -79,7 +79,7 @@ accusation state, and the timers. Status moves **`lobby` → `playing` → `ende
 |-----------|---------|
 | Lifecycle | `addPlayer`, `removePlayer`, `isFull`, `start` |
 | Movement | `setRegion` |
-| Investigation | `tryInvestigate`, `cluePoolFor`, `progressCount`, `foundCluesFor` |
+| Investigation | `tryExamine`, `cluePoolFor`, `progressCount`, `foundCluesFor` |
 | Questioning | `tryAsk`, `tryConfront`, `questioningStateFor` |
 | Accusation | `accuseOpensAt`, `tryLock`, `startFinalWindow`, `scoreFor`, `resolve` |
 | Serialization | `viewFor` (delegates to `buildView`) |
@@ -107,9 +107,10 @@ emit a **vague** ambient line to both players, then push fresh views.
 - **`movement.js`** — `region:enter`. The client free-roams in pixel space and
   reports the room it entered (or that it stepped into the corridor). Positions are
   never broadcast; only a "moved to another room…" note is.
-- **`investigate.js`** — `investigate`. Reveals all of the player's clues for their
-  current room at once, marks it searched for that player only, strips the
-  machine-readable `eliminates` key before returning.
+- **`investigate.js`** — `hotspot:examine`. Examines one furniture **hotspot** in the
+  player's current room via `tryExamine`; returns the clue placed there for THIS
+  player (if any) or nothing, stripped of the `eliminates` key. The hotspot→clue map
+  never leaves the server until that exact spot is examined.
 - **`suspects.js`** — `suspect:ask` (one pooled question, budget-capped) and
   `suspect:confront` (an evidence branch that may carry a behavioral tell).
 - **`accusation.js`** — `accuse:lock`, plus `resolveGame` and `scheduleForceResolve`.
@@ -240,6 +241,10 @@ export const PROGRESS_TOTAL = 7;          // 3 shared + 4 private (identical for
 
 - **`questions.js`** — the flat 10-question `QUESTION_POOL` (each with a stable `id`)
   the client renders and the server validates against.
+- **`roomHotspots.js`** — the 4 searchable hotspots per room (24 total: `ROOM_HOTSPOTS`
+  + `HOTSPOT_BY_ID`) with normalized `(x,y)` positions. Imported by the client (draw
+  indicators + proximity) and the validator/server (place + check clues). Holds **no
+  clue mapping**, so it's safe to ship to a client.
 - **`caseSchema.js`** — `validateCase(caseData)`: a real solvability proof (see §8).
 
 ---
@@ -290,9 +295,11 @@ opponent: opp ? {
 - **All moves are server-validated.** `region:enter` is re-checked server-side; the
   collision geometry (walls/doorways) is enforced client-side every frame from the
   *shared* module, so it cannot drift from the server's notion of a room.
-- **All clue pickups are server-validated.** `tryInvestigate` only reveals clues
-  whose `found_in` matches the player's current room and that they haven't already
-  found; the `eliminates` solver key is stripped before sending.
+- **All clue pickups are server-validated.** `tryExamine` reveals the clue at an
+  examined hotspot only when its room matches the player's current room and the spot
+  hasn't been examined; the `eliminates` key is stripped. **The hotspot→clue mapping
+  is never serialized** — a player learns what's at a hotspot only by standing there
+  and examining it.
 - **Dialogue trees are never sent in full** — only the active branch (`tryAsk` /
   `tryConfront`).
 - **Question budget is enforced server-side** — `QUESTION_CAP` (3) per suspect per
@@ -310,7 +317,7 @@ opponent: opp ? {
 ```
         room:create / room:join
 LOBBY ───────────────────────────▶ PLAYING ───────────────────────────▶ ENDED ──▶ game:reveal
-  │     (2nd player → room.start())   │   investigate · question · accuse   │
+  │     (2nd player → room.start())   │   examine · question · accuse       │
   │                                   │                                     │
   │                            accuseGate opens ACCUSE            resolve() triggered by:
   │                                   │                            • both locked in
@@ -344,7 +351,7 @@ contradicts the truth — so citing your own red herring earns nothing.
 | c → s | `room:create` | `{ name, devMode }` → `{ ok, code, token, view }` |
 | c → s | `room:join` | `{ code, name }` → `{ ok, code, token, view }` |
 | c → s | `region:enter` | `{ room, inCorridor }` → `{ ok, room, inCorridor, changedRoom }` |
-| c → s | `investigate` | `{}` → `{ ok, room, revealed[] }` |
+| c → s | `hotspot:examine` | `{ hotspotId }` → `{ ok, found, hotspotName, clue? }` |
 | c → s | `suspect:ask` | `{ suspectId, questionId }` → `{ ok, answer, asked, cap }` |
 | c → s | `suspect:confront` | `{ suspectId, clueId }` → `{ ok, response, hadTell }` |
 | c → s | `accuse:lock` | `{ culpritId, weaponId, roomId, clueIds }` → `{ ok }` |
@@ -370,7 +377,8 @@ room.start()
 solution:{ culprit_id, weapon_id, room_id }, suspects:[6], weapons:[6],
 clues:{ shared:[3], player1_private:[4], player2_private:[4], red_herrings_p1:[1],
 red_herrings_p2:[1] }, dialogue_trees, validation }`. Clues carry machine-checkable
-eliminations: `clue.eliminates = { suspects:[ids], weapons:[ids], rooms:[ids] }`.
+eliminations `clue.eliminates = { suspects:[ids], weapons:[ids], rooms:[ids] }` and a
+`clue.hotspot` placing them on a specific furniture spot in `clue.found_in`.
 
 **Validation rules** (`validateCase`):
 - **Structure/counts** — exactly 6 suspects, 6 weapons, and the 3/4/4/1/1 clue split;
@@ -383,6 +391,8 @@ eliminations: `clue.eliminates = { suspects:[ids], weapons:[ids], rooms:[ids] }`
   clues are in).
 - **Dialogue** — every suspect has an answer for all 10 question ids and at least one
   evidence response with a behavioral `tell`, keyed to a real clue id.
+- **Hotspots** — every clue's `hotspot` is a real hotspot in its own room, and no two
+  of a player's clues share a hotspot (one clue per hotspot per player).
 
 **Retry logic (Phase 2.1):** the live call will attempt generation up to **3 times**,
 running each result through `validateCase`, and fall back to the baked, pre-validated

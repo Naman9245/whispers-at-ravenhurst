@@ -1,0 +1,258 @@
+{
+ "holmes": {
+  "idle": {
+   "south": [
+    "assets/holmes/animations/Breathing_Idle/south/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/south/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/south/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/south/frame_003.png"
+   ],
+   "south-east": [
+    "assets/holmes/animations/Breathing_Idle/south-east/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/south-east/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/south-east/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/south-east/frame_003.png"
+   ],
+   "east": [
+    "assets/holmes/animations/Breathing_Idle/east/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/east/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/east/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/east/frame_003.png"
+   ],
+   "north-east": [
+    "assets/holmes/animations/Breathing_Idle/north-east/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/north-east/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/north-east/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/north-east/frame_003.png"
+   ],
+   "north": [
+    "assets/holmes/animations/Breathing_Idle/north/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/north/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/north/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/north/frame_003.png"
+   ],
+   "north-west": [
+    "assets/holmes/animations/Breathing_Idle/north-west/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/north-west/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/north-west/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/north-west/frame_003.png"
+   ],
+   "west": [
+    "assets/holmes/animations/Breathing_Idle/west/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/west/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/west/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/west/frame_003.png"
+   ],
+   "south-west": [
+    "assets/holmes/animations/Breathing_Idle/south-west/frame_000.png",
+    "assets/holmes/animations/Breathing_Idle/south-west/frame_001.png",
+    "assets/holmes/animations/Breathing_Idle/south-west/frame_002.png",
+    "assets/holmes/animations/Breathing_Idle/south-west/frame_003.png"
+   ]
+  },
+  "walk": {
+   "south": [
+    "assets/holmes/animations/Walking/south/frame_000.png",
+    "assets/holmes/animations/Walking/south/frame_001.png",
+    "assets/holmes/animations/Walking/south/frame_002.png",
+    "assets/holmes/animations/Walking/south/frame_003.png",
+    "assets/holmes/animations/Walking/south/frame_004.png",
+    "assets/holmes/animations/Walking/south/frame_005.png"
+   ],
+   "south-east": [
+    "assets/holmes/animations/Walking/south-east/frame_000.png",
+    "assets/holmes/animations/Walking/south-east/frame_001.png",
+    "assets/holmes/animations/Walking/south-east/frame_002.png",
+    "assets/holmes/animations/Walking/south-east/frame_003.png",
+    "assets/holmes/animations/Walking/south-east/frame_004.png",
+    "assets/holmes/animations/Walking/south-east/frame_005.png"
+   ],
+   "east": [
+    "assets/holmes/animations/Walking/east/frame_000.png",
+    "assets/holmes/animations/Walking/east/frame_001.png",
+    "assets/holmes/animations/Walking/east/frame_002.png",
+    "assets/holmes/animations/Walking/east/frame_003.png",
+    "assets/holmes/animations/Walking/east/frame_004.png",
+    "assets/holmes/animations/Walking/east/frame_005.png"
+   ],
+   "north-east": [
+    "assets/holmes/animations/Walking/north-east/frame_000.png",
+    "assets/holmes/animations/Walking/north-east/frame_001.png",
+    "assets/holmes/animations/Walking/north-east/frame_002.png",
+    "assets/holmes/animations/Walking/north-east/frame_003.png",
+    "assets/holmes/animations/Walking/north-east/frame_004.png",
+    "assets/holmes/animations/Walking/north-east/frame_005.png"
+   ],
+   "north": [
+    "assets/holmes/animations/Walking/north/frame_000.png",
+    "assets/holmes/animations/Walking/north/frame_001.png",
+    "assets/holmes/animations/Walking/north/frame_002.png",
+    "assets/holmes/animations/Walking/north/frame_003.png",
+    "assets/holmes/animations/Walking/north/frame_004.png",
+    "assets/holmes/animations/Walking/north/frame_005.png"
+   ],
+   "north-west": [
+    "assets/holmes/animations/Walking/north-west/frame_000.png",
+    "assets/holmes/animations/Walking/north-west/frame_001.png",
+    "assets/holmes/animations/Walking/north-west/frame_002.png",
+    "assets/holmes/animations/Walking/north-west/frame_003.png",
+    "assets/holmes/animations/Walking/north-west/frame_004.png",
+    "assets/holmes/animations/Walking/north-west/frame_005.png"
+   ],
+   "west": [
+    "assets/holmes/animations/Walking/west/frame_000.png",
+    "assets/holmes/animations/Walking/west/frame_001.png",
+    "assets/holmes/animations/Walking/west/frame_002.png",
+    "assets/holmes/animations/Walking/west/frame_003.png",
+    "assets/holmes/animations/Walking/west/frame_004.png",
+    "assets/holmes/animations/Walking/west/frame_005.png"
+   ],
+   "south-west": [
+    "assets/holmes/animations/Walking/south-west/frame_000.png",
+    "assets/holmes/animations/Walking/south-west/frame_001.png",
+    "assets/holmes/animations/Walking/south-west/frame_002.png",
+    "assets/holmes/animations/Walking/south-west/frame_003.png",
+    "assets/holmes/animations/Walking/south-west/frame_004.png",
+    "assets/holmes/animations/Walking/south-west/frame_005.png"
+   ]
+  },
+  "rotations": {
+   "south": "assets/holmes/rotations/south.png",
+   "south-east": "assets/holmes/rotations/south-east.png",
+   "east": "assets/holmes/rotations/east.png",
+   "north-east": "assets/holmes/rotations/north-east.png",
+   "north": "assets/holmes/rotations/north.png",
+   "north-west": "assets/holmes/rotations/north-west.png",
+   "west": "assets/holmes/rotations/west.png",
+   "south-west": "assets/holmes/rotations/south-west.png"
+  }
+ },
+ "watson": {
+  "idle": {
+   "south": [
+    "assets/watson/animations/Breathing_Idle/south/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/south/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/south/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/south/frame_003.png"
+   ],
+   "south-east": [
+    "assets/watson/animations/Breathing_Idle/south-east/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/south-east/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/south-east/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/south-east/frame_003.png"
+   ],
+   "east": [
+    "assets/watson/animations/Breathing_Idle/east/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/east/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/east/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/east/frame_003.png"
+   ],
+   "north-east": [
+    "assets/watson/animations/Breathing_Idle/north-east/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/north-east/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/north-east/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/north-east/frame_003.png"
+   ],
+   "north": [
+    "assets/watson/animations/Breathing_Idle/north/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/north/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/north/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/north/frame_003.png"
+   ],
+   "north-west": [
+    "assets/watson/animations/Breathing_Idle/north-west/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/north-west/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/north-west/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/north-west/frame_003.png"
+   ],
+   "west": [
+    "assets/watson/animations/Breathing_Idle/west/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/west/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/west/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/west/frame_003.png"
+   ],
+   "south-west": [
+    "assets/watson/animations/Breathing_Idle/south-west/frame_000.png",
+    "assets/watson/animations/Breathing_Idle/south-west/frame_001.png",
+    "assets/watson/animations/Breathing_Idle/south-west/frame_002.png",
+    "assets/watson/animations/Breathing_Idle/south-west/frame_003.png"
+   ]
+  },
+  "walk": {
+   "south": [
+    "assets/watson/animations/Walking/south/frame_000.png",
+    "assets/watson/animations/Walking/south/frame_001.png",
+    "assets/watson/animations/Walking/south/frame_002.png",
+    "assets/watson/animations/Walking/south/frame_003.png",
+    "assets/watson/animations/Walking/south/frame_004.png",
+    "assets/watson/animations/Walking/south/frame_005.png"
+   ],
+   "south-east": [
+    "assets/watson/animations/Walking/south-east/frame_000.png",
+    "assets/watson/animations/Walking/south-east/frame_001.png",
+    "assets/watson/animations/Walking/south-east/frame_002.png",
+    "assets/watson/animations/Walking/south-east/frame_003.png",
+    "assets/watson/animations/Walking/south-east/frame_004.png",
+    "assets/watson/animations/Walking/south-east/frame_005.png"
+   ],
+   "east": [
+    "assets/watson/animations/Walking/east/frame_000.png",
+    "assets/watson/animations/Walking/east/frame_001.png",
+    "assets/watson/animations/Walking/east/frame_002.png",
+    "assets/watson/animations/Walking/east/frame_003.png",
+    "assets/watson/animations/Walking/east/frame_004.png",
+    "assets/watson/animations/Walking/east/frame_005.png"
+   ],
+   "north-east": [
+    "assets/watson/animations/Walking/north-east/frame_000.png",
+    "assets/watson/animations/Walking/north-east/frame_001.png",
+    "assets/watson/animations/Walking/north-east/frame_002.png",
+    "assets/watson/animations/Walking/north-east/frame_003.png",
+    "assets/watson/animations/Walking/north-east/frame_004.png",
+    "assets/watson/animations/Walking/north-east/frame_005.png"
+   ],
+   "north": [
+    "assets/watson/animations/Walking/north/frame_000.png",
+    "assets/watson/animations/Walking/north/frame_001.png",
+    "assets/watson/animations/Walking/north/frame_002.png",
+    "assets/watson/animations/Walking/north/frame_003.png",
+    "assets/watson/animations/Walking/north/frame_004.png",
+    "assets/watson/animations/Walking/north/frame_005.png"
+   ],
+   "north-west": [
+    "assets/watson/animations/Walking/north-west/frame_000.png",
+    "assets/watson/animations/Walking/north-west/frame_001.png",
+    "assets/watson/animations/Walking/north-west/frame_002.png",
+    "assets/watson/animations/Walking/north-west/frame_003.png",
+    "assets/watson/animations/Walking/north-west/frame_004.png",
+    "assets/watson/animations/Walking/north-west/frame_005.png"
+   ],
+   "west": [
+    "assets/watson/animations/Walking/west/frame_000.png",
+    "assets/watson/animations/Walking/west/frame_001.png",
+    "assets/watson/animations/Walking/west/frame_002.png",
+    "assets/watson/animations/Walking/west/frame_003.png",
+    "assets/watson/animations/Walking/west/frame_004.png",
+    "assets/watson/animations/Walking/west/frame_005.png"
+   ],
+   "south-west": [
+    "assets/watson/animations/Walking/south-west/frame_000.png",
+    "assets/watson/animations/Walking/south-west/frame_001.png",
+    "assets/watson/animations/Walking/south-west/frame_002.png",
+    "assets/watson/animations/Walking/south-west/frame_003.png",
+    "assets/watson/animations/Walking/south-west/frame_004.png",
+    "assets/watson/animations/Walking/south-west/frame_005.png"
+   ]
+  },
+  "rotations": {
+   "south": "assets/watson/rotations/south.png",
+   "south-east": "assets/watson/rotations/south-east.png",
+   "east": "assets/watson/rotations/east.png",
+   "north-east": "assets/watson/rotations/north-east.png",
+   "north": "assets/watson/rotations/north.png",
+   "north-west": "assets/watson/rotations/north-west.png",
+   "west": "assets/watson/rotations/west.png",
+   "south-west": "assets/watson/rotations/south-west.png"
+  }
+ }
+}

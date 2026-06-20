@@ -1,0 +1,22 @@
+{
+  "name": "whispers-server",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js",
+    "test:lobby": "node test/lobbyFlow.js",
+    "test:case": "node test/caseValidation.js",
+    "test:accuse": "node test/accusation.js",
+    "test:move": "node test/movement.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.5"
+  }
+}

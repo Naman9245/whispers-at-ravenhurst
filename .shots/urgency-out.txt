@@ -1,0 +1,9 @@
+urgency state: {
+  "timerUrgent": true,
+  "timerColor": "rgb(255, 90, 102)",
+  "timerText": "0:07",
+  "vignette": true,
+  "banner": false,
+  "accuseUrgent": true
+}
+saved urgency-state.png

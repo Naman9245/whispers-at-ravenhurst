@@ -1,0 +1,55 @@
+
+[layout]
+   HUD height: 68 | board: 1328x776 (86% vh, 83% vw) | pills: 4
+   tools: ["📜 Activity","📓 Notebook","☰"]
+  ✓ HUD bar ~70px tall
+  ✓ board is the hero (>=78% of viewport height)
+  ✓ 4 action pills present
+  ✓ chat log NOT in permanent view
+  ✓ notebook NOT in permanent view
+
+[movement]
+  ✓ enter library
+  ✓ enter kitchen
+  ✓ enter conservatory
+  ✓ enter lounge
+  ✓ enter dining
+  ✓ enter study
+   free-move study: {"right":true,"left":true,"down":true,"up":true}
+  ✓ free 4-directional movement inside a room
+
+[activity panel]
+  ✓ activity panel opens from the LEFT badge
+   panel box: {"w":280,"h":540,"x":10} vh60= 540
+   panel box after 100 msgs: {"w":280,"h":540}
+  ✓ activity panel width ≤ 280px
+  ✓ activity panel height ≤ 60vh
+  ✓ panel does NOT grow with 100 messages
+  ✓ activity panel closes on outside click
+
+[notebook sidebar]
+   sidebar: {"w":320,"right":0,"tabs":3}
+  ✓ notebook sidebar opens from RIGHT
+  ✓ notebook sidebar width ≤ 320px
+  ✓ notebook has its tabs
+  ✓ notebook does NOT auto-close after 6s
+
+[menu]
+   menu: {"items":["SoundON","Exit Game"],"help":4}
+  ✓ menu has Sound toggle + Exit + 4-step help
+
+[questions]
+   first 3 questions: ["What were you doing the moment the storm hit?","How well did you really know Lord Edmund?","Who in this house has reason to wish him dead?"]
+  ✓ questions are the new character-driven set
+
+[lock-in lockout]
+   after lock-in: {"badge":true,"accuse":"LOCKED IN ✓","disabled":[true,null,true]}
+  ✓ HUD shows LOCKED IN ✓ badge
+  ✓ ACCUSE shows LOCKED IN ✓
+  ✗ FAIL MOVE/INVESTIGATE/QUESTION all disabled
+  ✓ WASD movement frozen after lock-in
+
+[console errors]: CONSOLE: Failed to load resource: the server responded with a status of 404 (Not Found)
+  ✗ FAIL no console/page errors
+
+=== 2 CHECK(S) FAILED ✗ ===

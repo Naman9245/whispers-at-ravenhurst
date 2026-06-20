@@ -1,0 +1,14 @@
+  ✓ DEV MODE badge present
+   early accuse button: OPENS (0:15) disabled: true
+  ✓ ACCUSE is gated before the 20s mark (label shows OPENS, disabled)
+   waiting for the accuse gate to open…
+   gate opened → ACCUSE (0:40)
+  ✓ ACCUSE enables after the gate opens
+  ✓ modal opens after gate
+   validation (empty): "⚠ Choose a culprit."
+  ✓ client validation explains what's missing
+  ✓ LOCK IN submits and closes the modal
+   toast: "Accusation locked — waiting for the other detective…" | LOCKED IN btn: true
+  ✓ confirmation shown (waiting for opponent / LOCKED IN)
+
+=== DEV-MODE ACCUSE: ALL PASSED ✓ ===

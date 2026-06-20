@@ -1,0 +1,649 @@
+:root {
+  --bg: #1d1428;
+  --bg2: #150e1e;
+  --panel: rgba(20, 14, 26, 0.92);
+  --gold: #c9a23f;
+  --cream: #f0e6d2;
+  --teal: #6fd6c4;
+  --amber: #f0b85c;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: radial-gradient(120% 120% at 50% 0%, #2a1d38 0%, var(--bg) 55%, var(--bg2) 100%);
+  color: var(--cream);
+  font-family: "Courier New", ui-monospace, monospace;
+  overflow: hidden;
+}
+
+.app {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px 8px;
+  gap: 6px;
+}
+.sb-left { display: flex; align-items: center; gap: 12px; }
+
+/* ---- cohesive top HUD bar: player | timer | clues | tools (fixed 68px) ---- */
+.hud-bar {
+  flex: 0 0 68px;
+  height: 68px;
+  display: flex;
+  align-items: stretch;
+  background: var(--panel);
+  border: 1px solid var(--gold);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #000, 0 4px 12px rgba(0,0,0,0.45);
+  overflow: hidden;
+}
+.hud-sec { display: flex; flex-direction: column; justify-content: center; padding: 6px 14px; }
+.hud-player { flex: 1 1 0; min-width: 0; flex-direction: row; align-items: center; gap: 7px; border-right: 1px solid rgba(201,162,63,0.25); }
+.hud-timer  { flex: 0 0 220px; align-items: center; justify-content: center; text-align: center; gap: 0; }
+.hud-clues  { flex: 1 1 0; min-width: 0; justify-content: center; gap: 4px; border-left: 1px solid rgba(201,162,63,0.25); }
+
+/* ---- HUD tools cluster (Activity / Notebook / Menu) ---- */
+.hud-tools { display: flex; align-items: center; gap: 6px; padding: 0 10px; border-left: 1px solid rgba(201,162,63,0.25); }
+.hud-tool {
+  position: relative; display: inline-flex; align-items: center; gap: 5px;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--cream);
+  background: rgba(240,230,210,0.06); border: 1px solid rgba(201,162,63,0.4);
+  border-radius: 16px; padding: 7px 11px; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+}
+.hud-tool:hover { background: rgba(240,230,210,0.14); }
+.hud-tool.on { background: rgba(201,162,63,0.25); border-color: var(--gold); }
+.hud-tool.icon { font-size: 16px; padding: 6px 11px; }
+.ht-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px;
+  background: var(--amber); color: #1d1428; font-size: 10px; font-weight: 800;
+}
+.hud-tool.ping { border-color: #ff6a78; }
+.hud-tool.ping::after {
+  content: ""; position: absolute; top: -3px; right: -3px;
+  width: 9px; height: 9px; border-radius: 50%; background: #ff5a66;
+  box-shadow: 0 0 7px #ff5a66; animation: ping-dot 0.5s ease-in-out 3;
+}
+@keyframes ping-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(1.5); } }
+@media (max-width: 1080px) { .ht-label { display: none; } }
+
+/* ---- compact action pills under the HUD ---- */
+.action-bar { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---- mansion board: THE HERO — fills all remaining viewport ---- */
+.board-hero {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.board-wrap {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+}
+.board-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto; height: auto;
+  border-radius: 6px;
+}
+
+/* ---- HUD player segment: identity + current room on one compact line ---- */
+.hp-dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 6px currentColor; flex: 0 0 auto; }
+.hp-you { font-size: 11px; color: rgba(240,230,210,0.55); letter-spacing: 1px; }
+.hp-name { font-size: 15px; white-space: nowrap; }
+.hp-sep { color: rgba(240,230,210,0.3); }
+.hp-room {
+  font-size: 15px; font-weight: 800; color: var(--teal);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.hp-room.is-corridor { color: var(--amber); font-style: italic; }
+.hp-locked {
+  margin-left: auto; flex: 0 0 auto; font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+  color: #1d1428; background: #6ed68a; border-radius: 4px; padding: 3px 8px;
+  box-shadow: 0 0 8px rgba(110,214,138,0.5);
+}
+
+/* ---- compact pill action buttons ---- */
+.act-btn {
+  font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+  color: var(--teal); background: rgba(111,214,196,0.1);
+  border: 1px solid rgba(111,214,196,0.5); border-radius: 16px;
+  padding: 7px 14px; min-width: 76px; text-align: center; cursor: pointer;
+  transition: background 0.12s, box-shadow 0.12s; white-space: nowrap;
+}
+.act-btn:hover { background: rgba(111,214,196,0.2); }
+.act-btn.active { background: var(--teal); color: #1d1428; }
+.act-btn.accuse.locked { color: #1d1428; background: #6ed68a; border-color: #6ed68a; }
+.act-btn.accuse { color: var(--amber); border-color: rgba(240,184,92,0.6); background: rgba(240,184,92,0.08); }
+.act-btn.accuse:hover { background: rgba(240,184,92,0.22); }
+/* ACCUSE available — a calm solid amber (no animation; the normal state stays calm). */
+.act-btn.accuse.ready {
+  color: #1d1428; background: var(--amber); border-color: var(--amber);
+}
+/* Final minute only — red with a pulsing border (if not yet locked in). */
+.act-btn.accuse.urgent {
+  color: #fff; background: #c0303f; border-color: #ff6a78;
+  animation: accuse-urgent 0.7s ease-in-out infinite;
+}
+@keyframes accuse-urgent {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,100,0.0); }
+  50% { box-shadow: 0 0 12px 3px rgba(255,90,100,0.9); }
+}
+.act-btn:disabled {
+  color: rgba(240,230,210,0.4); border-color: rgba(240,230,210,0.18);
+  background: rgba(240,230,210,0.04); cursor: default;
+}
+.act-btn:disabled:hover { background: rgba(240,230,210,0.04); }
+
+/* ---- HUD timer segment (centre) ---- */
+.hud-timer .tb-phase { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: rgba(240,230,210,0.7); }
+.hud-timer .tb-time { font-size: 27px; font-weight: 800; line-height: 1.05; font-variant-numeric: tabular-nums; color: #7ee0a0; }
+
+/* Calm teal/green for almost the whole game; only the final minute turns red
+   and pulses. One state — no escalating tiers, no banners. */
+.hud-timer.urgent .tb-time { color: #ff5a66; }
+.hud-timer.urgent { animation: hud-timer-pulse 0.7s ease-in-out infinite; background: rgba(120,20,28,0.4); }
+@keyframes hud-timer-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(240,90,100,0); }
+  50% { box-shadow: inset 0 0 36px 2px rgba(240,90,100,0.5); }
+}
+
+/* ---- HUD clue tracker section (progress bars; count stays inside) ---- */
+.ct-title {
+  font-size: 11px; letter-spacing: 2px; text-align: center;
+  color: rgba(240,230,210,0.65); margin-bottom: 2px;
+}
+.ct-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700;
+}
+.ct-name { flex: 0 0 84px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ct-you { font-size: 10px; font-weight: 400; opacity: 0.75; }
+.ct-bar {
+  flex: 1 1 auto; height: 9px; border-radius: 5px;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(240,230,210,0.18); overflow: hidden;
+}
+.ct-fill { display: block; height: 100%; border-radius: 5px; transition: width 0.3s ease; }
+.ct-count { flex: 0 0 38px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ===== Slide-in panels (activity log / notebook / menu) ===== */
+/* Transparent scrim: captures an outside click to close, but never darkens or
+   visually covers the board. */
+.panel-scrim { position: fixed; inset: 0; z-index: 34; background: transparent; }
+
+/* Shared panel chrome */
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; font-weight: 800; letter-spacing: 2px; color: var(--amber);
+  padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px solid rgba(201,162,63,0.3);
+  flex: 0 0 auto;
+}
+.panel-x {
+  background: none; border: none; color: rgba(240,230,210,0.6);
+  font-size: 20px; line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.panel-x:hover { color: var(--cream); }
+
+/* Activity log — slides in from the LEFT. HARD-CAPPED so it can never grow:
+   fixed box + contain:layout size + an inner scroll area. */
+.activity-panel {
+  position: fixed; left: 10px; top: 84px; z-index: 35;
+  display: flex; flex-direction: column;
+  width: 280px; max-width: 280px; height: 60vh; max-height: 60vh;
+  contain: layout size;
+  background: rgba(20,14,26,0.96); border: 1px solid var(--gold);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+  padding: 8px 10px;
+  animation: slide-in-left 0.2s ease;
+}
+@keyframes slide-in-left { from { transform: translateX(-110%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.activity-list {
+  list-style: none; margin: 0; padding: 0; flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; display: flex; flex-direction: column; gap: 3px;
+}
+.activity-empty { font-size: 12px; color: rgba(240,230,210,0.5); font-style: italic; }
+.activity-line {
+  font-size: 11px; line-height: 1.35; color: var(--cream);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.activity-line .al-who { font-weight: 700; font-size: 11px; }
+.activity-line.clue .al-text { color: var(--amber); }
+.activity-line.system .al-text { color: #9ad6a0; }
+
+/* Notebook — slides in from the RIGHT; stays open until closed (no auto-close). */
+.notebook-sidebar {
+  position: fixed; right: 0; top: 0; bottom: 0; z-index: 35;
+  width: 320px; max-width: 320px;
+  display: flex; flex-direction: column;
+  background: rgba(20,14,26,0.98); border-left: 2px solid var(--gold);
+  box-shadow: -8px 0 24px rgba(0,0,0,0.5);
+  padding: 12px 12px 14px;
+  animation: slide-in-right 0.2s ease;
+}
+@keyframes slide-in-right { from { transform: translateX(110%); } to { transform: translateX(0); } }
+
+/* Menu — drops from the HUD's far right. */
+.game-menu {
+  position: fixed; right: 10px; top: 84px; z-index: 35;
+  width: 260px; max-width: 260px;
+  background: rgba(20,14,26,0.98); border: 1px solid var(--gold);
+  border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+  padding: 10px 12px; animation: slide-in-down 0.18s ease;
+}
+@keyframes slide-in-down { from { transform: translateY(-8px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.menu-item {
+  display: flex; align-items: center; justify-content: space-between; width: 100%;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--cream);
+  background: rgba(240,230,210,0.06); border: 1px solid rgba(201,162,63,0.35);
+  border-radius: 5px; padding: 9px 12px; margin-bottom: 8px; cursor: pointer;
+}
+.menu-item:hover { background: rgba(240,230,210,0.13); }
+.menu-item .on { color: #6ed68a; } .menu-item .off { color: #d88; }
+.menu-item.danger { color: #f0b8c0; border-color: #b03a4a; }
+.menu-item.danger:hover { background: rgba(176,58,74,0.2); }
+.menu-section { margin: 4px 0 8px; }
+.menu-label { font-size: 11px; letter-spacing: 1px; color: var(--amber); margin-bottom: 4px; }
+.menu-help { margin: 0; padding-left: 18px; font-size: 11px; line-height: 1.45; color: rgba(240,230,210,0.8); }
+.menu-help li { margin-bottom: 3px; }
+.menu-foot { font-size: 11px; letter-spacing: 1px; color: rgba(240,230,210,0.5); text-align: center; margin-top: 4px; }
+
+.amber { color: var(--amber); }
+.teal  { color: var(--teal); }
+.cream { color: var(--cream); }
+
+/* ---- deduction notebook (fills the right slide-out sidebar) ---- */
+.notebook {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #efe6cf;
+  color: #2a2218;
+  border: 2px solid #b98a3a;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: inset 0 0 0 2px #d8c89a;
+  overflow: hidden;
+}
+/* Sidebar already shows a "NOTEBOOK" header, so hide the inner title. */
+.notebook-sidebar .notebook-title { display: none; }
+.notebook-title {
+  margin: 0 0 8px; text-align: center;
+  font-size: 18px; font-weight: 800; color: #3a2c18; flex: 0 0 auto;
+}
+.notebook-tabs { display: flex; gap: 4px; margin-bottom: 10px; flex: 0 0 auto; }
+.nb-tab {
+  flex: 1; padding: 6px 0; font-size: 12px; font-weight: 700;
+  background: #e0d3b0; border: 2px solid #b98a3a; border-bottom: none;
+  border-radius: 6px 6px 0 0; cursor: pointer; color: #5a4a2c;
+  font-family: inherit;
+}
+.nb-tab.active { background: #fff8e8; color: #2a2218; }
+.nb-list { list-style: none; margin: 0 0 4px; padding: 0; flex: 0 0 auto; }
+.nb-row {
+  display: flex; align-items: center; gap: 8px; padding: 7px 6px;
+  border-bottom: 1px solid #d8c89a; cursor: pointer; font-size: 14px;
+}
+.nb-row-name { font-weight: 600; }
+/* compact suspect rows (fix 8): small chip + name/role, no giant cards */
+.nb-row.suspect { gap: 10px; }
+.nb-chip {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.95);
+  border: 1px solid rgba(0,0,0,0.3); text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.nb-suspect-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.nb-suspect-text .nb-row-name { font-size: 13px; }
+.nb-suspect-text .nb-role { font-size: 10px; color: #6a5a3c; }
+
+/* 3-state marks (local only): unknown / suspected / cleared */
+.nb-status {
+  margin-left: auto; flex: 0 0 auto; font-size: 9px; font-weight: 800; letter-spacing: 0.5px;
+  padding: 2px 5px; border-radius: 3px;
+}
+.nb-status.suspected { background: #b03a4a; color: #fff; }
+.nb-status.cleared   { background: #4a6e50; color: #fff; }
+.nb-row.status-cleared { opacity: 0.55; }
+.nb-row.status-cleared .nb-row-name { text-decoration: line-through; }
+.nb-row.status-suspected { background: rgba(176,58,74,0.12); }
+/* clearer "searched" indicator (fix 10): green badge + struck room name */
+.nb-searched {
+  margin-left: auto; flex: 0 0 auto; font-size: 10px; font-weight: 800; color: #2e6e3a;
+  background: rgba(74,140,74,0.18); border: 1px solid #4a8c4a; border-radius: 10px; padding: 2px 8px;
+}
+.nb-row.room.searched .nb-row-name {
+  text-decoration: line-through; text-decoration-color: rgba(46,110,58,0.7); color: #4e7a52;
+}
+.nb-row.status-suspected .nb-searched, .nb-row.status-cleared .nb-searched { margin-left: 8px; }
+
+/* evidence list — takes remaining height; only this area scrolls if needed */
+.nb-evidence {
+  margin-top: 8px; border-top: 2px solid #b98a3a; padding-top: 10px;
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+}
+.nb-evidence-head {
+  font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #5a4a2c; margin-bottom: 8px; flex: 0 0 auto;
+}
+.nb-evidence-empty { font-size: 12px; color: #6a5a3c; font-style: italic; margin: 0; }
+.nb-evidence-list { list-style: none; margin: 0; padding: 0 4px 0 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+.nb-clue { background: #fff8e8; border: 1px solid #d8c89a; border-radius: 6px; padding: 7px 8px; }
+.nb-clue-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.nb-tag {
+  font-size: 9px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  background: #3a2c18; color: #efe6cf; border-radius: 3px; padding: 2px 5px;
+}
+.nb-clue-room { font-size: 10px; font-weight: 700; color: #8a6a2a; }
+.nb-clue-text { margin: 0; font-size: 12px; line-height: 1.35; color: #2a2218; }
+
+/* ---- status bar ---- */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  color: var(--cream);
+  letter-spacing: 1px;
+  padding: 0 6px;
+}
+.dev-toggle {
+  font-family: inherit; font-size: 12px;
+  color: var(--cream); background: rgba(201,162,63,0.12);
+  border: 1px dashed var(--gold); border-radius: 4px;
+  padding: 4px 10px; cursor: pointer;
+}
+.dev-toggle:hover { background: rgba(201,162,63,0.25); }
+
+@media (max-width: 1100px) {
+  .hud-player, .hud-clues { padding: 6px 10px; }
+  .hud-timer { flex-basis: 180px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; }
+}
+
+/* ===== Lobby ===== */
+.lobby {
+  height: 100%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; padding: 24px;
+}
+.lobby-title {
+  display: flex; flex-direction: column; align-items: center;
+  font-weight: 800; font-size: clamp(28px, 5vw, 52px); line-height: 0.98;
+  letter-spacing: 2px; color: #f4f4fa; text-shadow: 3px 3px 0 #000;
+}
+.lobby-tagline { color: rgba(240,230,210,0.6); margin: -2px 0 10px; font-size: 15px; }
+.lobby-card {
+  width: min(420px, 92vw);
+  background: var(--panel); border: 2px solid var(--gold); border-radius: 8px;
+  box-shadow: 0 0 0 2px #000, 6px 6px 0 rgba(0,0,0,0.4);
+  padding: 22px;
+}
+.lobby-actions { display: flex; flex-direction: column; gap: 12px; }
+.lobby-form { display: flex; flex-direction: column; gap: 10px; }
+.lb-label { font-size: 13px; color: var(--amber); letter-spacing: 1px; margin-top: 4px; }
+.lb-input {
+  font-family: inherit; font-size: 16px; color: var(--cream);
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(201,162,63,0.5);
+  border-radius: 4px; padding: 10px 12px; outline: none;
+}
+.lb-input:focus { border-color: var(--gold); }
+.lb-input.code { letter-spacing: 6px; text-transform: uppercase; font-weight: 700; text-align: center; }
+.lb-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cream); cursor: pointer; }
+.lb-check em { color: rgba(240,230,210,0.55); font-style: italic; }
+.lb-row { display: flex; gap: 10px; margin-top: 8px; }
+.lb-row .lb-btn { flex: 1; }
+.lb-btn {
+  font-family: inherit; font-size: 15px; font-weight: 700; letter-spacing: 1px;
+  color: var(--cream); background: rgba(111,214,196,0.08);
+  border: 1px solid rgba(111,214,196,0.5); border-radius: 4px;
+  padding: 11px 14px; cursor: pointer; transition: background 0.12s;
+}
+.lb-btn:hover { background: rgba(111,214,196,0.18); }
+.lb-btn.primary { color: #1d1428; background: var(--teal); border-color: var(--teal); }
+.lb-btn.primary:hover { filter: brightness(1.08); }
+.lb-btn.primary:disabled { opacity: 0.5; cursor: default; }
+.lb-btn.ghost { background: transparent; border-color: rgba(240,230,210,0.3); }
+.lb-error { color: #ff8a8a; font-size: 13px; }
+.lobby-waiting { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.lb-code-display {
+  font-size: 44px; font-weight: 800; letter-spacing: 10px;
+  color: var(--amber); text-shadow: 2px 2px 0 #000;
+  background: rgba(0,0,0,0.3); border: 1px dashed var(--gold);
+  border-radius: 6px; padding: 12px 20px 12px 30px;
+}
+.lb-devtag {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px; color: #1d1428;
+  background: var(--amber); padding: 2px 8px; border-radius: 3px;
+}
+.lb-spinner { color: rgba(240,230,210,0.7); font-size: 14px; }
+.lb-spinner::after { content: ""; animation: dots 1.4s steps(4, end) infinite; }
+@keyframes dots { 0%{content:""} 25%{content:"."} 50%{content:".."} 75%{content:"..."} }
+
+/* ===== In-game toast + dev badge ===== */
+.toast {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(20,14,26,0.96); border: 2px solid var(--amber);
+  color: var(--cream); font-size: 15px; padding: 12px 20px; border-radius: 6px;
+  box-shadow: 0 0 0 2px #000, 4px 4px 0 rgba(0,0,0,0.4); z-index: 20;
+  pointer-events: none;
+}
+.dev-badge { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--amber); min-width: 80px; }
+
+/* ===== Suspect questioning modal ===== */
+.modal-backdrop {
+  position: fixed; inset: 0; background: rgba(8,5,12,0.78);
+  display: flex; align-items: center; justify-content: center; z-index: 40; padding: 20px;
+}
+.suspect-modal {
+  position: relative; width: min(620px, 95vw); max-height: 88vh; overflow-y: auto;
+  background: #1d1428; border: 2px solid var(--gold); border-radius: 10px;
+  box-shadow: 0 0 0 2px #000, 8px 8px 0 rgba(0,0,0,0.5); padding: 22px;
+}
+.modal-close {
+  position: absolute; top: 10px; right: 12px; font-size: 26px; line-height: 1;
+  background: none; border: none; color: rgba(240,230,210,0.6); cursor: pointer;
+}
+.modal-close:hover { color: var(--cream); }
+.modal-title { margin: 0 0 4px; font-size: 22px; color: var(--cream); }
+.modal-sub { margin: 0 0 16px; font-size: 13px; color: rgba(240,230,210,0.6); }
+.modal-back {
+  background: none; border: none; color: var(--amber); cursor: pointer;
+  font-family: inherit; font-size: 13px; padding: 0 0 10px;
+}
+
+.suspect-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.suspect-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(240,230,210,0.05); border: 1px solid var(--gold); border-radius: 8px;
+  padding: 10px 6px; cursor: pointer; font-family: inherit; color: var(--cream);
+}
+.suspect-card:hover { background: rgba(240,230,210,0.12); }
+.suspect-portrait {
+  width: 54px; height: 54px; border-radius: 6px; border: 2px solid rgba(0,0,0,0.4);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: rgba(255,255,255,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.suspect-portrait.lg { width: 72px; height: 72px; font-size: 24px; }
+.suspect-name { font-size: 12px; font-weight: 700; text-align: center; }
+.suspect-name.lg { font-size: 18px; }
+.suspect-role { font-size: 11px; color: var(--amber); }
+.suspect-budget { font-size: 10px; color: rgba(240,230,210,0.55); }
+
+.suspect-head { display: flex; gap: 14px; align-items: flex-start; margin: 4px 0 14px; }
+.suspect-blurb { font-size: 12px; color: rgba(240,230,210,0.7); font-style: italic; margin-top: 4px; }
+
+.dialogue-log {
+  background: rgba(0,0,0,0.25); border: 1px solid rgba(240,230,210,0.15); border-radius: 6px;
+  padding: 10px; margin-bottom: 14px; max-height: 240px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.dialogue-empty { color: rgba(240,230,210,0.5); font-size: 13px; font-style: italic; margin: 0; }
+.dl-q { font-size: 13px; color: var(--teal); font-weight: 700; margin-bottom: 3px; }
+.dl-a { font-size: 14px; color: var(--cream); line-height: 1.4; }
+.dl-tell { color: var(--amber); font-style: italic; }
+
+.question-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.ql-head { font-size: 12px; letter-spacing: 1px; color: rgba(240,230,210,0.6); margin-bottom: 2px; }
+.ql-btn {
+  text-align: left; font-family: inherit; font-size: 13px; color: var(--cream);
+  background: rgba(111,214,196,0.08); border: 1px solid rgba(111,214,196,0.4);
+  border-radius: 4px; padding: 7px 10px; cursor: pointer;
+}
+.ql-btn:hover { background: rgba(111,214,196,0.2); }
+.no-more-questions {
+  text-align: center; font-weight: 800; letter-spacing: 1px; color: #d88;
+  border: 1px dashed rgba(216,136,136,0.6); border-radius: 6px; padding: 10px; margin-bottom: 12px;
+}
+
+.confront-section { border-top: 1px solid rgba(240,230,210,0.15); padding-top: 12px; }
+.confront-toggle {
+  font-family: inherit; font-size: 13px; font-weight: 700; color: var(--amber);
+  background: rgba(240,184,92,0.1); border: 1px solid rgba(240,184,92,0.5);
+  border-radius: 4px; padding: 8px 12px; cursor: pointer; width: 100%;
+}
+.confront-toggle:disabled { opacity: 0.45; cursor: default; }
+.confront-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.confront-clue {
+  text-align: left; font-family: inherit; font-size: 12px; color: var(--cream); line-height: 1.35;
+  background: rgba(240,230,210,0.05); border: 1px solid rgba(240,230,210,0.2);
+  border-radius: 4px; padding: 7px 9px; cursor: pointer; width: 100%;
+}
+.confront-clue:hover { background: rgba(240,184,92,0.15); }
+
+/* ===== Final-window banner ===== */
+.window-banner {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 7;
+  max-width: 560px; text-align: center;
+  font-size: 13px; font-weight: 700; color: #1d1428;
+  background: var(--amber); border-radius: 5px; padding: 8px 16px;
+  box-shadow: 0 0 0 2px #000;
+}
+
+/* Final-minute urgency: a subtle RED glow at the screen EDGES/corners (not a
+   full-centre flash, not a banner). Stays for the whole last minute, gently
+   breathing so it reads as "time is almost up" without covering the board. */
+.vignette-edges {
+  position: fixed; inset: 0; z-index: 30; pointer-events: none;
+  box-shadow: inset 0 0 90px 8px rgba(220,40,50,0.45);
+  animation: vignette-breathe 2.2s ease-in-out infinite;
+}
+@keyframes vignette-breathe {
+  0%, 100% { box-shadow: inset 0 0 80px 6px rgba(220,40,50,0.35); }
+  50%      { box-shadow: inset 0 0 120px 14px rgba(220,40,50,0.6); }
+}
+
+/* ===== Accusation modal ===== */
+.accuse-modal {
+  position: relative; width: min(640px, 95vw); max-height: 90vh; overflow-y: auto;
+  background: #1d1428; border: 2px solid #b03a4a; border-radius: 10px;
+  box-shadow: 0 0 0 2px #000, 8px 8px 0 rgba(0,0,0,0.5); padding: 22px;
+}
+.accuse-section { margin-bottom: 14px; }
+.accuse-label { font-size: 12px; letter-spacing: 1px; color: var(--amber); margin-bottom: 6px; }
+.accuse-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+.accuse-grid.suspects { display: grid; grid-template-columns: repeat(3, 1fr); }
+.pick-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: rgba(240,230,210,0.05); border: 1px solid rgba(240,230,210,0.25);
+  border-radius: 8px; padding: 8px 6px; cursor: pointer; color: var(--cream); font-family: inherit;
+}
+.pick-card.on { border-color: var(--amber); background: rgba(240,184,92,0.18); box-shadow: 0 0 0 1px var(--amber); }
+.pick-portrait {
+  width: 44px; height: 44px; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: rgba(255,255,255,0.92); text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+.pick-name { font-size: 11px; font-weight: 700; text-align: center; }
+.pick-chip {
+  font-family: inherit; font-size: 13px; color: var(--cream);
+  background: rgba(240,230,210,0.05); border: 1px solid rgba(240,230,210,0.25);
+  border-radius: 5px; padding: 7px 12px; cursor: pointer;
+}
+.pick-chip.on { border-color: var(--amber); background: rgba(240,184,92,0.2); color: #fff; }
+.accuse-noclues { font-size: 13px; color: rgba(240,230,210,0.55); font-style: italic; margin: 0; }
+.accuse-clues { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.accuse-clue {
+  display: flex; gap: 8px; align-items: flex-start; text-align: left; width: 100%;
+  font-family: inherit; font-size: 12px; line-height: 1.35; color: var(--cream);
+  background: rgba(240,230,210,0.04); border: 1px solid rgba(240,230,210,0.2);
+  border-radius: 5px; padding: 7px 9px; cursor: pointer;
+}
+.accuse-clue.on { border-color: var(--teal); background: rgba(111,214,196,0.14); }
+.accuse-clue:disabled { opacity: 0.4; cursor: default; }
+.ac-check { color: var(--teal); font-weight: 800; width: 12px; flex-shrink: 0; }
+/* a green tick beside a section heading once that field is chosen */
+.accuse-ok { color: #6ed68a; font-weight: 800; margin-left: 6px; }
+/* specific, in-modal validation / server-error feedback */
+.accuse-error {
+  font-size: 13px; font-weight: 700; color: #ffd0d6;
+  background: rgba(176,58,74,0.25); border: 1px solid #b03a4a;
+  border-radius: 6px; padding: 8px 12px; margin: 4px 0 6px;
+}
+.accuse-warn-note { font-size: 12px; color: rgba(240,230,210,0.55); font-style: italic; margin: 0 0 8px; }
+.lock-in-btn {
+  width: 100%; margin-top: 6px; font-family: inherit; font-size: 15px; font-weight: 800; letter-spacing: 1px;
+  color: #fff; background: #b03a4a; border: 1px solid #d8556a; border-radius: 6px; padding: 12px; cursor: pointer;
+  transition: background 0.12s;
+}
+.lock-in-btn:hover { background: #c04658; }
+/* incomplete form: still clickable (it explains what's missing), just muted */
+.lock-in-btn.incomplete { background: #5e2d36; border-color: #7a3a46; color: rgba(255,255,255,0.8); }
+.lock-in-btn:disabled { opacity: 0.5; cursor: default; }
+.confirm-overlay {
+  position: absolute; inset: 0; background: rgba(8,5,12,0.8);
+  display: flex; align-items: center; justify-content: center; border-radius: 10px;
+}
+.confirm-box {
+  width: min(360px, 88%); background: #261a34; border: 2px solid #b03a4a; border-radius: 8px;
+  padding: 20px; text-align: center; box-shadow: 0 0 0 2px #000;
+}
+.confirm-text { color: var(--cream); font-size: 15px; margin: 0 0 16px; }
+.confirm-row { display: flex; gap: 10px; justify-content: center; }
+
+/* ===== Reveal screen ===== */
+.reveal-screen {
+  position: fixed; inset: 0; overflow-y: auto; background: radial-gradient(circle at 50% 20%, #2a1d3c, #160f1f);
+  display: flex; justify-content: center; padding: 28px 16px;
+}
+.reveal-inner { width: min(820px, 96vw); display: flex; flex-direction: column; gap: 18px; }
+.reveal-banner {
+  text-align: center; font-size: 26px; font-weight: 800; letter-spacing: 1px;
+  padding: 14px; border-radius: 8px; box-shadow: 0 0 0 2px #000;
+}
+.reveal-banner.win { background: rgba(74,110,80,0.4); color: #b8f0c4; border: 1px solid #4a6e50; }
+.reveal-banner.lose { background: rgba(176,58,74,0.3); color: #f0b8c0; border: 1px solid #b03a4a; }
+.reveal-solution {
+  background: rgba(20,14,26,0.9); border: 2px solid var(--gold); border-radius: 8px; padding: 18px; text-align: center;
+}
+.rs-title { font-size: 12px; letter-spacing: 3px; color: var(--amber); margin-bottom: 8px; }
+.rs-triple { font-size: 20px; color: var(--cream); line-height: 1.5; }
+.rs-monologue { font-size: 14px; line-height: 1.6; color: rgba(240,230,210,0.85); font-style: italic; margin: 12px 0 0; }
+.rs-motive { font-size: 13px; color: var(--amber); margin: 8px 0 0; }
+.reveal-players { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.reveal-card { background: rgba(20,14,26,0.9); border: 1px solid rgba(240,230,210,0.2); border-radius: 8px; padding: 16px; }
+.reveal-card.winner { border-color: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+.rc-head { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+.rc-crown { color: var(--amber); margin-left: 6px; }
+.rc-forfeit { font-size: 13px; color: #d88; font-style: italic; margin-bottom: 10px; }
+.rc-accusation { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.rc-accusation li { font-size: 14px; color: var(--cream); }
+.verdict { font-weight: 800; margin-right: 4px; }
+.verdict.right { color: #6ed68a; }
+.verdict.wrong { color: #e0707e; }
+.rc-score { border-top: 1px solid rgba(240,230,210,0.15); padding-top: 8px; }
+.rcs-row { display: flex; justify-content: space-between; font-size: 13px; color: rgba(240,230,210,0.8); padding: 2px 0; }
+.rcs-row.total { border-top: 1px solid rgba(240,230,210,0.15); margin-top: 4px; padding-top: 6px; color: var(--cream); font-weight: 800; font-size: 15px; }
+.reveal-actions { display: flex; gap: 12px; justify-content: center; margin-top: 4px; }
+.reveal-actions .lb-btn { min-width: 140px; }
+
+@media (max-width: 720px) {
+  .reveal-players { grid-template-columns: 1fr; }
+}

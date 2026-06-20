@@ -1,0 +1,13 @@
+
+[board] canvas 1070x625px  → 66.9% of 1600px viewport width
+
+[movement] enter every room via WASD (closed-loop):
+  ✓ start room is STUDY
+  ✓ enter LIBRARY
+  ✓ enter KITCHEN
+  ✓ enter CONSERVATORY
+  ✓ enter LOUNGE
+  ✓ enter DINING HALL
+  ✓ enter STUDY
+
+=== ALL MOVEMENT CHECKS PASSED ✓ ===

@@ -1,0 +1,272 @@
+{
+  "case_id": "fallback-ravenhurst-001",
+  "map": "ravenhurst_manor",
+  "narrative": {
+    "opening": "A storm has sealed Ravenhurst Manor for the night. At the foot of the library stair lies Lord Edmund Ashworth — cold, unmarked, and utterly silent. Six guests remain under this roof, and one of them is a murderer. Two detectives have been summoned. Only the truth will see the doors opened again.",
+    "victim_name": "Lord Edmund Ashworth",
+    "victim_backstory": "Lord Edmund built the Ashworth fortune on shipping contracts and buried more than one rival to keep it. Of late he had threatened to rewrite his will, recall old debts, and expose secrets that several of tonight's guests would kill to keep.",
+    "ending_monologue_template": "The truth of Ravenhurst is this: it was {culprit} who, in the {room}, ended Lord Edmund's life with the {weapon}. {culprit} had means, motive, and the one window of opportunity the others did not."
+  },
+  "solution": { "culprit_id": "s3", "weapon_id": "w5", "room_id": "library" },
+  "suspects": [
+    { "id": "s1", "name": "Lady Vivienne Ashworth", "role": "The widow", "blurb": "Composed, black-veiled, and freshly written out of the will." },
+    { "id": "s2", "name": "Dr. Aloysius Crane", "role": "The family physician", "blurb": "Knew every ailment in the house — and every prescription." },
+    { "id": "s3", "name": "Mr. Sebastian Vale", "role": "The business partner", "blurb": "Edmund's partner in shipping, and lately the loud end of every argument." },
+    { "id": "s4", "name": "Miss Cordelia Frost", "role": "The governess", "blurb": "Quiet, observant, and owed three months' wages." },
+    { "id": "s5", "name": "Capt. Reginald Hawk", "role": "The old friend", "blurb": "A sea captain with a war wound and a gambling debt." },
+    { "id": "s6", "name": "Mrs. Agnes Holloway", "role": "The housekeeper", "blurb": "Has run Ravenhurst for thirty years and misses nothing." }
+  ],
+  "weapons": [
+    { "id": "w1", "name": "Brass Candlestick" },
+    { "id": "w2", "name": "Letter Opener" },
+    { "id": "w3", "name": "Poisoned Brandy" },
+    { "id": "w4", "name": "Fire Poker" },
+    { "id": "w5", "name": "Silk Cravat" },
+    { "id": "w6", "name": "Antique Revolver" }
+  ],
+  "clues": {
+    "shared": [
+      {
+        "id": "shared-1",
+        "text": "Wet mud is tracked from the garden door to the body — whoever did this had been outside in the storm. Anyone who never left the house tonight is in the clear.",
+        "category": "suspect",
+        "tag": "physical_evidence",
+        "found_in": "dining",
+        "eliminates": { "suspects": ["s1", "s6"], "weapons": [], "rooms": [] }
+      },
+      {
+        "id": "shared-2",
+        "text": "There is not a drop of blood on Lord Edmund, nor any burn of powder. No blade was drawn, no poker swung, no shot fired.",
+        "category": "weapon",
+        "tag": "physical_evidence",
+        "found_in": "library",
+        "eliminates": { "suspects": [], "weapons": ["w2", "w4", "w6"], "rooms": [] }
+      },
+      {
+        "id": "shared-3",
+        "text": "The only lamp still burning at the hour of death was in the west wing. The east rooms and the center of the house were dark and locked.",
+        "category": "room",
+        "tag": "physical_evidence",
+        "found_in": "study",
+        "eliminates": { "suspects": [], "weapons": [], "rooms": ["dining", "lounge", "kitchen", "conservatory"] }
+      }
+    ],
+    "player1_private": [
+      {
+        "id": "p1-1",
+        "text": "The killer's hand was left-handed — the bruising falls to the left. Dr. Crane and Miss Frost are both firmly right-handed.",
+        "category": "suspect",
+        "tag": "physical_evidence",
+        "found_in": "lounge",
+        "eliminates": { "suspects": ["s2", "s4"], "weapons": [], "rooms": [] }
+      },
+      {
+        "id": "p1-2",
+        "text": "The harbourmaster's log places Captain Hawk at the docks until well past midnight. He could not have been here in time.",
+        "category": "suspect",
+        "tag": "document",
+        "found_in": "conservatory",
+        "eliminates": { "suspects": ["s5"], "weapons": [], "rooms": [] }
+      },
+      {
+        "id": "p1-3",
+        "text": "No wax was spilled and the brandy decanter is sealed and full. Neither the candlestick nor the brandy touched Lord Edmund.",
+        "category": "weapon",
+        "tag": "physical_evidence",
+        "found_in": "kitchen",
+        "eliminates": { "suspects": [], "weapons": ["w1", "w3"], "rooms": [] }
+      },
+      {
+        "id": "p1-4",
+        "text": "A fine layer of dust lies undisturbed across the study floor and desk. No struggle happened in that room.",
+        "category": "room",
+        "tag": "physical_evidence",
+        "found_in": "study",
+        "eliminates": { "suspects": [], "weapons": [], "rooms": ["study"] }
+      }
+    ],
+    "player2_private": [
+      {
+        "id": "p2-1",
+        "text": "The killer dined at the table tonight. Dr. Crane was called away to a sickbed before the soup was served and never returned.",
+        "category": "suspect",
+        "tag": "testimony",
+        "found_in": "dining",
+        "eliminates": { "suspects": ["s2"], "weapons": [], "rooms": [] }
+      },
+      {
+        "id": "p2-2",
+        "text": "Miss Frost was reading to the Ashworth children in the upstairs nursery from nine o'clock until the body was found. Three witnesses agree.",
+        "category": "suspect",
+        "tag": "testimony",
+        "found_in": "lounge",
+        "eliminates": { "suspects": ["s4"], "weapons": [], "rooms": [] }
+      },
+      {
+        "id": "p2-3",
+        "text": "The killer reached the body by the narrow servants' stair. Captain Hawk's war wound makes those steps impossible for him.",
+        "category": "suspect",
+        "tag": "testimony",
+        "found_in": "conservatory",
+        "eliminates": { "suspects": ["s5"], "weapons": [], "rooms": [] }
+      },
+      {
+        "id": "p2-4",
+        "text": "The brandy decanter stands full and the candlestick is unlit and cold. And the study was bolted from the corridor side all evening — no one was killed behind that door.",
+        "category": "mixed",
+        "tag": "physical_evidence",
+        "found_in": "kitchen",
+        "eliminates": { "suspects": [], "weapons": ["w1", "w3"], "rooms": ["study"] }
+      }
+    ],
+    "red_herrings_p1": [
+      {
+        "id": "rh-p1",
+        "text": "A maid swears the silk cravat was returned to the tailor weeks ago — surely it could not be the murder weapon.",
+        "category": "weapon",
+        "tag": "testimony",
+        "found_in": "library",
+        "red_herring": true,
+        "eliminates": { "suspects": [], "weapons": ["w5"], "rooms": [] }
+      }
+    ],
+    "red_herrings_p2": [
+      {
+        "id": "rh-p2",
+        "text": "A footman thought he heard Mr. Vale consoling the widow in the lounge at the fatal hour — perhaps the partner is innocent after all.",
+        "category": "suspect",
+        "tag": "testimony",
+        "found_in": "lounge",
+        "red_herring": true,
+        "eliminates": { "suspects": ["s3"], "weapons": [], "rooms": [] }
+      }
+    ]
+  },
+  "dialogue_trees": {
+    "s1": {
+      "questions": {
+        "whereabouts": "The library? I've no patience for Edmund's dusty shelves. I kept to my chambers the whole evening.",
+        "storm": "At my dressing table. I heard the first thunder and thought only that it suited my mood.",
+        "knewhim": "I knew him as a wife knows a husband who has stopped speaking to her — which is to say, hardly at all, by the end.",
+        "lastsaw": "At dinner. He did not so much as glance my way, and now he never shall again.",
+        "heard": "Thunder. Rain. And somewhere below, a door — though in a storm one hears doors that aren't there.",
+        "account": "I left the table early, sat with my maid while she drew my bath at ten, and did not stir until the screaming began.",
+        "suspect": "I should sooner ask who among them did NOT have cause. But Mr. Vale shouted loudest tonight.",
+        "grievance": "Everyone Edmund ever did business with held a grievance. He collected them like debts.",
+        "motive": "My maid drew my bath at ten and stayed to brush out my hair. She will swear to every minute of it.",
+        "gain": "Six strangers wearing the manners of friends. I tolerate the captain, pity the governess, and trust none of them — my husband's partner least of all."
+      },
+      "evidence_responses": {
+        "shared-1": {
+          "text": "Mud? I have not set foot outdoors in a week.",
+          "tell": "Her composure holds — but she answers before you have finished the question, as though she rehearsed it."
+        }
+      }
+    },
+    "s2": {
+      "questions": {
+        "whereabouts": "I never entered the house tonight, sir, let alone the library — I was three miles off at a child's sickbed.",
+        "storm": "Riding through it, soaked to the bone, my bag across my knees. The apothecary will tell you the same.",
+        "knewhim": "His physician these twenty years. I knew his failing heart better than he did. I did not expect a stranger's hand to stop it.",
+        "lastsaw": "Midafternoon. I advised him to rest, and he laughed in my face. That was the last of him for me.",
+        "heard": "Only the village dogs and the storm. I was three miles from this house when it happened.",
+        "account": "Called away before the soup, gone the whole evening, back only when the bell tolled the alarm. Half the village watched me ride out and ride in.",
+        "suspect": "I am a poor hand at suspicion. But Vale and Edmund were at each other's throats in the study before I left — make of that what you will.",
+        "grievance": "The man bred them. I was perhaps the one soul here he paid on time.",
+        "motive": "Half the village watched me ride out and ride back. The apothecary, the child's mother — a dozen witnesses, and not one of them under this roof.",
+        "gain": "I am everyone's physician and no one's confidant. They nod to me in corridors and forget me at table. I have always preferred it so."
+      },
+      "evidence_responses": {
+        "shared-2": {
+          "text": "Bloodless — strangled, then. I treated bruises on Edmund's throat last month and said nothing. He made me swear to it.",
+          "tell": "The doctor's jaw tightens. There is a secret here — but a kept confidence, not a murder."
+        }
+      }
+    },
+    "s3": {
+      "questions": {
+        "whereabouts": "The library? No. I told you — the lounge, the whole evening. I'd no reason to go near the place.",
+        "storm": "In the lounge, consoling Vivienne. The thunder quite frightened her.",
+        "knewhim": "Partners. Friends, once. Lately he meant to ruin me to save his own skin. But one does not murder over a balance sheet.",
+        "lastsaw": "At dinner. We parted civilly enough — whatever you may have heard.",
+        "heard": "Nothing above the storm. Though now you mention it, perhaps a tread on the library stair. I thought nothing of it.",
+        "account": "Dinner, then straight to the lounge, and there I remained until the alarm. I did not move from that fire all night.",
+        "suspect": "The captain. He owes money the length of the county, and a debt to a dead man is a debt forgiven. I'd start there.",
+        "grievance": "Half this house. But grievance and murder are different animals — as a man of your profession surely knows.",
+        "motive": "The lounge will vouch for me — Vivienne, at least; we sat together by the fire. Take her word and mine and you'll want no other.",
+        "gain": "Cordial enough. Vivienne leans on me, the captain keeps his distance, the rest I scarcely know. Hardly the nest of vipers you're hunting."
+      },
+      "evidence_responses": {
+        "shared-2": {
+          "text": "Strangled? With what — a scarf? How... intimate.",
+          "tell": "Vale's hand drifts to his own collar, then stops. He sees you see it, and the easy smile does not quite return."
+        },
+        "shared-3": {
+          "text": "The west wing? I told you. I was in the lounge all night.",
+          "tell": "He repeats the alibi a half-beat too fast, as if reaching for it."
+        }
+      }
+    },
+    "s4": {
+      "questions": {
+        "whereabouts": "Only early, to fetch a storybook for the children. Not since supper — the nursery has held me every hour.",
+        "storm": "Drawing the nursery curtains against it. The little ones fear thunder, you understand.",
+        "knewhim": "I am owed three months' wages. Beyond that, Lord Edmund scarcely troubled to learn my name.",
+        "lastsaw": "At supper, and briefly. I take my meals with the children, not the family.",
+        "heard": "Only the storm, and one of the children crying out from a dream. Nothing from below.",
+        "account": "The nursery, the nursery, and the nursery — with three children and the night-nurse to swear to every hour of it.",
+        "suspect": "I am paid to watch children, not my betters. But Mrs. Holloway was abroad in the corridors at odd hours tonight.",
+        "grievance": "Unpaid wages are a reason to stay and be paid, sir — not to kill the man who owes them.",
+        "motive": "The night-nurse and three children, sir. I was not out of their sight long enough to boil a kettle, let alone do murder.",
+        "gain": "I keep to the nursery and the servants' table. The guests are names I'm bid not to trouble. Only Mrs. Holloway ever speaks to me kindly."
+      },
+      "evidence_responses": {
+        "shared-3": {
+          "text": "The lamp in the west wing? The children and I were nowhere near it.",
+          "tell": "She hesitates — she saw something from that nursery window, and has not yet decided whether to tell you."
+        }
+      }
+    },
+    "s5": {
+      "questions": {
+        "whereabouts": "Those library stairs are beyond this leg of mine. I've not seen the room in months, storm or no.",
+        "storm": "On the dock road, cursing my horse and the rain in equal measure. The harbourmaster logged the hour.",
+        "knewhim": "Old friends, Edmund and I. He lent me money I could not repay — and a friend who lends is a friend you cannot easily refuse.",
+        "lastsaw": "Before I rode out, near eight. He clapped me on the shoulder and told me to settle my account. I never did.",
+        "heard": "Nothing. I was a mile of wet road away by then, as the harbour ledger will confirm.",
+        "account": "Out to the docks before nine, back past midnight — and this leg of mine won't let me hurry either way.",
+        "suspect": "Vale's temper. I've watched men hang for less than the things he said across that dinner table tonight.",
+        "grievance": "Owed money sours a man, certainly. But a debt outlives the lender — it merely passes to the estate.",
+        "motive": "The harbourmaster's ledger has my name and the hour beside it. I was a mile of wet road from this house when it happened.",
+        "gain": "Vale and I keep our distance — oil and water, that pair. The doctor's decent. The widow I've known since she was a girl. The rest are furniture to me."
+      },
+      "evidence_responses": {
+        "shared-3": {
+          "text": "I never reached the west wing — those stairs are beyond me now.",
+          "tell": "He taps his bad leg for sympathy, but his eyes flick away the moment he says 'never'."
+        }
+      }
+    },
+    "s6": {
+      "questions": {
+        "whereabouts": "I passed its door on my rounds and found it dark. I'd not have gone in — the library is the family's room, not mine.",
+        "storm": "In the kitchen, seeing the fires banked and the candles counted. I felt the whole house shiver with the first clap.",
+        "knewhim": "Thirty years in his service. I knew his habits better than his wife did, God forgive me for saying so.",
+        "lastsaw": "I carried up his evening brandy at nine. He waved me off without a word. That was the last.",
+        "heard": "A gentleman's tread on the servants' stair — and gentlemen do not use the servants' stair. It stayed with me.",
+        "account": "Every corridor in this house passed under my eye at one hour or another. I am never not seen, and I see everything.",
+        "suspect": "Mr. Vale took the servants' stair tonight. I'd not have credited it of him — but I know what these old eyes saw.",
+        "grievance": "Plenty held grievances. I held my tongue thirty years; I'll not pretend the others were so patient.",
+        "motive": "A housekeeper is seen by all and vouched for by none, sir. I was everywhere this evening, and so, I suppose, nowhere. Ask the footmen.",
+        "gain": "I serve them all and befriend none — thirty years teaches the difference. I'll say only this house holds more grudges than guests."
+      },
+      "evidence_responses": {
+        "shared-1": {
+          "text": "Mud in the hall? I'd have had it scrubbed within the hour. I never saw it — which means it was tracked in very late indeed.",
+          "tell": "She is the only one here who seems to be helping you. Whether she is helping, or steering, you cannot yet say."
+        }
+      }
+    }
+  },
+  "validation": { "solvable_by_p1": true, "solvable_by_p2": true, "estimated_difficulty": "medium" }
+}

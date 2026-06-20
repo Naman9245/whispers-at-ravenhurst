@@ -1,0 +1,153 @@
+{
+  "group_id": null,
+  "states": [
+    {
+      "character": {
+        "id": "ebd8970e-cde8-448c-b622-9a1f97d3ffed",
+        "name": "A pixel art detective character,",
+        "prompt": "A pixel art detective character, male, wearing a tan/brown overcoat, bowler hat, round glasses, holding a small notebook and pen, friendly rounder face with a short beard, warm brown and teal color tones matching a Victorian noir mansion aesthetic, attentive posture",
+        "size": {
+          "width": 124,
+          "height": 124
+        },
+        "template_id": "mannequin",
+        "directions": 8,
+        "view": "low top-down",
+        "created_at": "2026-06-13T22:46:39.570675+00:00"
+      },
+      "folder": "A_pixel_art_detective_character",
+      "frames": {
+        "rotations": {
+          "south": "A_pixel_art_detective_character/rotations/south.png",
+          "south-east": "A_pixel_art_detective_character/rotations/south-east.png",
+          "east": "A_pixel_art_detective_character/rotations/east.png",
+          "north-east": "A_pixel_art_detective_character/rotations/north-east.png",
+          "north": "A_pixel_art_detective_character/rotations/north.png",
+          "north-west": "A_pixel_art_detective_character/rotations/north-west.png",
+          "west": "A_pixel_art_detective_character/rotations/west.png",
+          "south-west": "A_pixel_art_detective_character/rotations/south-west.png"
+        },
+        "animations": {
+          "Walking": {
+            "south-east": [
+              "A_pixel_art_detective_character/animations/Walking/south-east/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/south-east/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/south-east/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/south-east/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/south-east/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/south-east/frame_005.png"
+            ],
+            "east": [
+              "A_pixel_art_detective_character/animations/Walking/east/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/east/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/east/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/east/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/east/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/east/frame_005.png"
+            ],
+            "south": [
+              "A_pixel_art_detective_character/animations/Walking/south/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/south/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/south/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/south/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/south/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/south/frame_005.png"
+            ],
+            "north-west": [
+              "A_pixel_art_detective_character/animations/Walking/north-west/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/north-west/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/north-west/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/north-west/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/north-west/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/north-west/frame_005.png"
+            ],
+            "north-east": [
+              "A_pixel_art_detective_character/animations/Walking/north-east/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/north-east/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/north-east/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/north-east/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/north-east/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/north-east/frame_005.png"
+            ],
+            "west": [
+              "A_pixel_art_detective_character/animations/Walking/west/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/west/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/west/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/west/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/west/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/west/frame_005.png"
+            ],
+            "north": [
+              "A_pixel_art_detective_character/animations/Walking/north/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/north/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/north/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/north/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/north/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/north/frame_005.png"
+            ],
+            "south-west": [
+              "A_pixel_art_detective_character/animations/Walking/south-west/frame_000.png",
+              "A_pixel_art_detective_character/animations/Walking/south-west/frame_001.png",
+              "A_pixel_art_detective_character/animations/Walking/south-west/frame_002.png",
+              "A_pixel_art_detective_character/animations/Walking/south-west/frame_003.png",
+              "A_pixel_art_detective_character/animations/Walking/south-west/frame_004.png",
+              "A_pixel_art_detective_character/animations/Walking/south-west/frame_005.png"
+            ]
+          },
+          "Breathing_Idle": {
+            "north-west": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-west/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-west/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-west/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-west/frame_003.png"
+            ],
+            "south": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south/frame_003.png"
+            ],
+            "north": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north/frame_003.png"
+            ],
+            "north-east": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-east/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-east/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-east/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/north-east/frame_003.png"
+            ],
+            "south-west": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-west/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-west/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-west/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-west/frame_003.png"
+            ],
+            "west": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/west/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/west/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/west/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/west/frame_003.png"
+            ],
+            "south-east": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-east/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-east/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-east/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/south-east/frame_003.png"
+            ],
+            "east": [
+              "A_pixel_art_detective_character/animations/Breathing_Idle/east/frame_000.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/east/frame_001.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/east/frame_002.png",
+              "A_pixel_art_detective_character/animations/Breathing_Idle/east/frame_003.png"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "export_version": "3.0",
+  "export_date": "2026-06-13T23:10:22.191208"
+}

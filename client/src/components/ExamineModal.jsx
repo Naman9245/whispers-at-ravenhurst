@@ -6,10 +6,25 @@ import { useEffect } from "react";
 const TAG_LABEL = { physical_evidence: "Physical Evidence", testimony: "Testimony", document: "Document" };
 
 export default function ExamineModal({ result, onClose }) {
+  // Auto-close after 5s.
   useEffect(() => {
     const t = setTimeout(() => onClose?.(), 5000);
     return () => clearTimeout(t);
   }, [result, onClose]);
+
+  // Enter / Esc close the modal (so keyboard players never reach for the mouse).
+  // Listener lives only while the modal is mounted; movement input resumes on its
+  // own once this unmounts (BoardCanvas listens on window, not the canvas element).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Enter" || e.key === "Escape") {
+        e.preventDefault();
+        onClose?.();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   if (!result) return null;
   const { hotspotName, found, clue } = result;

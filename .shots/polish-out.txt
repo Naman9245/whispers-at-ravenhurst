@@ -1,0 +1,22 @@
+
+[1] ENTER closes the examine modal; movement resumes with no canvas click.
+  ✓ examine modal open
+  ✓ Enter closed the modal
+  ✓ WASD works immediately after close (moved without clicking)
+
+[2] ESC closes the examine modal too.
+  ✓ second examine modal open
+  ✓ Escape closed the modal
+
+[3] Shift sprint ≈ 2x distance (measured in the corridor).
+   normal 82.6px / 500ms   sprint 165.2px / 500ms   ratio 2.00x
+  ✓ both moved
+  ✓ sprint is ~2x faster (ratio ≥ 1.6)
+
+[4] Shift alone (no direction) does not move the character.
+  ✓ Shift alone keeps the character idle
+
+[errors]: none
+  ✓ no console/page errors
+
+=== POLISH 2.3a: ALL PASSED ✓ ===

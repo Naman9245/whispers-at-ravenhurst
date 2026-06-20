@@ -73,6 +73,7 @@ The game auto-starts when both detectives are present.
 
 - **Two detectives, one mansion, one murder.** Solve *culprit + weapon + room*.
 - Both players **move freely** (WASD / arrow keys), **examine furniture hotspots** (walk up + press **E**, or click) to find clues, and **question** suspects — simultaneously, no turns.
+- **Controls:** WASD / arrows to move · **Shift** to sprint · **E** or click to examine · **Enter / Esc** to close popups.
 - You gather **3 shared clues** (either player can find them) and **4 private clues** (yours alone), plus the occasional **red herring** that looks real but secretly contradicts the truth and never counts toward your total.
 - The **ACCUSE** button unlocks after a gate (**5 minutes** in production, **20 seconds** in Dev Mode) so there's time to actually deduce.
 - The **first lock-in** opens a final window for the other detective; when both lock in (or time expires) the case resolves.

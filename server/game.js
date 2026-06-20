@@ -5,6 +5,7 @@
 import { ROOM_IDS, ROOMS } from "../shared/mapData.js";
 import { CHARACTERS, PROGRESS_TOTAL, TIMER_PRESETS, QUESTION_CAP } from "../shared/constants.js";
 import { QUESTION_IDS } from "../shared/questions.js";
+import { HOTSPOT_BY_ID } from "../shared/roomHotspots.js";
 import { buildView } from "./views.js";
 import { generateCase } from "./ai/generateCase.js";
 
@@ -48,7 +49,7 @@ export class GameRoom {
       room: START_ROOM,                // authoritative room occupancy (private)
       inCorridor: false,               // true when standing in the corridor
       clues: [],                       // ids the player has found (private)
-      investigated: [],                // room ids this player has searched (private)
+      examinedHotspots: [],            // hotspot ids this player has examined (private)
       questionsUsed: {},               // suspectId -> count of generic questions asked
       confronted: {},                  // suspectId -> [clueIds already used as evidence]
       lockedIn: false,                 // has submitted accusation (step 10)
@@ -137,7 +138,7 @@ export class GameRoom {
     return player.clues
       .map((id) => byId.get(id))
       .filter(Boolean)
-      .map((cl) => ({ id: cl.id, text: cl.text, tag: cl.tag, category: cl.category, found_in: cl.found_in }));
+      .map((cl) => ({ id: cl.id, text: cl.text, tag: cl.tag, category: cl.category, found_in: cl.found_in, hotspot: cl.hotspot }));
   }
 
   // ---- suspect questioning (global; no room-binding) ---------------------
@@ -205,32 +206,34 @@ export class GameRoom {
     return out;
   }
 
-  // SERVER-AUTHORITATIVE investigation: reveal ALL of this player's clues for the
-  // room they're standing in, at once. A room can be searched once per player;
-  // the opponent searching the same room is independent. Returns the revealed
-  // clues stripped of their machine-readable `eliminates` key (the player must
-  // deduce from the prose — we never ship the solver's answer key to a client).
-  tryInvestigate(id) {
+  // SERVER-AUTHORITATIVE examination: examine ONE hotspot in the room the player is
+  // standing in. Each hotspot can be examined once per player; it yields the
+  // player's clue for that hotspot if one is placed there, else nothing. The
+  // hotspot→clue mapping NEVER leaves the server until the player examines that
+  // exact spot (anti-cheat). Returned clues are stripped of the `eliminates` key.
+  tryExamine(id, hotspotId) {
     if (this.status !== "playing") return { ok: false, error: "Game is not active." };
     const p = this.player(id);
     if (!p) return { ok: false, error: "You are not in this game." };
     if (p.accusation) return { ok: false, locked: true, error: "You've locked in — investigation is closed." };
-    if (p.inCorridor) return { ok: false, error: "Step inside a room to investigate." };
+    const spot = HOTSPOT_BY_ID[hotspotId];
+    if (!spot) return { ok: false, error: "No such hotspot." };
+    if (p.inCorridor || spot.room !== p.room) return { ok: false, error: "You must stand in that room to examine it." };
+    if (p.examinedHotspots.includes(hotspotId)) return { ok: false, already: true, error: "You have already examined this." };
 
-    const room = p.room;
-    if (p.investigated.includes(room)) {
-      return { ok: false, alreadySearched: true, error: "You have already searched this room." };
+    p.examinedHotspots.push(hotspotId);
+
+    const clue = this.cluePoolFor(p).find(
+      (cl) => cl.found_in === p.room && cl.hotspot === hotspotId && !p.clues.includes(cl.id)
+    );
+    if (!clue) {
+      return { ok: true, found: false, hotspotId, hotspotName: spot.name, room: spot.room };
     }
-    p.investigated.push(room);
-
-    const revealed = this.cluePoolFor(p)
-      .filter((cl) => cl.found_in === room && !p.clues.includes(cl.id))
-      .map((cl) => {
-        p.clues.push(cl.id);
-        return { id: cl.id, text: cl.text, tag: cl.tag, category: cl.category, found_in: cl.found_in };
-      });
-
-    return { ok: true, room, revealed };
+    p.clues.push(clue.id);
+    return {
+      ok: true, found: true, hotspotId, hotspotName: spot.name, room: spot.room,
+      clue: { id: clue.id, text: clue.text, tag: clue.tag, category: clue.category, found_in: clue.found_in, hotspot: clue.hotspot },
+    };
   }
 
   // ---- accusation: gate, lock-in, scoring, reveal -----------------------

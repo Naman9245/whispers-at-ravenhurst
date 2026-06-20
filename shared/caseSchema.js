@@ -20,6 +20,7 @@
 import { CLUE_DISTRIBUTION, SUSPECT_COUNT, WEAPON_COUNT } from "./constants.js";
 import { ROOM_IDS } from "./mapData.js";
 import { QUESTION_IDS } from "./questions.js";
+import { HOTSPOT_BY_ID } from "./roomHotspots.js";
 
 // Union of eliminated ids in one category across a list of clues.
 function eliminatedSet(clues, category) {
@@ -118,6 +119,28 @@ export function validateCase(caseData) {
         (clue.eliminates?.weapons || []).includes(solution.weapon_id) ||
         (clue.eliminates?.rooms || []).includes(solution.room_id);
       if (!contradictsSolution) fail(`${label} clue "${clue.id}" is not a real herring — it never contradicts the solution`);
+    }
+  }
+
+  // ---- hotspot placement: each clue sits at a real hotspot in its OWN room, and
+  // no two of a player's clues share a hotspot (one clue per hotspot per player) ---
+  const allCluesForHotspots = [...realAll, ...c.red_herrings_p1, ...c.red_herrings_p2];
+  for (const clue of allCluesForHotspots) {
+    const h = HOTSPOT_BY_ID[clue.hotspot];
+    if (!clue.hotspot || !h) {
+      fail(`clue "${clue.id}" has a missing/unknown hotspot "${clue.hotspot}"`);
+    } else if (h.room !== clue.found_in) {
+      fail(`clue "${clue.id}" hotspot "${clue.hotspot}" is in room "${h.room}", not its found_in "${clue.found_in}"`);
+    }
+  }
+  for (const [label, list] of [
+    ["player 1", [...c.shared, ...c.player1_private, ...c.red_herrings_p1]],
+    ["player 2", [...c.shared, ...c.player2_private, ...c.red_herrings_p2]],
+  ]) {
+    const seen = new Map(); // hotspot -> clue id
+    for (const clue of list) {
+      if (seen.has(clue.hotspot)) fail(`${label}: clues "${seen.get(clue.hotspot)}" and "${clue.id}" share hotspot "${clue.hotspot}"`);
+      else seen.set(clue.hotspot, clue.id);
     }
   }
 

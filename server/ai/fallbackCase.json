@@ -28,6 +28,7 @@
     "shared": [
       {
         "id": "shared-1",
+        "hotspot": "dining_table",
         "text": "Wet mud is tracked from the garden door to the body — whoever did this had been outside in the storm. Anyone who never left the house tonight is in the clear.",
         "category": "suspect",
         "tag": "physical_evidence",
@@ -36,6 +37,7 @@
       },
       {
         "id": "shared-2",
+        "hotspot": "library_writing_desk",
         "text": "There is not a drop of blood on Lord Edmund, nor any burn of powder. No blade was drawn, no poker swung, no shot fired.",
         "category": "weapon",
         "tag": "physical_evidence",
@@ -44,6 +46,7 @@
       },
       {
         "id": "shared-3",
+        "hotspot": "study_desk",
         "text": "The only lamp still burning at the hour of death was in the west wing. The east rooms and the center of the house were dark and locked.",
         "category": "room",
         "tag": "physical_evidence",
@@ -54,6 +57,7 @@
     "player1_private": [
       {
         "id": "p1-1",
+        "hotspot": "lounge_coffee_table",
         "text": "The killer's hand was left-handed — the bruising falls to the left. Dr. Crane and Miss Frost are both firmly right-handed.",
         "category": "suspect",
         "tag": "physical_evidence",
@@ -62,6 +66,7 @@
       },
       {
         "id": "p1-2",
+        "hotspot": "conservatory_bench",
         "text": "The harbourmaster's log places Captain Hawk at the docks until well past midnight. He could not have been here in time.",
         "category": "suspect",
         "tag": "document",
@@ -70,6 +75,7 @@
       },
       {
         "id": "p1-3",
+        "hotspot": "kitchen_pantry",
         "text": "No wax was spilled and the brandy decanter is sealed and full. Neither the candlestick nor the brandy touched Lord Edmund.",
         "category": "weapon",
         "tag": "physical_evidence",
@@ -78,6 +84,7 @@
       },
       {
         "id": "p1-4",
+        "hotspot": "study_armchair",
         "text": "A fine layer of dust lies undisturbed across the study floor and desk. No struggle happened in that room.",
         "category": "room",
         "tag": "physical_evidence",
@@ -88,6 +95,7 @@
     "player2_private": [
       {
         "id": "p2-1",
+        "hotspot": "dining_sideboard",
         "text": "The killer dined at the table tonight. Dr. Crane was called away to a sickbed before the soup was served and never returned.",
         "category": "suspect",
         "tag": "testimony",
@@ -96,6 +104,7 @@
       },
       {
         "id": "p2-2",
+        "hotspot": "lounge_painting",
         "text": "Miss Frost was reading to the Ashworth children in the upstairs nursery from nine o'clock until the body was found. Three witnesses agree.",
         "category": "suspect",
         "tag": "testimony",
@@ -104,6 +113,7 @@
       },
       {
         "id": "p2-3",
+        "hotspot": "conservatory_fountain",
         "text": "The killer reached the body by the narrow servants' stair. Captain Hawk's war wound makes those steps impossible for him.",
         "category": "suspect",
         "tag": "testimony",
@@ -112,6 +122,7 @@
       },
       {
         "id": "p2-4",
+        "hotspot": "kitchen_stove",
         "text": "The brandy decanter stands full and the candlestick is unlit and cold. And the study was bolted from the corridor side all evening — no one was killed behind that door.",
         "category": "mixed",
         "tag": "physical_evidence",
@@ -122,6 +133,7 @@
     "red_herrings_p1": [
       {
         "id": "rh-p1",
+        "hotspot": "library_bookshelves",
         "text": "A maid swears the silk cravat was returned to the tailor weeks ago — surely it could not be the murder weapon.",
         "category": "weapon",
         "tag": "testimony",
@@ -133,6 +145,7 @@
     "red_herrings_p2": [
       {
         "id": "rh-p2",
+        "hotspot": "lounge_sofa",
         "text": "A footman thought he heard Mr. Vale consoling the widow in the lounge at the fatal hour — perhaps the partner is innocent after all.",
         "category": "suspect",
         "tag": "testimony",

@@ -214,3 +214,49 @@ export function drawBoard(c, { current = null, reachable = [] } = {}) {
     c.fillStyle = P.cream; c.fillText(label, lx, ly);
   }
 }
+
+// ---- hotspots (Phase 2.2): subtle search indicators over furniture ----------
+function magnifier(c, px, py, scale, alpha) {
+  c.save();
+  c.globalAlpha = alpha;
+  c.translate(px, py);
+  c.scale(scale, scale);
+  c.fillStyle = "rgba(255,214,120,0.22)";
+  c.beginPath(); c.arc(0, 0, 8, 0, Math.PI * 2); c.fill();           // lens tint
+  c.strokeStyle = P.amberLt; c.lineWidth = 3; c.lineCap = "round";
+  c.beginPath(); c.arc(0, 0, 8, 0, Math.PI * 2); c.stroke();          // lens rim
+  c.beginPath(); c.moveTo(6, 6); c.lineTo(12, 12); c.stroke();        // handle
+  c.restore();
+}
+function checkMark(c, px, py, alpha) {
+  c.save();
+  c.globalAlpha = alpha;
+  c.strokeStyle = "#6ed68a"; c.lineWidth = 3; c.lineCap = "round"; c.lineJoin = "round";
+  c.beginPath(); c.moveTo(px - 6, py); c.lineTo(px - 1, py + 6); c.lineTo(px + 7, py - 6); c.stroke();
+  c.restore();
+}
+
+// Draw the current room's hotspot indicators. `hotspots` are normalized (0–1)
+// within the room; `examined` is a Set of examined ids; `activeId` is the spot the
+// player is standing next to (scaled up + "Press E" prompt).
+export function drawHotspots(c, roomId, hotspots, examined, activeId) {
+  if (!roomId || !hotspots) return;
+  const r = roomRect(roomId);
+  c.textBaseline = "alphabetic";
+  for (const h of hotspots) {
+    const px = r.x + h.x * r.w;
+    const py = r.y + h.y * r.h;
+    if (examined.has(h.id)) { checkMark(c, px, py, 0.35); continue; }
+    const active = h.id === activeId;
+    const pulse = 0.55 + 0.22 * Math.sin(Date.now() / 320);
+    magnifier(c, px, py, active ? 1.25 : 1, active ? 0.95 : pulse);
+    if (active) {
+      c.font = "700 15px 'Courier New', monospace";
+      const label = `Press E — ${h.name}`;
+      const tw = c.measureText(label).width;
+      const lx = px - tw / 2, ly = py - 20;
+      rect(c, lx - 9, ly - 17, tw + 18, 24, "rgba(20,14,26,0.96)", P.amberLt, 1);
+      c.fillStyle = P.cream; c.fillText(label, lx, ly);
+    }
+  }
+}

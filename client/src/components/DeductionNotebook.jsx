@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ROOM_HOTSPOTS, HOTSPOT_BY_ID } from "@shared/roomHotspots.js";
 
 // Right-hand deduction notebook. Bound to the live case (caseInfo) and the
 // player's own found clues (foundClues). Everything the player marks here is
@@ -15,9 +16,10 @@ const STATUS_ORDER = ["unknown", "suspected", "cleared"];
 const STATUS_LABEL = { unknown: "", suspected: "SUSPECTED", cleared: "CLEARED" };
 const nextStatus = (s) => STATUS_ORDER[(STATUS_ORDER.indexOf(s || "unknown") + 1) % STATUS_ORDER.length];
 
-export default function DeductionNotebook({ caseInfo, foundClues = [], investigated = [] }) {
+export default function DeductionNotebook({ caseInfo, foundClues = [], examinedHotspots = [] }) {
   const [tab, setTab] = useState("suspects");
   const [marks, setMarks] = useState({}); // `${type}:${id}` -> status (local only)
+  const examinedSet = new Set(examinedHotspots);
 
   const statusOf = (key) => marks[key] || "unknown";
   const cycle = (key) => setMarks((m) => ({ ...m, [key]: nextStatus(m[key]) }));
@@ -78,11 +80,15 @@ export default function DeductionNotebook({ caseInfo, foundClues = [], investiga
           {rooms.map((r) => {
             const key = `room:${r.id}`;
             const status = statusOf(key);
-            const searched = investigated.includes(r.id);
+            const spots = ROOM_HOTSPOTS[r.id] || [];
+            const done = spots.filter((h) => examinedSet.has(h.id)).length;
+            const searched = spots.length > 0 && done === spots.length;
             return (
               <li key={r.id} className={`nb-row room status-${status} ${searched ? "searched" : ""}`} onClick={() => cycle(key)}>
                 <span className="nb-row-name">{r.label}</span>
-                {searched && <span className="nb-searched">✓ Searched</span>}
+                {searched
+                  ? <span className="nb-searched">✓ Searched</span>
+                  : done > 0 && <span className="nb-searched partial">{done}/{spots.length}</span>}
                 {status !== "unknown" && <span className={`nb-status ${status}`}>{STATUS_LABEL[status]}</span>}
               </li>
             );
@@ -100,7 +106,10 @@ export default function DeductionNotebook({ caseInfo, foundClues = [], investiga
               <li key={c.id} className="nb-clue">
                 <div className="nb-clue-meta">
                   <span className="nb-tag">{TAG_LABEL[c.tag] || c.tag}</span>
-                  <span className="nb-clue-room">{roomLabel[c.found_in] || c.found_in}</span>
+                  <span className="nb-clue-room">
+                    {roomLabel[c.found_in] || c.found_in}
+                    {c.hotspot && HOTSPOT_BY_ID[c.hotspot] ? ` — ${HOTSPOT_BY_ID[c.hotspot].name}` : ""}
+                  </span>
                 </div>
                 <p className="nb-clue-text">{c.text}</p>
               </li>

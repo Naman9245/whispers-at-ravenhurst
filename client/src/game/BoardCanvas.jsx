@@ -111,6 +111,7 @@ export default function BoardCanvas({
         const dx = (k.d || k.arrowright ? 1 : 0) - (k.a || k.arrowleft ? 1 : 0);
         const dy = (k.s || k.arrowdown ? 1 : 0) - (k.w || k.arrowup ? 1 : 0);
         ch.setInput(dx, dy);
+        ch.sprint = enabled && Boolean(k.shift); // Shift → 2x; gated with input
         ch.update(dt);
 
         // Nearest UNEXAMINED hotspot in the current room, within reach.

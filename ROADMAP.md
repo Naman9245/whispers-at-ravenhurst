@@ -81,6 +81,15 @@ client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`
 > `server/ai/validateCase.js`); the full walk-up + E version was shipped (not the
 > lighter modal-picker fallback).
 
+### 2.3a — Quick Polish (modal keys + sprint) ✅ *(DONE)*
+- **Examine modal:** **Enter** or **Esc** closes it (window listener mounted only while
+  open; the Close button still works). Movement resumes immediately — `BoardCanvas`
+  listens on `window`, so no canvas re-click is needed.
+- **Sprint:** hold **Shift** while moving → **2× speed** in all 8 directions (WASD +
+  arrows), client-side only (the server already clamps positions to walkable areas).
+  Walk animation stays at normal cadence; Shift alone idles; gated during modals/lockout.
+- How-to-Play + README controls updated.
+
 ### 2.3 — Audio Polish 🔜
 - Footstep sounds (a *tum-tum-tum* loop during Walking, silent on Idle).
 - Ambient atmosphere: distant footsteps, door creaks, wind, thunder, faint whispers.

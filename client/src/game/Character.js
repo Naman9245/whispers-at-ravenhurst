@@ -43,6 +43,7 @@ export class Character {
     this.frameT = 0;
     this.ix = 0;                  // input vector (set each frame)
     this.iy = 0;
+    this.sprint = false;          // Shift held → 2x speed (set each frame)
     this.onRegionChange = null;   // (anchorRoom, inCorridor) => void
   }
 
@@ -65,7 +66,9 @@ export class Character {
       dx /= mag; dy /= mag;
       this.dir = dirFromVector(dx, dy);
       this.state = "walking";
-      const step = (MOVE_SPEED * dt) / 1000;
+      // Sprint doubles speed; the walk animation stays at normal cadence (a 2x
+      // cycle reads cartoonishly), so fast feet just cover more ground per step.
+      const step = (MOVE_SPEED * (this.sprint ? 2 : 1) * dt) / 1000;
       const open = this._openRooms();
       const nx = this.x + dx * step;
       const ny = this.y + dy * step;

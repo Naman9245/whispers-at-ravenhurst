@@ -1,58 +1,45 @@
 # Architecture — Whispers at Ravenhurst
 
-> **Last updated:** 2026-06-16
+> **Last updated:** 2026-06-20
 
-A technical deep-dive into how the game is built: the server-authoritative model,
-the privacy boundary that makes it cheat-proof, the shared geometry layer, the
-canvas render loop, and the case-generation pipeline. Every function and path
-referenced below exists in the codebase as written.
+A technical deep-dive: the server-authoritative model, the privacy boundary that
+makes it cheat-proof, the shared geometry/rules layer, the canvas render loop, and
+the case-generation pipeline. Every function and path referenced below exists in
+the codebase as written.
 
 ---
 
-## 1. System overview
+## 1. System Overview
 
 ```
-┌──────────────────────────┐         WebSocket (Socket.io)         ┌──────────────────────────┐
-│        CLIENT A           │  ── intents ──▶                        │         SERVER            │
-│  React + Canvas (Holmes)  │   region:enter / investigate /         │  Node + Express +         │
-│                           │   suspect:ask / accuse:lock            │  Socket.io                │
-│  renders ONLY its own     │  ◀── filtered view ──                  │                           │
-│  detective + its own view │   game:start / state:update /          │  RoomStore → GameRoom     │
-└──────────────────────────┘   chat / game:reveal                    │  (authoritative state)    │
-                                                                     │                           │
+┌──────────────────────────┐        WebSocket (Socket.io)         ┌──────────────────────────┐
+│        CLIENT A           │  ── intents ──▶                       │         SERVER            │
+│  React + Canvas (Holmes)  │   region:enter / investigate /        │  Node + Express +         │
+│  renders ONLY its own     │   suspect:ask / accuse:lock           │  Socket.io                │
+│  detective + its own view │  ◀── filtered view ──                 │                           │
+└──────────────────────────┘   game:start / state:update /         │  RoomStore → GameRoom     │
+                                chat / game:reveal                   │  (authoritative state)    │
 ┌──────────────────────────┐                                        │  buildView() filters      │
-│        CLIENT B           │  ◀──────────────────────────────────▶  │  per-player before send   │
+│        CLIENT B           │  ◀──────────────────────────────────▶ │  per-player before send   │
 │  React + Canvas (Watson)  │                                        └─────────────┬─────────────┘
-└──────────────────────────┘                                                       │
-                                                          imports ▼                ▼ imports
-                                                  ┌──────────────────────────────────────────┐
-                                                  │   /shared  (single source of truth)        │
-                                                  │   mapData · constants · questions · schema │
-                                                  └──────────────────────────────────────────┘
+└──────────────────────────┘                          imports ▼                   ▼ imports + AI
+                                            ┌────────────────────────────┐   ┌──────────────────┐
+                                            │  /shared (source of truth) │   │  Claude API       │
+                                            │  mapData·constants·schema  │   │  claude-opus-4-8  │
+                                            └────────────────────────────┘   │  (Phase 2.1)      │
+                                                                             └──────────────────┘
 ```
 
-**Three packages, one rulebook.** The client and server are separate npm
-packages, but both import `/shared` so the map graph, rule constants, question
-pool, and case schema can never drift between them. The client's
-`client/src/game/boardData.js` is literally a one-line re-export:
-
-```js
-// client/src/game/boardData.js
-export * from "@shared/mapData.js";
-```
-
-**Core principle: clients send *intents*, never state.** A client asks to enter a
-room or lock in an accusation; the server validates, mutates the authoritative
-state, and pushes back a per-player **view**. The client never tells the server
-where it "is" in a way the server trusts blindly — and it never learns anything
-the rules say it shouldn't.
+**Clients send *intents*, never state.** A client asks to enter a room or lock in an
+accusation; the server validates, mutates the authoritative state, and pushes back a
+per-player **view**. The client never tells the server where it "is" in a way the
+server trusts blindly — and it never learns anything the rules say it shouldn't.
 
 ---
 
-## 2. Server architecture
+## 2. Server Architecture
 
-### 2.1 Wiring (`server/index.js`)
-
+### 2.1 Bootstrap (`server/index.js`)
 Express serves a `/health` endpoint; Socket.io handles everything else. On each
 connection, every handler module registers its listeners on the socket:
 
@@ -67,78 +54,66 @@ io.on("connection", (socket) => {
 });
 ```
 
-### 2.2 The room registry (`server/rooms.js`)
-
-`RoomStore` keeps a `Map<code, GameRoom>` in memory. Room codes are 5 characters
-from an unambiguous alphabet (`ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — no `0/O`,
-`1/I`). `registerLobby` handles `room:create` (creator becomes **Holmes**) and
-`room:join` (joiner becomes **Watson**); when the second player joins, the room
-auto-starts:
+### 2.2 In-memory state keyed by room code (`server/rooms.js`)
+`RoomStore` keeps a `Map<code, GameRoom>` in memory. Codes are 5 chars from an
+unambiguous alphabet (`ABCDEFGHJKLMNPQRSTUVWXYZ23456789` — no `0/O`, `1/I`).
+`registerLobby` handles `room:create` (creator → **Holmes**) and `room:join`
+(joiner → **Watson**); the second join auto-starts:
 
 ```js
 if (room.isFull()) {
   await room.start();
-  scheduleForceResolve(io, room);          // soft-timer cap on the whole game
+  scheduleForceResolve(io, room);   // soft-timer cap on the whole game
   for (const p of room.players) io.to(p.id).emit("game:start", room.viewFor(p.id));
 }
 ```
 
 `handleDisconnect` flags the player `connected = false`, notifies the opponent via
-`peer:status`, and schedules cleanup after `RECONNECT_WINDOW_MS` (30 s).
+`peer:status`, and schedules cleanup after `RECONNECT_WINDOW_MS` (30s).
 
-### 2.3 The rules engine (`server/game.js`)
+### 2.3 The state machine per room (`server/game.js`)
+`GameRoom` owns player records, the case data (incl. the solution), clue/question/
+accusation state, and the timers. Status moves **`lobby` → `playing` → `ended`**.
 
-`GameRoom` is the heart of the server: it owns player records, the case data
-(including the solution), clue/question/accusation state, and the timers. Key
-methods, grouped by subsystem:
+| Subsystem | Methods |
+|-----------|---------|
+| Lifecycle | `addPlayer`, `removePlayer`, `isFull`, `start` |
+| Movement | `setRegion` |
+| Investigation | `tryInvestigate`, `cluePoolFor`, `progressCount`, `foundCluesFor` |
+| Questioning | `tryAsk`, `tryConfront`, `questioningStateFor` |
+| Accusation | `accuseOpensAt`, `tryLock`, `startFinalWindow`, `scoreFor`, `resolve` |
+| Serialization | `viewFor` (delegates to `buildView`) |
 
-| Subsystem      | Methods |
-|----------------|---------|
-| Lifecycle      | `addPlayer`, `removePlayer`, `isFull`, `start` |
-| Movement       | `setRegion` (validates room changes against the graph) |
-| Investigation  | `tryInvestigate`, `cluePoolFor`, `progressCount`, `foundCluesFor` |
-| Questioning    | `tryAsk`, `tryConfront`, `questioningStateFor` |
-| Accusation     | `accuseOpensAt`, `tryLock`, `startFinalWindow`, `scoreFor`, `resolve` |
-| Serialization  | `viewFor` (delegates to `buildView`) |
-
-Each player record is created in `addPlayer` and is the only place the
-authoritative per-player data lives:
+Timers come from `shared/constants.js`, with an env override for automated runs:
 
 ```js
-const player = {
-  id,                  // current socket id
-  token: cryptoId(),   // stable id for reconnects (planned)
-  name, character,     // "holmes" | "watson"
-  room: START_ROOM,    // authoritative room occupancy (private)
-  inCorridor: false,
-  clues: [],           // ids found (private)
-  investigated: [],    // rooms searched (private)
-  questionsUsed: {},   // suspectId -> count
-  confronted: {},      // suspectId -> [clueIds used as evidence]
-  lockedIn: false,
-  accusation: null,    // payload (private until reveal)
-  connected: true,
-};
+this.timers = (() => {
+  const fast = process.env.WHISPERS_FAST_TIMERS;
+  if (fast === "demo") return { softTimer: 900, accuseGate: 0, opponentWindow: 120 };
+  if (fast) return { softTimer: 8, accuseGate: 0, opponentWindow: 2 };
+  return devMode ? TIMER_PRESETS.dev : TIMER_PRESETS.production;
+})();
 ```
 
-### 2.4 The handlers (`server/handlers/`)
+### 2.4 Per-client view filtering (`server/views.js`)
+`buildView()` is the **only** function that turns server state into something sent
+to a client (see §6). The opponent is reduced to a four-field summary — no position,
+no clue contents, no notebook.
 
+### 2.5 The handlers (`server/handlers/`)
 Each handler is thin: validate via a `GameRoom` method, ack the caller privately,
 emit a **vague** ambient line to both players, then push fresh views.
 
 - **`movement.js`** — `region:enter`. The client free-roams in pixel space and
-  reports which room it entered (or that it stepped into the corridor).
-  `setRegion` rejects moves to non-adjacent rooms (`areAdjacent`). Positions are
+  reports the room it entered (or that it stepped into the corridor). Positions are
   never broadcast; only a "moved to another room…" note is.
-- **`investigate.js`** — `investigate`. `tryInvestigate` reveals all of the
-  player's clues for their current room at once, marks it searched for that player
-  only, and strips the machine-readable `eliminates` key before returning.
-- **`suspects.js`** — `suspect:ask` (one dialogue branch, budget-capped) and
-  `suspect:confront` (an evidence branch that may carry a behavioural tell). The
-  full dialogue tree never reaches a client.
-- **`accusation.js`** — `accuse:lock`, plus `resolveGame` and
-  `scheduleForceResolve`. The first lock-in cancels the soft cap and opens the
-  opponent's final window:
+- **`investigate.js`** — `investigate`. Reveals all of the player's clues for their
+  current room at once, marks it searched for that player only, strips the
+  machine-readable `eliminates` key before returning.
+- **`suspects.js`** — `suspect:ask` (one pooled question, budget-capped) and
+  `suspect:confront` (an evidence branch that may carry a behavioral tell).
+- **`accusation.js`** — `accuse:lock`, plus `resolveGame` and `scheduleForceResolve`.
+  The first lock-in cancels the soft cap and opens the opponent's final window:
 
 ```js
 if (room.lockedCount() === 1) {
@@ -149,72 +124,96 @@ if (room.lockedCount() === 1) {
 }
 ```
 
+### 2.6 AI case generation pipeline (`server/ai/generateCase.js`)
+`room.start()` calls `generateCase()`, which loads `fallbackCase.json`, runs it
+through `validateCase()`, and returns it. The live `claude-opus-4-8` call (with
+retry ×3, falling back to the baked case on any failure or validation miss) is the
+Phase 2.1 slot-in at the marked point. The key is read from
+`process.env.ANTHROPIC_API_KEY` **server-side only** and is never sent to a client.
+
 ---
 
-## 3. The privacy boundary / anti-cheat (`server/views.js`)
+## 3. Client Architecture
 
-This is the single most important file for fairness. **`buildView()` is the only
-function that turns server state into something sent to a client.** Nothing else
-serializes game state.
+### 3.1 App shell (`client/src/App.jsx`)
+`App` holds top-level phase (`lobby` → `playing` → reveal), wires the Socket.io
+listeners once, and derives all accusation timing on a 1-second heartbeat.
+Rendering is driven entirely by the `view` the server pushes (`applyView` also
+records the server-clock offset for countdown sync). The minimalist layout keeps the
+board uncovered: the activity log and notebook are slide-in panels toggled from the
+HUD.
 
-It exposes the requesting player's own data in full but reduces the opponent to a
-four-field summary — no position, no clue contents, no notebook:
-
-```js
-opponent: opp ? {
-  name: opp.name,
-  character: opp.character,
-  clueCount: room.progressCount(opp),   // normalized (herrings excluded)
-  lockedIn: opp.lockedIn,
-  connected: opp.connected,
-} : null,
+### 3.2 Component tree
+```
+App
+├── Lobby                         (pre-game: create / join / Dev Mode)
+├── hud-bar
+│   ├── PlayerHud                 (identity · room · LOCKED IN ✓ badge)
+│   ├── TimerBar                  (phase + countdown; red in the final minute)
+│   ├── ClueTracker               (Holmes/Watson n/7 inline bars)
+│   └── hud-tools                 (📜 Activity · 📓 Notebook · ☰ Menu)
+├── ActionBar                     (MOVE · INVESTIGATE · QUESTION · ACCUSE pills)
+├── BoardCanvas                   (the hero — see §3.3)
+├── ActivityLog                   (slide-in from left; hard size-capped)
+├── DeductionNotebook             (slide-in sidebar from right)
+├── GameMenu                      (sound toggle · how-to-play · exit)
+├── SuspectModal / AccusationModal (centered overlays — deliberate focus)
+└── RevealScreen                  (solution + both accusations + scores)
 ```
 
-A separate `publicCase()` helper strips the case down to facts both detectives are
-entitled to — the cast list, victim name, weapon names, room labels — and
-**deliberately omits the solution, every clue's text and `eliminates` key, and the
-red herrings.** During the accusation phase the view carries only timing data and
-lock **flags** (`youLocked`, `opponentLocked`, `finalDeadline`) — never the
-opponent's chosen culprit/weapon/room/clues. Those appear solely in the final
-`game:reveal`.
+### 3.3 Canvas renderer (`client/src/game/`)
+The board is drawn on a single `<canvas>` at a fixed internal resolution
+(`BOARD_W × BOARD_H`) and CSS-scaled to fit. There is no game engine.
 
-This boundary is covered by tests: `server/test/lobbyFlow.js` asserts that the
-strings `"solution"`, `"eliminates"`, `"red_herring"`, `"culprit"`,
-`"dialogue_tree"`, and `"evidence_responses"`, plus sample clue/answer prose,
-never appear in any view payload.
-
----
-
-## 4. The shared layer (`/shared`)
-
-### 4.1 Rules & constants (`constants.js`)
-
-All tunables that both sides must agree on:
+- **`BoardCanvas.jsx`** owns a `requestAnimationFrame` loop. Each frame it reads the
+  WASD/arrow state into an input vector, advances the `Character`, then draws the
+  board and the player's own sprite. The opponent is never drawn. Input is disabled
+  while a modal is open or after the player has locked in.
+- **`Character.js`** owns the detective's pixel position (its **feet**), facing,
+  animation, and anchor room. Movement integrates the input vector at `MOVE_SPEED`
+  and resolves collisions by trying the full move, then sliding along whichever axis
+  stays walkable:
 
 ```js
-export const MOVE_SPEED = 160;            // px/sec at internal board resolution
-export const QUESTION_CAP = 3;            // pooled questions per (player, suspect)
-export const TIMER_PRESETS = {
-  production: { softTimer: 600, accuseGate: 180, opponentWindow: 120 },
-  dev:        { softTimer: 60,  accuseGate: 20,  opponentWindow: 30  },
+if (isWalkable(nx, ny, open))          { this.x = nx; this.y = ny; }
+else if (isWalkable(nx, this.y, open)) { this.x = nx; }
+else if (isWalkable(this.x, ny, open)) { this.y = ny; }
+```
+
+- **`drawBoard.js`** is pure drawing (rooms, furniture, doorways, glow). **`sprites.js`**
+  loads frames from `public/assets/sprites.json` into an image cache. **`sound.js`**
+  is a tiny Web-Audio bank (`unlockAudio`, `playTick`, `setMuted`) — synthesized, so
+  it adds no download weight.
+
+### 3.4 Networking (`client/src/net/socket.js`)
+A thin promise wrapper over Socket.io; every intent is an `emit` whose ack resolves
+a promise:
+
+```js
+export const net = {
+  createRoom: (name, devMode) => ask("room:create", { name, devMode }),
+  joinRoom:   (code, name)    => ask("room:join", { code, name }),
+  enterRegion:(room, inCorridor) => ask("region:enter", { room, inCorridor }),
+  investigate:()              => ask("investigate", {}),
+  askSuspect: (suspectId, questionId) => ask("suspect:ask", { suspectId, questionId }),
+  confrontSuspect:(suspectId, clueId) => ask("suspect:confront", { suspectId, clueId }),
+  accuse:     (payload)       => ask("accuse:lock", payload),
+  requestState:()             => ask("state:request", {}),
+  on, off,
 };
-export const CLUE_DISTRIBUTION = { shared: 3, privatePerPlayer: 4, redHerringPerPlayer: 1 };
-export const PROGRESS_TOTAL = 7;          // 3 shared + 4 private (identical for both)
 ```
 
-### 4.2 Map & walkable geometry (`mapData.js`)
+---
 
-Six rooms in a 3×2 grid joined by a single horizontal corridor. `CONNECTIONS`
-defines the edges; `ADJACENCY` is the O(1) lookup the server uses to gate
-movement. The same module also defines the **collision geometry** the client uses
-for free-roam movement:
+## 4. Shared Layer (`/shared`)
 
-- `roomInterior(id)` / `CORRIDOR_INTERIOR` — the rectangles a player may stand in,
-  inset by `WALL_INSET` (16 px) from the visual walls.
-- `doorwayRect(id)` — the gap (half-width `DOOR_HALF` = 30 px, matched to the
-  drawn door) that bridges a room and the corridor.
-- `isWalkable(x, y, openRoomIds)` — the core collision test, evaluated against the
-  player's **feet** position:
+Imported by **both** sides via the `@shared` alias (Vite) / relative path (server).
+
+- **`mapData.js`** — six rooms in a 3×2 grid joined by one corridor. `CONNECTIONS`
+  defines edges; `ADJACENCY` is the O(1) lookup. It also defines the **collision
+  geometry**: `roomInterior(id)` / `CORRIDOR_INTERIOR` (walkable rects inset by
+  `WALL_INSET = 16`), `doorwayRect(id)` (gap half-width `DOOR_HALF = 44`, matched to
+  the drawn door), and the core test:
 
 ```js
 export function isWalkable(x, y, openRoomIds) {
@@ -226,141 +225,138 @@ export function isWalkable(x, y, openRoomIds) {
 }
 ```
 
-`openRoomIds` is the current room plus its graph-neighbours, so the connection
-graph still gates which rooms you can physically walk into.
-
-### 4.3 Questions (`questions.js`)
-
-A flat `QUESTION_POOL` of ten Victorian-detective questions, each with a stable
-`id`. The server validates `questionId` against `QUESTION_IDS` and looks up the
-answer in the case's dialogue tree; the client just renders the list.
-
-### 4.4 Case schema & validator (`caseSchema.js`)
-
-`validateCase(caseData)` is a real solvability proof, not a shape check. A clue
-carries machine-readable eliminations:
+- **`constants.js`** — the tunables both sides must agree on:
 
 ```js
-clue.eliminates = { suspects: [ids], weapons: [ids], rooms: [ids] };
-```
-
-The validator confirms that, using only the shared clues plus their own private
-set, **each** detective's surviving candidates collapse to exactly one
-suspect / one weapon / one room, and that those match the solution. It also proves
-real clues never contradict the truth and that red herrings genuinely do (so a
-herring is exposed once the real clues are in). This runs at game start and in
-`server/test/caseValidation.js`.
-
----
-
-## 5. Client architecture
-
-### 5.1 App shell (`client/src/App.jsx`)
-
-`App` holds top-level phase (`lobby` → `playing` → reveal), wires the Socket.io
-event listeners once, and derives all accusation timing each 1-second heartbeat.
-Rendering is driven entirely by the `view` the server pushes:
-
-- `net.on("game:start", …)` and `net.on("state:update", …)` call `applyView`,
-  which also records the server-clock offset for countdown sync.
-- `net.on("chat", …)`, `net.on("peer:status", …)`, `net.on("game:reveal", …)`
-  feed the log, the connection toast, and the reveal screen.
-
-Accusation timing is computed from the view's `accusation` block — gate countdown,
-time-left-to-act, and the urgency tier (shared with the timer via
-`urgencyTier`) — which drives the ACCUSE button's live countdown, the open/urgent
-notifications, the tick-sound cadence, and the final-30 s vignette.
-
-### 5.2 Networking (`client/src/net/socket.js`)
-
-A thin promise wrapper over Socket.io. Every intent is an `emit` whose ack
-resolves a promise:
-
-```js
-export const net = {
-  createRoom: (name, devMode) => ask("room:create", { name, devMode }),
-  joinRoom:   (code, name)    => ask("room:join", { code, name }),
-  enterRegion:(room, inCorridor) => ask("region:enter", { room, inCorridor }),
-  investigate:()              => ask("investigate", {}),
-  askSuspect: (suspectId, questionId) => ask("suspect:ask", { suspectId, questionId }),
-  confrontSuspect:(suspectId, clueId) => ask("suspect:confront", { suspectId, clueId }),
-  accuse:     (payload)       => ask("accuse:lock", payload),
-  on, off,
+export const MOVE_SPEED = 160;            // px/sec at internal resolution
+export const QUESTION_CAP = 3;            // pooled questions per (player, suspect)
+export const TIMER_PRESETS = {
+  production: { softTimer: 1200, accuseGate: 300, opponentWindow: 180 }, // 20m / 5m / 3m
+  dev:        { softTimer: 60,   accuseGate: 20,  opponentWindow: 30  }, // short, for testing
 };
+export const CLUE_DISTRIBUTION = { shared: 3, privatePerPlayer: 4, redHerringPerPlayer: 1 };
+export const PROGRESS_TOTAL = 7;          // 3 shared + 4 private (identical for both)
 ```
 
-### 5.3 The canvas renderer (`client/src/game/`)
+- **`questions.js`** — the flat 10-question `QUESTION_POOL` (each with a stable `id`)
+  the client renders and the server validates against.
+- **`caseSchema.js`** — `validateCase(caseData)`: a real solvability proof (see §8).
 
-The board is drawn on a single `<canvas>` at a fixed internal resolution
-(`BOARD_W × BOARD_H`) and CSS-scaled to fit. There is no game engine.
+---
 
-- **`BoardCanvas.jsx`** owns a `requestAnimationFrame` loop. Each frame it reads
-  the WASD/arrow key state into an input vector, advances the `Character`, then
-  draws the board and the player's own sprite. The opponent is never drawn.
-- **`Character.js`** owns the detective's pixel position (its **feet**), facing,
-  animation, and "anchor room." Movement integrates the input vector at
-  `MOVE_SPEED` and resolves collisions by trying the full move, then sliding along
-  whichever axis stays walkable:
+## 5. Critical Design Patterns
+
+- **Server-authoritative state.** Clients send intents; the server validates and is
+  the sole authority. The render loop is purely visual; the **game clock** is the
+  server's `setTimeout`s.
+- **Per-client view filtering.** One serializer (`buildView`) — if a field isn't
+  added there, it can't reach a client. The opponent is a 4-field summary.
+- **Case-JSON validation with retry/fallback.** Every case is proven solvable before
+  play; a bad case fails loudly in dev and falls back to the baked one.
+- **Dialogue-tree branch resolution.** `tryAsk` / `tryConfront` return exactly one
+  branch; the full tree never leaves the server.
+- **Action lockout after lock-in.** Once `p.accusation` is set, every gameplay method
+  short-circuits:
 
 ```js
-if (isWalkable(nx, ny, open))      { this.x = nx; this.y = ny; }
-else if (isWalkable(nx, this.y, open)) { this.x = nx; }
-else if (isWalkable(this.x, ny, open)) { this.y = ny; }
+tryInvestigate(id) {
+  const p = this.player(id);
+  if (p.accusation) return { ok: false, locked: true, error: "You've locked in — investigation is closed." };
+  ...
+}
+```
+  (The same guard is in `setRegion`, `tryAsk`, and `tryConfront`; the client also
+  grays every action and freezes input.)
+
+---
+
+## 6. Security / Anti-Cheat
+
+`buildView()` (`server/views.js`) is the single most important file for fairness:
+
+```js
+opponent: opp ? {
+  name: opp.name,
+  character: opp.character,
+  clueCount: room.progressCount(opp),   // normalized (herrings excluded)
+  lockedIn: opp.lockedIn,
+  connected: opp.connected,
+} : null,
 ```
 
-  When the feet cross into a new room (or the corridor), `onRegionChange` fires and
-  `App` reports it to the server via `net.enterRegion`.
-- **`drawBoard.js`** is pure drawing — rooms, per-room furniture, doorways, the
-  current-room glow, and reachable-room highlights. **`sprites.js`** loads frames
-  from `public/assets/sprites.json` into an image cache the loop draws cheaply.
-
-### 5.4 Components & audio
-
-The HUD/notebook/modals are plain React: `PlayerHud`, `ActionBar`, `TimerBar`
-(exports `urgencyTier`), `ClueTracker`, `ChatLog`, `DeductionNotebook`,
-`SuspectModal`, `AccusationModal`, `RevealScreen`. `game/sound.js` is a tiny
-Web-Audio bank (`unlockAudio`, `playTick`, `playChime`, `playAlarm`) — all
-synthesized, so it adds no download weight; it's unlocked on the first user
-gesture to satisfy autoplay policy.
+- **The solution never reaches a client** until `game:reveal`. `publicCase()` ships
+  only the cast list, victim name, weapon names, and room labels — never the
+  solution, clue text/`eliminates`, or red herrings.
+- **All moves are server-validated.** `region:enter` is re-checked server-side; the
+  collision geometry (walls/doorways) is enforced client-side every frame from the
+  *shared* module, so it cannot drift from the server's notion of a room.
+- **All clue pickups are server-validated.** `tryInvestigate` only reveals clues
+  whose `found_in` matches the player's current room and that they haven't already
+  found; the `eliminates` solver key is stripped before sending.
+- **Dialogue trees are never sent in full** — only the active branch (`tryAsk` /
+  `tryConfront`).
+- **Question budget is enforced server-side** — `QUESTION_CAP` (3) per suspect per
+  player, tracked in `questionsUsed`.
+- **Post-accusation actions are rejected server-side** (see §5).
+- The boundary is **test-covered**: `server/test/lobbyFlow.js` asserts the strings
+  `"solution"`, `"eliminates"`, `"red_herring"`, `"culprit"`, `"dialogue_tree"`, and
+  sample prose never appear in any view payload; `lockout.js` asserts post-lock-in
+  rejection.
 
 ---
 
-## 6. Critical design patterns
+## 7. Game Loop / State Machine
 
-### 6.1 The game loop (client) vs. the clock (server)
+```
+        room:create / room:join
+LOBBY ───────────────────────────▶ PLAYING ───────────────────────────▶ ENDED ──▶ game:reveal
+  │     (2nd player → room.start())   │   investigate · question · accuse   │
+  │                                   │                                     │
+  │                            accuseGate opens ACCUSE            resolve() triggered by:
+  │                                   │                            • both locked in
+  │                            first lock-in →                     • opponent window closes
+  │                            startFinalWindow()                  • soft timer expires
+  └─ disconnect → peer:status, 30s cleanup
+```
 
-The **render loop** (client `requestAnimationFrame`) is purely visual — movement,
-animation, region detection. The **game clock** is server-owned: `GameRoom.timers`
-plus `startedAt` define when the accuse gate opens, when the soft cap forces
-resolution, and when an opponent's window closes. The client renders countdowns
-from the server clock (offset-corrected) but the server's `setTimeout`s are the
-authority that actually ends the game.
+A session: two clients connect → create/join → on the second join the server
+generates+validates the case, sets `status = "playing"`, and `scheduleForceResolve`
+arms the soft cap. Players investigate/question freely. After `accuseGate`, `ACCUSE`
+unlocks; the first `accuse:lock` cancels the soft cap and opens the opponent's final
+window. **`resolve()` is computed exactly once** — guarded on `status === "ended"`,
+it returns `null` on later calls, so the soft timer, the window timer, and a second
+lock-in can all *try* to resolve but only the first wins. The reveal (solution +
+both accusations + scores) is pushed to both players in one `game:reveal`.
 
-### 6.2 Scoring (`GameRoom.scoreFor` / `resolve`)
-
-Three additive components:
-
-| Component   | Rule |
-|-------------|------|
-| **Base**    | +1 each for a correct culprit, weapon, and room (max 3) |
+### Scoring (`GameRoom.scoreFor` / `resolve`)
+| Component | Rule |
+|-----------|------|
+| **Base** | +1 each for a correct culprit, weapon, and room (max 3) |
 | **Reasoning** | +1 per cited clue that genuinely supports the solution, capped at +3 |
-| **Speed**   | among **fully-correct** accusations, earliest +2, the rest +1 |
+| **Speed** | among **fully-correct** accusations, earliest +2, the rest +1 |
 
-A clue "supports the solution" (`_supportsSolution`) if it eliminates real
-candidates and never contradicts the truth — so citing your own red herring earns
-nothing. The winner(s) are whoever has the maximum total; a non-submitter forfeits
-with a score of 0.
+A clue "supports the solution" only if it eliminates real candidates and never
+contradicts the truth — so citing your own red herring earns nothing.
 
-### 6.3 Game end is computed exactly once
-
-`resolve()` guards on `status === "ended"` and returns `null` on subsequent calls,
-so the soft timer, the opponent window, and a second lock-in can all *try* to
-resolve, but only the first wins. The reveal (solution + both accusations +
-scores) is built there and pushed to both players in a single `game:reveal`.
+### Socket event reference
+| Direction | Event | Payload (in → ack/out) |
+|-----------|-------|------------------------|
+| c → s | `room:create` | `{ name, devMode }` → `{ ok, code, token, view }` |
+| c → s | `room:join` | `{ code, name }` → `{ ok, code, token, view }` |
+| c → s | `region:enter` | `{ room, inCorridor }` → `{ ok, room, inCorridor, changedRoom }` |
+| c → s | `investigate` | `{}` → `{ ok, room, revealed[] }` |
+| c → s | `suspect:ask` | `{ suspectId, questionId }` → `{ ok, answer, asked, cap }` |
+| c → s | `suspect:confront` | `{ suspectId, clueId }` → `{ ok, response, hadTell }` |
+| c → s | `accuse:lock` | `{ culpritId, weaponId, roomId, clueIds }` → `{ ok }` |
+| c → s | `state:request` | `{}` → `{ ok, view }` |
+| s → c | `game:start` / `state:update` | the player's filtered `view` |
+| s → c | `chat` | `{ who, character, text, kind }` (vague/ambient only) |
+| s → c | `peer:status` | `{ connected }` |
+| s → c | `game:reveal` | `{ solution, monologue, players[], winners }` |
 
 ---
 
-## 7. AI case-generation pipeline (`server/ai/`)
+## 8. AI Case Generation
 
 ```
 room.start()
@@ -370,36 +366,26 @@ room.start()
           └─ returns the case (solution included — SERVER ONLY)
 ```
 
-`generateCase()` currently always returns the **baked, validated** case, so the
-game is playable for anyone — including portfolio reviewers with no API key. The
-key is read from `process.env.ANTHROPIC_API_KEY` on the server only and is never
-sent to a client. The live `claude-opus-4-8` generation call (with retry ×3,
-falling back to the baked case on any failure or validation miss) is the next
-slot-in at the marked point in `generateCase()` — see
-[ROADMAP.md](ROADMAP.md), Phase 3.
+**Expected schema** (`shared/caseSchema.js` header): `{ case_id, map, narrative,
+solution:{ culprit_id, weapon_id, room_id }, suspects:[6], weapons:[6],
+clues:{ shared:[3], player1_private:[4], player2_private:[4], red_herrings_p1:[1],
+red_herrings_p2:[1] }, dialogue_trees, validation }`. Clues carry machine-checkable
+eliminations: `clue.eliminates = { suspects:[ids], weapons:[ids], rooms:[ids] }`.
 
-The baked case (`fallbackCase.json`) contains the narrative, six suspects, six
-weapons, the clue sets (3 shared / 4 + 4 private / 1 + 1 herrings), and the
-per-suspect dialogue trees (one answer per pooled question, plus evidence
-responses with behavioural tells). It is validated on every load and by
-`server/test/caseValidation.js`.
+**Validation rules** (`validateCase`):
+- **Structure/counts** — exactly 6 suspects, 6 weapons, and the 3/4/4/1/1 clue split;
+  the solution references real ids.
+- **Solvability** — using only shared + their own private clues, *each* detective's
+  surviving candidates collapse to exactly one suspect / weapon / room, matching the
+  solution.
+- **Integrity** — real clues never eliminate the true culprit/weapon/room; red
+  herrings *must* contradict the solution (so a herring is exposed once the real
+  clues are in).
+- **Dialogue** — every suspect has an answer for all 10 question ids and at least one
+  evidence response with a behavioral `tell`, keyed to a real clue id.
 
----
-
-## 8. Socket event reference
-
-| Direction        | Event              | Payload (in → ack/out) |
-|------------------|--------------------|------------------------|
-| client → server  | `room:create`      | `{ name, devMode }` → `{ ok, code, token, view }` |
-| client → server  | `room:join`        | `{ code, name }` → `{ ok, code, token, view }` |
-| client → server  | `region:enter`     | `{ room, inCorridor }` → `{ ok, room, inCorridor, changedRoom }` |
-| client → server  | `investigate`      | `{}` → `{ ok, room, revealed[] }` |
-| client → server  | `suspect:ask`      | `{ suspectId, questionId }` → `{ ok, answer, asked, cap }` |
-| client → server  | `suspect:confront` | `{ suspectId, clueId }` → `{ ok, response, hadTell }` |
-| client → server  | `accuse:lock`      | `{ culpritId, weaponId, roomId, clueIds }` → `{ ok }` |
-| client → server  | `state:request`    | `{}` → `{ ok, view }` |
-| server → client  | `game:start`       | the player's initial `view` |
-| server → client  | `state:update`     | a refreshed per-player `view` |
-| server → client  | `chat`             | `{ who, character, text, kind }` (vague/ambient only) |
-| server → client  | `peer:status`      | `{ connected }` |
-| server → client  | `game:reveal`      | `{ solution, monologue, players[], winners }` |
+**Retry logic (Phase 2.1):** the live call will attempt generation up to **3 times**,
+running each result through `validateCase`, and fall back to the baked, pre-validated
+`fallbackCase.json` on any failure. **Note:** live API integration is Phase 2 work;
+the game currently runs on the pre-validated fallback case so it's playable with no
+key — the validator already runs on every load (`server/test/caseValidation.js`).

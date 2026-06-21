@@ -176,7 +176,7 @@ export default function App() {
     if (searchRef.current || examineResult) return;
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     if (reduced) { doExamine(hotspotId); return; }
-    setExamining({ hotspotId });
+    setExamining({ hotspotId, startTime: Date.now() });
     const stop = playSearchingLoop(); // TODO(Phase 2.4): looping searching sfx (no-op today)
     const timer = setTimeout(() => doExamine(hotspotId), 2500);
     // Defensive: if the searching state ever wedges, force-reset after 5s.
@@ -341,6 +341,7 @@ export default function App() {
           inputEnabled={!modalOpen && !youLocked && !examining}
           examined={view.you.examinedHotspots || []}
           searchingId={examining?.hotspotId || null}
+          searchingStart={examining?.startTime || null}
           onExamine={handleExamine}
           onRegionChange={handleRegionChange}
         />

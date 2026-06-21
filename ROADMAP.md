@@ -90,6 +90,18 @@ client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`
   Walk animation stays at normal cadence; Shift alone idles; gated during modals/lockout.
 - How-to-Play + README controls updated.
 
+### 2.3b — Searching animation ✅ *(DONE — visual only)*
+- Pressing **E** (or click) starts a **2.5s "searching" state** before the result modal:
+  a cycling-dots speech bubble + pulsing magnifier above the character and a glow on the
+  hotspot (`drawSearching` in `drawBoard.js`); movement/examine input is locked.
+- After 2.5s the client fires the existing `net.examine` and opens the modal — **no
+  server/protocol change**, and the opponent still only sees "examining something…" once
+  the examine commits.
+- **No skip** by design (Enter/Esc/Space/E don't shortcut it); **prefers-reduced-motion**
+  pops the modal instantly; a 5s safety timeout resets a wedged search.
+- **Sound assets reserved for Phase 2.4** — `playSearchingLoop` / `playClueFound` /
+  `playNothingFound` are wired as silent TODO stubs in `sound.js`.
+
 ### 2.3 — Audio Polish 🔜
 - Footstep sounds (a *tum-tum-tum* loop during Walking, silent on Idle).
 - Ambient atmosphere: distant footsteps, door creaks, wind, thunder, faint whispers.

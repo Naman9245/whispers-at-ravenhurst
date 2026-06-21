@@ -260,3 +260,32 @@ export function drawHotspots(c, roomId, hotspots, examined, activeId) {
     }
   }
 }
+
+// ---- searching state (Phase 2.3b): the 2.5s "examining…" overlay -------------
+// Glow on the hotspot being searched + a "…/…./….." speech bubble and a pulsing
+// magnifier above the character. (cx,cy) = character feet; (hx,hy) = hotspot pixel.
+export function drawSearching(c, cx, cy, hx, hy) {
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+
+  // glowing ring on the hotspot currently being examined
+  c.save();
+  c.globalAlpha = 0.45 + 0.35 * pulse;
+  c.strokeStyle = P.amberLt; c.lineWidth = 3;
+  c.shadowColor = P.amberLt; c.shadowBlur = 14;
+  c.beginPath(); c.arc(hx, hy, 13 + 3 * pulse, 0, Math.PI * 2); c.stroke();
+  c.restore();
+
+  // speech bubble above the character with cycling dots: "…" → "…." → "….."
+  const dots = ".".repeat(3 + (Math.floor(Date.now() / 170) % 3));
+  const bw = 64, bh = 30, bx = cx - bw / 2, by = cy - 98;
+  rect(c, bx, by, bw, bh, "rgba(20,14,26,0.96)", P.amberLt, 2);
+  c.fillStyle = "rgba(20,14,26,0.96)";                       // little tail
+  c.beginPath(); c.moveTo(cx - 6, by + bh); c.lineTo(cx + 6, by + bh); c.lineTo(cx, by + bh + 9); c.fill();
+  c.font = "700 22px 'Courier New', monospace";
+  c.fillStyle = P.amberLt; c.textAlign = "center"; c.textBaseline = "middle";
+  c.fillText(dots, cx, by + bh / 2 + 1);
+  c.textAlign = "left"; c.textBaseline = "alphabetic";
+
+  // pulsing magnifier just left of the bubble
+  magnifier(c, bx - 6, by + bh / 2, 1 + 0.18 * pulse, 0.95);
+}

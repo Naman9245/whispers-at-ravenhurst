@@ -13,7 +13,7 @@ import SuspectModal from "./components/SuspectModal.jsx";
 import AccusationModal from "./components/AccusationModal.jsx";
 import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
-import { unlockAudio, playTick, setMuted } from "./game/sound.js";
+import { unlockAudio, playTick, setMuted, playSearchingLoop, playClueFound, playNothingFound } from "./game/sound.js";
 import "./index.css";
 
 const COLOR = { holmes: "#6fd6c4", watson: "#f0b85c" };
@@ -37,6 +37,7 @@ export default function App() {
   const [showSuspects, setShowSuspects] = useState(false);
   const [showAccuse, setShowAccuse] = useState(false);
   const [examineResult, setExamineResult] = useState(null);
+  const [examining, setExamining] = useState(null);   // { hotspotId } during the 2.5s search
   const [reveal, setReveal] = useState(null);
   const [dialogues, setDialogues] = useState({});
   const [region, setRegion] = useState(null);   // local movement: { room, inCorridor }
@@ -52,6 +53,7 @@ export default function App() {
   const [pingDot, setPingDot] = useState(false);
 
   const toastTimer = useRef(null);
+  const searchRef = useRef(null);              // active hotspot search: { timer, safety, stop }
   const clockOffset = useRef(0);                // serverNow - clientNow
   const accuseAnnounced = useRef(false);        // toasted when the window opened
   const oppLockedAnnounced = useRef(false);     // toasted when rival locked in
@@ -81,7 +83,7 @@ export default function App() {
       accuseAnnounced.current = false;
       oppLockedAnnounced.current = false;
       tickBurstFired.current = false;
-      setExamineResult(null);
+      setExamineResult(null); setExamining(null);
       setShowActivity(false); setShowNotebook(false); setShowMenu(false);
       setSeen(1); setPingDot(false);
       setChat([{ who: "System", color: "#9ad6a0", kind: "system", ts: Date.now(), text: "Both detectives have entered Ravenhurst." }]);
@@ -144,18 +146,46 @@ export default function App() {
     [view]
   );
 
-  const handleExamine = useCallback(async (hotspotId) => {
+  // Clear any in-flight hotspot search (timers + searching sfx).
+  const finishSearch = useCallback(() => {
+    const s = searchRef.current;
+    if (s) { clearTimeout(s.timer); clearTimeout(s.safety); s.stop?.(); searchRef.current = null; }
+  }, []);
+
+  // Commit the examination: hit the server, then open the result modal.
+  const doExamine = useCallback(async (hotspotId) => {
+    finishSearch();
+    setExamining(null);
     const res = await net.examine(hotspotId);
     if (!res?.ok) return flash(res?.error || "Can't examine that.");
     setExamineResult(res);
     if (res.found) {
+      playClueFound(); // TODO(Phase 2.4): clue-found ding
       flash("Evidence found!");
       pushChat({ who: "System", color: "#f0b85c", kind: "clue", text: `You examined ${res.hotspotName} and found evidence:` });
       pushChat({ who: "Clue", color: "#f0b85c", kind: "clue", text: res.clue.text });
     } else {
+      playNothingFound(); // TODO(Phase 2.4): soft nothing-found whoosh
       pushChat({ who: "System", color: "#9ad6a0", kind: "system", text: `You examined ${res.hotspotName} — nothing of interest.` });
     }
-  }, [flash, pushChat]);
+  }, [finishSearch, flash, pushChat]);
+
+  // Start the 2.5s "searching" state, then commit. Reduced-motion users skip
+  // straight to the result. One search at a time; never while a result is up.
+  const handleExamine = useCallback((hotspotId) => {
+    if (searchRef.current || examineResult) return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduced) { doExamine(hotspotId); return; }
+    setExamining({ hotspotId });
+    const stop = playSearchingLoop(); // TODO(Phase 2.4): looping searching sfx (no-op today)
+    const timer = setTimeout(() => doExamine(hotspotId), 2500);
+    // Defensive: if the searching state ever wedges, force-reset after 5s.
+    const safety = setTimeout(() => { finishSearch(); setExamining(null); }, 5000);
+    searchRef.current = { timer, safety, stop };
+  }, [doExamine, examineResult, finishSearch]);
+
+  // Cancel any in-flight search if the component unmounts.
+  useEffect(() => finishSearch, [finishSearch]);
 
   const askSuspect = useCallback(async (suspectId, questionId, questionText) => {
     const res = await net.askSuspect(suspectId, questionId);
@@ -183,10 +213,11 @@ export default function App() {
   }, [flash]);
 
   const backToLobby = useCallback(() => {
-    setReveal(null); setView(null); setShowAccuse(false); setExamineResult(null);
+    finishSearch();
+    setReveal(null); setView(null); setShowAccuse(false); setExamineResult(null); setExamining(null);
     setShowSuspects(false); setDialogues({}); setChat([]); setRegion(null);
     setShowActivity(false); setShowNotebook(false); setShowMenu(false);
-  }, []);
+  }, [finishSearch]);
 
   // Accusation timing (derived each heartbeat).
   const acc = view?.accusation;
@@ -235,13 +266,14 @@ export default function App() {
 
   const handleAction = useCallback((key) => {
     if (youLocked) return flash("You've locked in — awaiting your opponent.");
+    if (examining) return flash("Searching…");
     if (key === "QUESTION SUSPECT") return setShowSuspects(true);
     if (key === "ACCUSE") {
       if (canAccuse) return setShowAccuse(true);
       return flash(`Accusations open in ${fmtMs(gateMsLeft)}.`);
     }
     flash("Coming soon.");
-  }, [flash, canAccuse, youLocked, gateMsLeft]);
+  }, [flash, canAccuse, youLocked, gateMsLeft, examining]);
 
   const openActivity = useCallback(() => {
     setShowActivity(true); setSeen(chat.length); setPingDot(false); setShowMenu(false);
@@ -306,8 +338,9 @@ export default function App() {
           me={me}
           startRoom={view.you.room}
           showReachable={showHints}
-          inputEnabled={!modalOpen && !youLocked}
+          inputEnabled={!modalOpen && !youLocked && !examining}
           examined={view.you.examinedHotspots || []}
+          searchingId={examining?.hotspotId || null}
           onExamine={handleExamine}
           onRegionChange={handleRegionChange}
         />

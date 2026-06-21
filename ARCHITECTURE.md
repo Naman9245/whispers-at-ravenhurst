@@ -272,6 +272,13 @@ tryInvestigate(id) {
 ```
   (The same guard is in `setRegion`, `tryAsk`, and `tryConfront`; the client also
   grays every action and freezes input.)
+- **Client-side searching state (no protocol change).** Examining a hotspot enters a
+  2.5s *searching* state in `App` (`examining = { hotspotId }`): `BoardCanvas` draws a
+  cycling-dots speech bubble + magnifier (`drawSearching`) and input is locked. After
+  2.5s the client fires the existing `net.examine` and opens the result modal — so the
+  opponent still only sees the ambient note once the examine **commits**, never that an
+  animation is running. `prefers-reduced-motion` skips straight to the result, and a 5s
+  safety timeout resets a wedged search. (Audio hooks are stubs until Phase 2.4.)
 
 ---
 

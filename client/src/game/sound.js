@@ -43,3 +43,28 @@ export function playTick() {
   osc.start(t0);
   osc.stop(t0 + 0.08);
 }
+
+// ---- hotspot examination sound HOOKS (Phase 2.3b) --------------------------
+// Intentionally silent for now — the actual audio assets are sourced together in
+// Phase 2.4. These stubs let the searching flow call them today with zero effect,
+// so the visual experience works perfectly with no sound present. All respect the
+// existing unlocked/muted gates once implemented.
+
+// Looping "searching" sound (paper rustling / drawer / shuffle). Returns a stop()
+// to call when the search ends. TODO(Phase 2.4): load + loop the rustle asset.
+export function playSearchingLoop() {
+  // TODO(Phase 2.4): start the looping searching sfx here (respect unlocked/muted).
+  return () => {
+    // TODO(Phase 2.4): stop/fade the looping searching sfx.
+  };
+}
+
+// Brief "ding" when the modal opens on a found clue.
+export function playClueFound() {
+  // TODO(Phase 2.4): play the clue-found ding (respect unlocked/muted).
+}
+
+// Soft "whoosh" when the modal opens on an empty hotspot.
+export function playNothingFound() {
+  // TODO(Phase 2.4): play the soft nothing-found whoosh (respect unlocked/muted).
+}

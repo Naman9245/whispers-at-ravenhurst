@@ -1,0 +1,36 @@
+
+[1] Indicators render; screenshot the Study with its 4 hotspots.
+  ✓ start room is STUDY
+
+[2] Walk to The Desk + press E → clue (shared-3).
+  ✓ examine modal opened with a clue
+   clue: "The only lamp still burning at the hour of death was in the "
+
+[3] Re-examining the same spot does nothing (no modal).
+  ✓ no modal on re-examine of an examined spot
+
+[4] The Armchair → second clue (p1-4).
+  ✓ armchair yields a clue
+
+[5] The Bookshelf → flavor (empty), reached + examinable.
+  ✓ bookshelf reachable + examined → 'nothing of interest'
+
+[6] The Fireplace via mouse CLICK (proximity-gated) → examined.
+  ✓ click examined the fireplace (all 4 study hotspots reachable)
+
+[7] Progress + notebook reflect the 2 real clues with hotspot names.
+   clue tracker: ["2/7","0/7"]
+  ✓ Holmes shows 2/7 (shared-3 + p1-4; herrings/flavor excluded)
+   evidence rooms/hotspots: ["STUDY — The Desk","STUDY — The Armchair"]
+  ✓ evidence shows hotspot names (Desk + Armchair)
+   study row: "STUDY✓ Searched"
+  ✓ Study shows ✓ Searched (all 4 examined)
+
+[8] Privacy: Watson saw only an ambient 'examining' note, no hotspot/clue.
+   Watson activity: "[System] Both detectives have entered Ravenhurst. | [Holmes] examining something… | [Holmes] examining something… | [Holmes] examining something… | [Holmes] examining something…"
+  ✓ Watson sees 'examining something', never a hotspot/clue
+
+[errors]: none
+  ✓ no console/page errors
+
+=== HOTSPOT E2E: ALL PASSED ✓ ===

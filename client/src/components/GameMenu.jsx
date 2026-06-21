@@ -21,7 +21,7 @@ export default function GameMenu({ open, soundOn, roomCode, devMode, onToggleSou
           <div className="menu-label">How to Play</div>
           <ol className="menu-help">
             <li>Move with <b>WASD / arrows</b> — hold <b>Shift</b> to sprint. Enter rooms through their doorways.</li>
-            <li>Walk up to furniture and press <b>E</b> to examine it; <b>Question</b> suspects for testimony.</li>
+            <li>Walk up to furniture and press <b>E</b> to examine it (takes a moment to search); <b>Question</b> suspects for testimony.</li>
             <li>Mark suspects, weapons &amp; rooms in your <b>Notebook</b> as you deduce.</li>
             <li>When <b>Accuse</b> opens, name culprit + weapon + room and <b>lock in</b>.</li>
             <li><b>Enter</b> or <b>Esc</b> closes popups.</li>

@@ -1,0 +1,25 @@
+
+[1] Press E → 2.5s searching (no instant modal); input locked; then modal.
+  ✓ no modal yet ~0.3s after E (searching)
+  ✓ character cannot move during searching (input locked)
+   modal opened after 1378ms
+  ✗ FAIL modal opens after the ~2.5s delay (>=2000ms, not instant)
+  ✓ modal shows the clue
+  ✓ Enter closed the result modal
+
+[2] Pressing E again during a search is ignored (still one modal).
+  ✓ second hotspot search still completes once
+  ✓ exactly one modal (no stacked searches)
+
+[3] prefers-reduced-motion → modal opens instantly (skip the 2.5s).
+   reduced-motion modal after 1ms
+  ✓ reduced-motion skips the delay (modal < 1200ms)
+
+[4] Privacy: opponent only sees 'examining something', after the commit.
+   Watson activity: "[System] Both detectives have entered Ravenhurst. | [Holmes] examining something… | [Holmes] examining something… | [Holmes] examining something…"
+  ✓ opponent sees 'examining something', never a hotspot/clue
+
+[errors]: none
+  ✓ no console/page errors
+
+=== 1 FAILED ✗ ===

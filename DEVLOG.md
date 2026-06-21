@@ -1,6 +1,6 @@
 # Development Log — Whispers at Ravenhurst
 
-> **Last updated:** 2026-06-20
+> **Last updated:** 2026-06-21
 
 The story of how the game was built: the idea, the decisions that shaped it, the
 "loopholes" a competitive deduction game has to close to stay fair, the build
@@ -169,15 +169,74 @@ confirmed the game works end-to-end — and surfaced issues a solo code read wou
 
 ---
 
-## 6. What's Next
+## 6. Phase 2 — Polish & Immersion
 
-Phase 1 is complete and committed. The immediate next step is **Phase 2.1 — live
-`claude-opus-4-8` case generation**, swapping the baked case for a live call through
-the existing validator-and-fallback pipeline (a small, focused change — the slot-in
-point already exists in `server/ai/generateCase.js`).
+With the vertical slice solid, Phase 2 turned it from "works" into "feels like a
+game." Each item shipped as its own small, verified, committed pass.
 
-After that, the headline Phase 2 feature is the **Hotspot Exploration System** —
-turning "click INVESTIGATE, receive all clues" into active, spatial searching of
-specific spots within each room — followed by audio polish, speech bubbles + idle
-animations, then themed maps and deployment. The full plan with status markers lives
-in **[ROADMAP.md](ROADMAP.md)**.
+### Major UI restructure (minimalist fullscreen)
+The first HUD was three disconnected widgets with a too-small board. It became one
+cohesive ~68px top bar (player · timer · clue bars · 📜/📓/☰ tools), compact pill
+actions, and the **mansion board promoted to the hero (~85% of the viewport)**. The
+always-on chat log and notebook moved **behind slide-in panels** — an **Activity**
+log from the left (hard size-capped with `contain: layout size` so it can't grow) and
+the **Notebook** from the right — plus a **Menu** (sound toggle / how-to-play / exit).
+
+### Hotspot Exploration System (the flagship)
+Replaced "click INVESTIGATE → all clues" with **active, spatial searching**: 4
+furniture **hotspots per room** (24 total in `shared/roomHotspots.js`). Walk up and
+press **E** (or click) to examine one; it yields the player's clue placed there, a red
+herring, or flavor text — **one outcome per hotspot per player**, discovered privately.
+The **hotspot→clue mapping never leaves the server** until that exact spot is examined.
+This touched the schema/validator (clues gained a `hotspot` field with placement +
+per-player-uniqueness checks), the server (`tryExamine`), and the canvas (indicators +
+proximity prompt).
+
+### Sprint + modal keyboard shortcuts (2.3a)
+**Shift** = 2× movement (client-side only; the server already clamps to walkable
+areas). Examine/result modals close with **Enter or Esc**; because input lives on
+`window`, movement resumes instantly with no canvas re-click.
+
+### Searching animation + cute cloud bubble (2.3b/c)
+Examining now plays a **2.5s "searching" state** (input locked) before the modal — a
+canvas-drawn **cute white cloud thought-bubble** with bouncing charcoal dots, a gentle
+bob, and puff in/out. No skip by design; `prefers-reduced-motion` pops the modal
+instantly; a 5s safety timeout resets a wedged search. **No server change** — the
+opponent still only sees "examining something…" on commit. Audio is wired as silent
+TODO stubs, reserved for the single Phase 2.4 sound pass.
+
+### Notable bugs caught + fixed (Phase 2)
+- **"LOCK IN does nothing" couldn't be reproduced** — driven end-to-end across demo,
+  fast, and real Dev-Mode-gated timers in 2-tab Chrome; it worked every time. The real
+  takeaway: verify in a real browser before chasing a phantom.
+- **Activity panel could grow** with long messages → fixed box + CSS containment,
+  proven by injecting 100 messages and asserting the size never changes.
+- **Room-entry "stuck at the threshold"** only showed in real play; closed-loop
+  movement tests confirmed all six rooms are reachable and the geometry is sound.
+- **favicon 404** in the console → added an inline SVG favicon so the console is clean.
+- **Test-harness gotchas:** socket tests need `WHISPERS_FAST_TIMERS=1` (the
+  timer-transition test waits out the soft/window timers — `=demo`'s 15-min cap hangs
+  it); and one e2e measured the 2.5s search from the wrong start point (a *test* bug,
+  not the feature).
+
+### Lessons learned
+- **Plan mode caught 3 spec/code mismatches before a line was written** — the hotspot
+  request named `room`/`points_to` and `server/ai/validateCase.js`, but the code uses
+  `found_in`/`eliminates` and validates in `shared/caseSchema.js`. Reconciling on paper
+  saved hours of debugging.
+- **One serializer (`buildView`) keeps privacy auditable** — every new field (examined
+  hotspots, lock flags) is private by construction.
+- **`window`-level input** means modals/animations can lock gameplay without stealing
+  keyboard focus — closing a modal needs no extra "click the canvas" step.
+
+---
+
+## 7. What's Next
+
+Phases 1 and 2 (minus audio) are complete and on GitHub. The immediate next step is
+**Phase 2.4 — Audio**: filling the already-stubbed sound hooks (searching loop, clue
+ding, footsteps, ambient storm, UI/dramatic stings) from CC0 sources. After that:
+idle/speech-bubble animations, then Phase 3 content — **live `claude-opus-4-8`
+generation** (awaiting credits), themed maps, and a **multi-floor mansion**. The full
+status board lives in **[ROADMAP.md](ROADMAP.md)**; session context in
+**[CLAUDE.md](CLAUDE.md)**.

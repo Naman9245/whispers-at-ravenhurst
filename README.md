@@ -2,7 +2,7 @@
 
 ### A 2-player online deduction game with AI-generated mysteries
 
-> **Last updated:** 2026-06-20
+> **Last updated:** 2026-06-21
 
 <!-- TODO: add hero screenshot / GIF -->
 <!-- Suggested: a 1600×900 capture of the in-game board, or a short GIF of an investigation → accusation flow. -->
@@ -17,11 +17,13 @@
 
 ## Key Features
 
-- 🧩 **AI-generated cases** via `claude-opus-4-8` — every game is a unique, solvable mystery. *(The generation pipeline + solvability validator are complete; the live API call is the Phase 2.1 slot-in. Today the game ships on a baked, pre-validated case so it runs with zero setup.)*
+- 🧩 **AI-generated cases** via `claude-opus-4-8` — every game is a unique, solvable mystery. *(The generation pipeline + solvability validator are complete; the live API call is deferred — awaiting credits. Today the game ships on a baked, pre-validated case so it runs with zero setup.)*
 - 🛡️ **Server-authoritative anti-cheat** — the solution never reaches a client until the reveal.
 - ⚖️ **Dual-window accusation system** with **reasoning-based scoring** (base + reasoning + speed).
 - 🔎 **Private clue investigation** — 3 shared clues + 4 private per player, plus red herrings.
 - 🔦 **Hotspot exploration** — search specific furniture (walk up + press **E**, or click) to uncover evidence, instead of one generic button.
+- 🔍 **Searching animation** — a 2.5s "examining…" beat with a cute white cloud thought-bubble before the result, so it feels like real detective work.
+- 🏃 **Sprint** — hold **Shift** to move at 2× speed across the manor.
 - 🗣️ **Pre-generated suspect dialogue trees** with evidence confrontation and behavioral "tells."
 - 🔌 **Real-time multiplayer** over WebSockets, with disconnect detection and a reconnect grace window.
 - 🎨 **Indie pixel-art Victorian noir** aesthetic, drawn on a raw HTML5 canvas (no game engine).
@@ -44,7 +46,7 @@
 
 ### Prerequisites
 - **Node.js 18+** (developed on Node 22)
-- No API key required to play — the game ships with a baked, pre-validated case. *(An `ANTHROPIC_API_KEY` will enable live case generation once Phase 2.1 lands; it is read server-side only and never sent to a client.)*
+- No API key required to play — the game ships with a baked, pre-validated case. *(An `ANTHROPIC_API_KEY` will enable live case generation once that integration is switched on; it is read server-side only and never sent to a client.)*
 
 ### Steps
 ```bash

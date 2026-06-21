@@ -1,6 +1,6 @@
 # Architecture — Whispers at Ravenhurst
 
-> **Last updated:** 2026-06-20
+> **Last updated:** 2026-06-21
 
 A technical deep-dive: the server-authoritative model, the privacy boundary that
 makes it cheat-proof, the shared geometry/rules layer, the canvas render loop, and
@@ -279,6 +279,11 @@ tryInvestigate(id) {
   opponent still only sees the ambient note once the examine **commits**, never that an
   animation is running. `prefers-reduced-motion` skips straight to the result, and a 5s
   safety timeout resets a wedged search. (Audio hooks are stubs until Phase 2.4.)
+- **Sprint is a client-side speed multiplier.** Holding **Shift** sets `Character.sprint`,
+  doubling the per-frame step in `Character.update`. No protocol change: the server is
+  still authoritative — `setRegion` only records *which room* a client entered and never
+  trusts pixel positions, and the collision geometry (`isWalkable`) is shared, so faster
+  local movement can't reach anywhere a walking player couldn't.
 
 ---
 

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { drawBoard, drawHotspots } from "./drawBoard.js";
+import { drawBoard, drawHotspots, drawSearching } from "./drawBoard.js";
 import { BOARD_W, BOARD_H, ROOM_IDS, roomRect } from "./boardData.js";
 import { ROOM_HOTSPOTS } from "@shared/roomHotspots.js";
 import { loadSprites } from "./sprites.js";
@@ -20,7 +20,7 @@ const HOTSPOT_RADIUS = 48; // how close the feet must be to examine a hotspot
  */
 export default function BoardCanvas({
   me = "holmes", startRoom = "study", showReachable = false, inputEnabled = true,
-  examined = [], onExamine, onRegionChange,
+  examined = [], searchingId = null, onExamine, onRegionChange,
 }) {
   const canvasRef = useRef(null);
   const charRef = useRef(null);
@@ -32,11 +32,13 @@ export default function BoardCanvas({
   const onExamineRef = useRef(onExamine);
   const activeIdRef = useRef(null);
   const ePrevRef = useRef(false);
+  const searchingIdRef = useRef(null);
   showReachableRef.current = showReachable;
   inputEnabledRef.current = inputEnabled;
   regionCbRef.current = onRegionChange;
   examinedRef.current = new Set(examined);
   onExamineRef.current = onExamine;
+  searchingIdRef.current = searchingId;
 
   // Load (or swap) sprites for the controlled character.
   useEffect(() => {
@@ -141,6 +143,13 @@ export default function BoardCanvas({
         drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current);
       }
       if (ch) ch.draw(ctx);
+      // Searching overlay (drawn over the character so the bubble reads clearly).
+      const sid = searchingIdRef.current;
+      if (ch && sid && !ch.inCorridor) {
+        const rr = roomRect(ch.anchorRoom);
+        const hs = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === sid);
+        if (hs) drawSearching(ctx, ch.x, ch.y, rr.x + hs.x * rr.w, rr.y + hs.y * rr.h);
+      }
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);

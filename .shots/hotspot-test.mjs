@@ -44,6 +44,9 @@ try {
   const holmes = await browser.newPage();
   holmes.on("pageerror", (e) => errors.push("PAGEERROR: " + e.message));
   holmes.on("console", (m) => { if (m.type() === "error") errors.push("CONSOLE: " + m.text()); });
+  // Reduced-motion → examinations skip the 2.5s searching state, so this test
+  // (which checks examine RESULTS, not the animation) stays fast and stable.
+  await holmes.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
   await holmes.goto(URL, { waitUntil: "networkidle2" });
   await holmes.waitForSelector(".lobby"); await clickByText(holmes, "Create Room");
   await holmes.waitForSelector(".lobby-form"); await holmes.click('.lb-check input[type="checkbox"]'); await clickByText(holmes, "Create");

@@ -20,7 +20,7 @@ const HOTSPOT_RADIUS = 48; // how close the feet must be to examine a hotspot
  */
 export default function BoardCanvas({
   me = "holmes", startRoom = "study", showReachable = false, inputEnabled = true,
-  examined = [], searchingId = null, onExamine, onRegionChange,
+  examined = [], searchingId = null, searchingStart = null, onExamine, onRegionChange,
 }) {
   const canvasRef = useRef(null);
   const charRef = useRef(null);
@@ -33,12 +33,14 @@ export default function BoardCanvas({
   const activeIdRef = useRef(null);
   const ePrevRef = useRef(false);
   const searchingIdRef = useRef(null);
+  const searchStartRef = useRef(null);
   showReachableRef.current = showReachable;
   inputEnabledRef.current = inputEnabled;
   regionCbRef.current = onRegionChange;
   examinedRef.current = new Set(examined);
   onExamineRef.current = onExamine;
   searchingIdRef.current = searchingId;
+  searchStartRef.current = searchingStart;
 
   // Load (or swap) sprites for the controlled character.
   useEffect(() => {
@@ -148,7 +150,7 @@ export default function BoardCanvas({
       if (ch && sid && !ch.inCorridor) {
         const rr = roomRect(ch.anchorRoom);
         const hs = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === sid);
-        if (hs) drawSearching(ctx, ch.x, ch.y, rr.x + hs.x * rr.w, rr.y + hs.y * rr.h);
+        if (hs) drawSearching(ctx, ch.x, ch.y, rr.x + hs.x * rr.w, rr.y + hs.y * rr.h, searchStartRef.current);
       }
       raf = requestAnimationFrame(loop);
     };

@@ -102,6 +102,12 @@ client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`
 - **Sound assets reserved for Phase 2.4** — `playSearchingLoop` / `playClueFound` /
   `playNothingFound` are wired as silent TODO stubs in `sound.js`.
 
+### 2.3c — Cute white cloud speech bubble ✅ *(DONE)*
+- Restyled the searching bubble into a soft white comic speech-cloud (warm-white fill,
+  navy border, drop shadow, downward tail), with charcoal dots bouncing left→middle→
+  right, a gentle bob, and puff in/out. Canvas-rendered (`drawSearching` in
+  `drawBoard.js`); examination logic unchanged.
+
 ### 2.3 — Audio Polish 🔜
 - Footstep sounds (a *tum-tum-tum* loop during Walking, silent on Idle).
 - Ambient atmosphere: distant footsteps, door creaks, wind, thunder, faint whispers.
@@ -136,6 +142,12 @@ client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`
 - 🔜 Random map selection per game.
 - 🔜 Suspect portrait pools per map (Pixellab generation).
 - 🔜 Hotspot system extended to all maps.
+- 🔜 **Multi-floor mansion expansion** — add upper floor(s) via staircase connections
+  (e.g. Library → Upstairs Hallway → Master Bedroom / Servants' Quarters / Attic), plus
+  an optional basement (Wine Cellar, Crypt) via separate stairs. More hotspots per floor
+  = deeper exploration; per-floor ambient sound (creaky upstairs vs damp basement); floor
+  transition logic + camera switching; and a multi-floor-aware case generator for clue
+  distribution. *Substantial — ~1–2 weeks of level design + UI on its own.*
 
 ---
 

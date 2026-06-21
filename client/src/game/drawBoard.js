@@ -261,31 +261,72 @@ export function drawHotspots(c, roomId, hotspots, examined, activeId) {
   }
 }
 
-// ---- searching state (Phase 2.3b): the 2.5s "examining…" overlay -------------
-// Glow on the hotspot being searched + a "…/…./….." speech bubble and a pulsing
-// magnifier above the character. (cx,cy) = character feet; (hx,hy) = hotspot pixel.
-export function drawSearching(c, cx, cy, hx, hy) {
-  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+// ---- searching state (Phase 2.3b/c): the 2.5s "examining…" overlay -----------
+// A cute white comic speech-cloud above the character (white fill, navy border,
+// soft shadow, down-tail, bouncing charcoal dots, gentle bob, puff in/out) plus a
+// glow on the hotspot being examined. (cx,cy) = feet; (hx,hy) = hotspot pixel.
+const SEARCH_DUR = 2500; // must match SEARCH_MS in App.jsx (puff-out timing)
 
-  // glowing ring on the hotspot currently being examined
+// One closed path: a rounded-rect cloud body with a small downward tail at centre,
+// so a single fill (with shadow) + single stroke (border) render cleanly.
+function bubblePath(c, w, h, r) {
+  const rx = w / 2, ry = h / 2;
+  c.beginPath();
+  c.moveTo(-rx + r, -ry);
+  c.lineTo(rx - r, -ry);
+  c.quadraticCurveTo(rx, -ry, rx, -ry + r);
+  c.lineTo(rx, ry - r);
+  c.quadraticCurveTo(rx, ry, rx - r, ry);
+  c.lineTo(7, ry);
+  c.lineTo(0, ry + 10);   // tail tip toward the character
+  c.lineTo(-7, ry);
+  c.lineTo(-rx + r, ry);
+  c.quadraticCurveTo(-rx, ry, -rx, ry - r);
+  c.lineTo(-rx, -ry + r);
+  c.quadraticCurveTo(-rx, -ry, -rx + r, -ry);
+  c.closePath();
+}
+
+export function drawSearching(c, cx, cy, hx, hy, startTime) {
+  const now = Date.now();
+  const elapsed = startTime ? now - startTime : SEARCH_DUR / 2;
+
+  // Puff entrance (0.8→1 over 200ms, ease-out) and exit (1→0 over the last 200ms).
+  let scale = 1;
+  if (elapsed < 200) { const t = elapsed / 200; scale = 0.8 + 0.2 * (1 - (1 - t) * (1 - t)); }
+  else if (elapsed > SEARCH_DUR - 200) { scale = Math.max(0, 1 - (elapsed - (SEARCH_DUR - 200)) / 200); }
+
+  // Glow ring on the hotspot being examined.
+  const pulse = 0.5 + 0.5 * Math.sin(now / 200);
   c.save();
-  c.globalAlpha = 0.45 + 0.35 * pulse;
-  c.strokeStyle = P.amberLt; c.lineWidth = 3;
-  c.shadowColor = P.amberLt; c.shadowBlur = 14;
-  c.beginPath(); c.arc(hx, hy, 13 + 3 * pulse, 0, Math.PI * 2); c.stroke();
+  c.globalAlpha = 0.4 + 0.35 * pulse;
+  c.strokeStyle = P.amberLt; c.lineWidth = 3; c.shadowColor = P.amberLt; c.shadowBlur = 14;
+  c.beginPath(); c.arc(hx, hy, 12 + 3 * pulse, 0, Math.PI * 2); c.stroke();
   c.restore();
 
-  // speech bubble above the character with cycling dots: "…" → "…." → "….."
-  const dots = ".".repeat(3 + (Math.floor(Date.now() / 170) % 3));
-  const bw = 64, bh = 30, bx = cx - bw / 2, by = cy - 98;
-  rect(c, bx, by, bw, bh, "rgba(20,14,26,0.96)", P.amberLt, 2);
-  c.fillStyle = "rgba(20,14,26,0.96)";                       // little tail
-  c.beginPath(); c.moveTo(cx - 6, by + bh); c.lineTo(cx + 6, by + bh); c.lineTo(cx, by + bh + 9); c.fill();
-  c.font = "700 22px 'Courier New', monospace";
-  c.fillStyle = P.amberLt; c.textAlign = "center"; c.textBaseline = "middle";
-  c.fillText(dots, cx, by + bh / 2 + 1);
-  c.textAlign = "left"; c.textBaseline = "alphabetic";
+  if (scale <= 0.02) return; // bubble fully puffed out
 
-  // pulsing magnifier just left of the bubble
-  magnifier(c, bx - 6, by + bh / 2, 1 + 0.18 * pulse, 0.95);
+  const bob = Math.sin(now / 239) * 3; // gentle ~3px / 1.5s float
+  c.save();
+  c.translate(cx, cy - 90 + bob);
+  c.scale(scale, scale);
+
+  // white cloud body + tail: one path, soft drop shadow under the fill
+  c.save();
+  c.shadowColor = "rgba(0,0,0,0.3)"; c.shadowBlur = 6; c.shadowOffsetY = 2;
+  c.fillStyle = "#faf8f3";
+  bubblePath(c, 62, 34, 13);
+  c.fill();
+  c.restore();
+  c.strokeStyle = "#3a3548"; c.lineWidth = 1.5; // subtle navy border
+  bubblePath(c, 62, 34, 13);
+  c.stroke();
+
+  // three charcoal dots bouncing left→middle→right (classic "thinking")
+  c.fillStyle = "#2a2540";
+  for (let i = 0; i < 3; i++) {
+    const dy = -Math.max(0, Math.sin(now / 170 - i * 0.7)) * 4;
+    c.beginPath(); c.arc(-14 + i * 14, dy, 3.2, 0, Math.PI * 2); c.fill();
+  }
+  c.restore();
 }

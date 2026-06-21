@@ -1,9 +1,10 @@
 # Roadmap — Whispers at Ravenhurst
 
-> **Last updated:** 2026-06-20
+> **Last updated:** 2026-06-21
 
-Progress tracker for the project. **Phase 1 (the vertical slice) is complete** and
-the game is playable end-to-end; Phase 2 is the next focus.
+Progress tracker. **Phase 1 (vertical slice) is complete**; **Phase 2 (polish) is
+mostly complete** — the next item is **2.4 (Audio)**. Phases 3–4 are planned.
+Session context lives in **[CLAUDE.md](CLAUDE.md)**.
 
 ---
 
@@ -26,133 +27,110 @@ the game is playable end-to-end; Phase 2 is the next focus.
 | 1 | Project scaffolding (client + server + shared) | ✅ | `npm run dev` runs both |
 | 2 | Lobby — create/join, room codes | ✅ | 5-char unambiguous codes, auto-start on 2 players |
 | 3 | Mansion board render (canvas) | ✅ | reconciled to shared map data |
-| 4 | Sprites + click-to-move + WASD | ✅ | full free-roam WASD/arrows with collision |
+| 4 | Sprites + free-roam movement | ✅ | WASD / arrow keys with collision (no click-to-move) |
 | 5 | WebSocket clue-count sync + ambient chat | ✅ | real per-player counts; vague location-free chat |
-| 6 | AI case generator + validator | ✅ | fallback case + validator complete; **live `claude-opus-4-8` API → Phase 2.1** |
-| 7 | Investigation mechanic | ✅ | reveal-all-per-room, per-player "searched" |
+| 6 | AI case generator + validator | ✅ | fallback case + validator complete; **live API deferred (see 2.1 / Phase 3)** |
+| 7 | Investigation mechanic | ✅ | (later replaced by the hotspot system, 2.2) |
 | 8 | Suspect questioning | ✅ | dialogue trees, 3-question cap, evidence confront |
 | 9 | Notebook UI | ✅ | Suspects/Weapons/Rooms tabs, 3-state marks, evidence list |
 | 10 | Accusation system with dual-window timers | ✅ | base + reasoning + speed scoring |
 | 11 | Anti-cheat server-authoritative | ✅ | single `buildView` serializer, test-covered |
-| 12 | Disconnect handling | 🟡 | detected + `peer:status` + 30s cleanup; **no token-based rejoin yet** |
-| — | UI Polish: minimalist fullscreen restructure | ✅ | slim HUD, pill actions, board as hero, slide-in panels |
-| — | Timer urgency design | ✅ | calm → 3s tick burst at 1:00 → red timer + edge vignette |
-| — | Post-lock-in action lockout | ✅ | server rejection + client disable/freeze |
+| 12 | Disconnect handling | 🟡 | detected + `peer:status` + 30s cleanup; **token-based rejoin → Phase 4** |
 
 ---
 
-## Phase 2 — Polish & Immersion · **IN PROGRESS** 🔜
+## Phase 2 — Polish & Immersion · **MOSTLY COMPLETE** 🟡
 
-### 2.1 — Live Claude API Integration 🔜 *(NEXT)*
-- Swap the baked fallback case for live `claude-opus-4-8` generation.
-- Reuse the existing `validateCase()` pipeline.
-- 3-retry logic with fallback to the baked case on failure.
-- **Estimated effort:** ~1 hour.
+### 2.0 — Minimalist fullscreen UI restructure ✅
+Slim ~68px HUD (player · timer · clue bars · 📜/📓/☰ tools), compact pill actions,
+the mansion board promoted to the hero (~85% of the viewport), and the chat log +
+notebook moved behind slide-in panels (Activity from the left — hard size-capped with
+`contain: layout size`; Notebook from the right) plus a Menu (sound / how-to-play / exit).
 
-### 2.2 — Hotspot Exploration System ✅ *(FLAGSHIP FEATURE — DONE)*
+### 2.0.1 — Critical game-logic fixes ✅
+Post-lock-in **action lockout** (server rejects move/examine/question after a player
+locks in; client disables all actions + freezes input). LOCK IN flow verified
+end-to-end; room-entry, free 4-directional movement, and wall-collision hardened and
+covered by tests.
 
-Investigation is now active, spatial searching instead of one button.
+### 2.0.2 — Timer urgency redesign ✅
+Production **20-min soft cap · 5-min accuse gate · 3-min final window** (Dev Mode
+60s/20s/30s). Unified urgency: calm/green the whole game → a **3-second tick burst at
+the 1:00 mark** → **visual-only** urgency (red timer + red edge vignette + red ACCUSE)
+for the final minute. The intrusive "ACCUSE NOW or forfeit" banner was removed.
 
-**Shipped**
-- **4 hotspots per room** (24 total) in `shared/roomHotspots.js`, positioned over the
-  drawn furniture.
-- Entering a room shows its 4 subtle pulsing magnifying-glass indicators (**current
-  room only**); examined spots show a faded ✓.
-- Walk within ~48px → a **"Press E to examine"** prompt; **the E key or a
-  proximity-gated mouse click** examines it.
-- Each hotspot yields the player's clue placed there (if any) or "Nothing of interest
-  here." — one outcome per hotspot per player, tracked privately.
-- The old **INVESTIGATE button was removed**; examination replaces it.
-- Notebook evidence shows "Room — Hotspot name"; the Rooms tab shows per-room search
-  progress (`n/4` → ✓ Searched).
+### 2.0.3 — Documentation ✅
+README · DEVLOG · ARCHITECTURE · ROADMAP refreshed, and **CLAUDE.md** added for
+session continuity.
 
-**Anti-cheat:** the hotspot→clue mapping never leaves the server until the player
-examines that exact spot (`tryExamine` in `server/game.js`, event `hotspot:examine`).
+### 2.1 — Live `claude-opus-4-8` API integration ⏳ *(deferred — awaiting credits)*
+Pipeline + `validateCase()` + 3-retry/fallback are ready; the call is the marked
+slot-in in `server/ai/generateCase.js`. Tracked as the first actionable item of
+**Phase 3** once API credits are available.
 
-**Files:** `shared/roomHotspots.js` (new) · `shared/caseSchema.js` (+hotspot checks) ·
-`server/ai/fallbackCase.json` (every clue gets a `hotspot`) · `server/game.js`
-(`tryExamine`, `examinedHotspots`) · `server/handlers/investigate.js` · `server/views.js` ·
-client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`,
-`App.jsx`, `ActionBar.jsx`, `DeductionNotebook.jsx`). Tests: new `server/test/hotspots.js`
-+ updated `lobbyFlow` / `lockout` / `caseValidation`.
+### 2.2 — Hotspot Exploration System ✅ *(FLAGSHIP)*
+Active, spatial searching instead of one button. **4 hotspots per room** (24 total in
+`shared/roomHotspots.js`); walk up + press **E** (or proximity-gated click) to examine
+one → the player's clue there, a red herring, or "Nothing of interest here." (one
+outcome per hotspot per player, discovered privately). The old INVESTIGATE button was
+removed; the notebook shows "Room — Hotspot name" and per-room `n/4 → ✓ Searched`.
+**Anti-cheat:** the hotspot→clue map never leaves the server until that spot is examined
+(`tryExamine`, event `hotspot:examine`). Tests: new `server/test/hotspots.js` + updated
+`lobbyFlow`/`lockout`/`caseValidation`.
 
-> Note vs. the original spec: clues keep the existing `found_in` / `eliminates` fields
-> (not `room` / `points_to`); validation lives in `shared/caseSchema.js` (there is no
-> `server/ai/validateCase.js`); the full walk-up + E version was shipped (not the
-> lighter modal-picker fallback).
+### 2.3a — Modal keys + sprint ✅
+Examine/result modals close with **Enter or Esc** (Close button still works; input
+resumes with no canvas re-click). **Shift** = 2× movement, all 8 directions, client-side
+only (server clamps to walkable areas); Shift alone idles; gated during modals/lockout.
 
-### 2.3a — Quick Polish (modal keys + sprint) ✅ *(DONE)*
-- **Examine modal:** **Enter** or **Esc** closes it (window listener mounted only while
-  open; the Close button still works). Movement resumes immediately — `BoardCanvas`
-  listens on `window`, so no canvas re-click is needed.
-- **Sprint:** hold **Shift** while moving → **2× speed** in all 8 directions (WASD +
-  arrows), client-side only (the server already clamps positions to walkable areas).
-  Walk animation stays at normal cadence; Shift alone idles; gated during modals/lockout.
-- How-to-Play + README controls updated.
+### 2.3b — Searching animation ✅
+Pressing **E** starts a **2.5s "searching" state** (input locked) before the result
+modal; **no skip** by design; `prefers-reduced-motion` pops instantly; 5s safety reset.
+No server change — opponent still only sees "examining something…" on commit. Audio
+wired as silent TODO stubs.
 
-### 2.3b — Searching animation ✅ *(DONE — visual only)*
-- Pressing **E** (or click) starts a **2.5s "searching" state** before the result modal:
-  a cycling-dots speech bubble + pulsing magnifier above the character and a glow on the
-  hotspot (`drawSearching` in `drawBoard.js`); movement/examine input is locked.
-- After 2.5s the client fires the existing `net.examine` and opens the modal — **no
-  server/protocol change**, and the opponent still only sees "examining something…" once
-  the examine commits.
-- **No skip** by design (Enter/Esc/Space/E don't shortcut it); **prefers-reduced-motion**
-  pops the modal instantly; a 5s safety timeout resets a wedged search.
-- **Sound assets reserved for Phase 2.4** — `playSearchingLoop` / `playClueFound` /
-  `playNothingFound` are wired as silent TODO stubs in `sound.js`.
+### 2.3c — Cute white cloud speech bubble ✅
+Restyled the searching bubble into a soft white comic speech-cloud (warm-white fill,
+navy border, drop shadow, downward tail, bouncing charcoal dots, gentle bob, puff
+in/out). Canvas-rendered (`drawSearching`); logic unchanged.
 
-### 2.3c — Cute white cloud speech bubble ✅ *(DONE)*
-- Restyled the searching bubble into a soft white comic speech-cloud (warm-white fill,
-  navy border, drop shadow, downward tail), with charcoal dots bouncing left→middle→
-  right, a gentle bob, and puff in/out. Canvas-rendered (`drawSearching` in
-  `drawBoard.js`); examination logic unchanged.
+### 2.4 — Audio Polish 🔜 *(NEXT)*
+Fill the already-stubbed hooks (`playSearchingLoop` / `playClueFound` /
+`playNothingFound` + footsteps, ambient storm, UI/dramatic stings) from CC0 sources.
+Full asset list is in **[CLAUDE.md](CLAUDE.md) → Sound Assets TODO**. Searching loop,
+clue-found ding, nothing-found whoosh, walking/sprint footsteps, rain+thunder+wind
+ambient, modal/button/notebook UI sfx, lock-in + reveal stings.
 
-### 2.3 — Audio Polish 🔜
-- Footstep sounds (a *tum-tum-tum* loop during Walking, silent on Idle).
-- Ambient atmosphere: distant footsteps, door creaks, wind, thunder, faint whispers.
-- 3-second tick burst at the 1:00 mark, then silence + visual urgency *(already
-  implemented as the timer design; this extends the bank).*
-- Sound on/off toggle in the menu *(already implemented).*
-- **Estimated effort:** ~2 hours.
+### 2.5 — Speech bubbles + idle animations 🔜
+Contextual bubbles above the character (`...` investigating, `!`/"Aha!" on a clue, `?`
+questioning; auto-dismiss). Idle loops while standing still (Holmes: pipe/deerstalker;
+Watson: pocket-watch/bowler).
 
-### 2.4 — Speech Bubbles + Idle Animations 🔜
-- Speech bubbles above the character:
-  - Investigating: `...`
-  - Finding a clue: `!` / "Aha!"
-  - Questioning a suspect: `?`
-  - Disappear after 2–3 seconds.
-- Idle character animations (loop while standing still):
-  - Holmes: takes a drag from his pipe, adjusts the deerstalker.
-  - Watson: checks his pocket watch, fixes his bowler hat.
-- **Estimated effort:** ~2 hours.
-
-### 2.5 — Scripted Scare Event 🔜 *(optional polish)*
-- At the 5-minute mark: lights flicker, a scream sound plays, a new clue appears.
-- Adds drama without changing the genre.
-
-### 2.6 — Hostile Suspects After Wasted Questions 🔜 *(optional)*
-- Suspects refuse to answer (or turn aggressive) after their 3 questions are used.
+### 2.6 — Optional flavor 🔜
+- Scripted scare event at the 5-minute mark (lights flicker, scream, a new clue).
+- Hostile suspects after their 3 questions are spent (deflect / refuse).
 
 ---
 
 ## Phase 3 — Content Expansion · **FUTURE** 🔜
+- 🔜 **Live `claude-opus-4-8` generation** — switch on when API credits are available
+  (the integration point already exists; see 2.1).
 - 🔜 Map 2: **Moonlight Hotel** (1920s art-deco).
 - 🔜 Map 3: **Blackthorn Estate** (Gothic).
 - 🔜 Random map selection per game.
+- 🔜 **Multi-floor mansion expansion** *(locked in from user request)* — upper floor(s)
+  via staircase connections (e.g. Library → Upstairs Hallway → Master Bedroom /
+  Servants' Quarters / Attic) plus an optional basement (Wine Cellar, Crypt). More
+  hotspots per floor, per-floor ambient sound (creaky upstairs vs damp basement), floor
+  transition logic + camera switching, and a multi-floor-aware case generator.
+  *Substantial — ~1–2 weeks of level design + UI on its own.*
 - 🔜 Suspect portrait pools per map (Pixellab generation).
 - 🔜 Hotspot system extended to all maps.
-- 🔜 **Multi-floor mansion expansion** — add upper floor(s) via staircase connections
-  (e.g. Library → Upstairs Hallway → Master Bedroom / Servants' Quarters / Attic), plus
-  an optional basement (Wine Cellar, Crypt) via separate stairs. More hotspots per floor
-  = deeper exploration; per-floor ambient sound (creaky upstairs vs damp basement); floor
-  transition logic + camera switching; and a multi-floor-aware case generator for clue
-  distribution. *Substantial — ~1–2 weeks of level design + UI on its own.*
 
 ---
 
 ## Phase 4 — Launch · **FUTURE** 🔜
-- 🔜 Token-based reconnect for disconnect handling (completes Step 12).
+- 🔜 Token-based reconnect (completes Step 12 disconnect handling).
 - 🔜 Meta-progression: stats, win rate, accuracy, titles.
 - 🔜 Optional leaderboard.
 - 🔜 Deployment (Vercel for the frontend, Railway/Render for the backend).
@@ -161,5 +139,5 @@ client (`drawBoard.js` `drawHotspots`, `BoardCanvas.jsx`, new `ExamineModal.jsx`
 
 ---
 
-> **Note:** All Phase 2+ items are planned and documented here for future work; each
-> will be built in its own focused session. Phase 2.1 (live API) is the next track.
+> **Note:** Phase 2.4+ items are planned and built in their own focused sessions.
+> **2.4 (Audio) is the next track.**

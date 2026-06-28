@@ -3,8 +3,9 @@
 > **Last updated:** 2026-06-21
 
 Progress tracker. **Phase 1 (vertical slice) is complete**; **Phase 2 (polish) is
-mostly complete** — the next item is **2.4 (Audio)**. Phases 3–4 are planned.
-Session context lives in **[CLAUDE.md](CLAUDE.md)**.
+mostly complete** — audio **Pass 1 (2.4a) is done**; the next item is **2.4b (ambient +
+UI + dramatic audio)**. Phases 3–4 are planned. Session context lives in
+**[CLAUDE.md](CLAUDE.md)**.
 
 ---
 
@@ -87,19 +88,30 @@ only (server clamps to walkable areas); Shift alone idles; gated during modals/l
 Pressing **E** starts a **2.5s "searching" state** (input locked) before the result
 modal; **no skip** by design; `prefers-reduced-motion` pops instantly; 5s safety reset.
 No server change — opponent still only sees "examining something…" on commit. Audio
-wired as silent TODO stubs.
+hooks were silent stubs here; **now filled in 2.4a** (looping searching sfx + result dings).
 
 ### 2.3c — Cute white cloud speech bubble ✅
 Restyled the searching bubble into a soft white comic speech-cloud (warm-white fill,
 navy border, drop shadow, downward tail, bouncing charcoal dots, gentle bob, puff
 in/out). Canvas-rendered (`drawSearching`); logic unchanged.
 
-### 2.4 — Audio Polish 🔜 *(NEXT)*
-Fill the already-stubbed hooks (`playSearchingLoop` / `playClueFound` /
-`playNothingFound` + footsteps, ambient storm, UI/dramatic stings) from CC0 sources.
-Full asset list is in **[CLAUDE.md](CLAUDE.md) → Sound Assets TODO**. Searching loop,
-clue-found ding, nothing-found whoosh, walking/sprint footsteps, rain+thunder+wind
-ambient, modal/button/notebook UI sfx, lock-in + reveal stings.
+### 2.4 — Audio Polish 🟡 *(Pass 1 done; Pass 2 next)*
+
+**Pass 1 — Critical sounds ✅** *(2.4a)*
+`client/src/game/sound.js` rewritten as a real HTML5-`<audio>` manager (six preloaded
+CC0 clips, tunable per-sound volumes, autoplay-unlock on first gesture, global mute).
+Wired: **walking + sprinting footsteps** (movement-state transitions in `BoardCanvas`,
+no per-frame restarts), the **2.5s searching loop**, the **clue-found ding** /
+**nothing-found whoosh**, and the one-shot **~3s tick burst** at the 1:00 mark (replaces
+the old synthesized tick). Menu **Sound: ON/OFF** persists in `localStorage`. Verified by
+`.shots/audio-test.mjs` (30 checks, 2-tab) + the searching/hotspot suites still green;
+prod build strips the dev handle. Credits in `client/public/sounds/CREDITS.md`.
+
+**Pass 2 — Ambient + UI + dramatic 🔜** *(2.4b, NEXT)*
+Background storm loop (rain + thunder + wind) and random distants (door creak, whispers,
+floor creak); UI sfx (modal open/close, button click, notebook); dramatic stings
+(accusation lock-in, reveal unveiling). Asset list in **[CLAUDE.md](CLAUDE.md) → Sound
+Assets TODO**.
 
 ### 2.5 — Speech bubbles + idle animations 🔜
 Contextual bubbles above the character (`...` investigating, `!`/"Aha!" on a clue, `?`
@@ -139,5 +151,5 @@ Watson: pocket-watch/bowler).
 
 ---
 
-> **Note:** Phase 2.4+ items are planned and built in their own focused sessions.
-> **2.4 (Audio) is the next track.**
+> **Note:** Phase 2.4+ items are built in their own focused sessions. Audio **Pass 1
+> (2.4a) is complete**; **2.4b (ambient + UI + dramatic) is the next track.**

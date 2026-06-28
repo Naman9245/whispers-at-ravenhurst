@@ -13,7 +13,7 @@ import SuspectModal from "./components/SuspectModal.jsx";
 import AccusationModal from "./components/AccusationModal.jsx";
 import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
-import { unlockAudio, playTick, setMuted, playSearchingLoop, playClueFound, playNothingFound } from "./game/sound.js";
+import { unlockAudio, setMuted, playSearching, stopSearching, playClueFound, playNothingFound, playTickBurst } from "./game/sound.js";
 import "./index.css";
 
 const COLOR = { holmes: "#6fd6c4", watson: "#f0b85c" };
@@ -48,7 +48,9 @@ export default function App() {
   const [showActivity, setShowActivity] = useState(false);
   const [showNotebook, setShowNotebook] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [soundOn, setSoundOn] = useState(true);
+  const [soundOn, setSoundOn] = useState(() => {
+    try { return localStorage.getItem("wr.soundOn") !== "0"; } catch { return true; }
+  });
   const [seen, setSeen] = useState(0);          // activity entries already viewed
   const [pingDot, setPingDot] = useState(false);
 
@@ -117,10 +119,14 @@ export default function App() {
     }
   }, [chat.length, showActivity, seen]);
 
-  // Sound on/off (menu toggle).
-  useEffect(() => { setMuted(!soundOn); }, [soundOn]);
+  // Sound on/off (menu toggle) — applied to the manager and persisted so the
+  // preference survives a refresh. Muting also stops anything currently playing.
+  useEffect(() => {
+    setMuted(!soundOn);
+    try { localStorage.setItem("wr.soundOn", soundOn ? "1" : "0"); } catch { /* private mode */ }
+  }, [soundOn]);
 
-  // Unlock Web Audio on the first user gesture (autoplay policy).
+  // Unlock audio on the first user gesture (browser autoplay policy).
   useEffect(() => {
     const unlock = () => {
       unlockAudio();
@@ -149,7 +155,8 @@ export default function App() {
   // Clear any in-flight hotspot search (timers + searching sfx).
   const finishSearch = useCallback(() => {
     const s = searchRef.current;
-    if (s) { clearTimeout(s.timer); clearTimeout(s.safety); s.stop?.(); searchRef.current = null; }
+    if (s) { clearTimeout(s.timer); clearTimeout(s.safety); searchRef.current = null; }
+    stopSearching();   // stop the looping rustle (no-op if not playing)
   }, []);
 
   // Commit the examination: hit the server, then open the result modal.
@@ -160,12 +167,12 @@ export default function App() {
     if (!res?.ok) return flash(res?.error || "Can't examine that.");
     setExamineResult(res);
     if (res.found) {
-      playClueFound(); // TODO(Phase 2.4): clue-found ding
+      playClueFound();   // brief ding on a discovered clue
       flash("Evidence found!");
       pushChat({ who: "System", color: "#f0b85c", kind: "clue", text: `You examined ${res.hotspotName} and found evidence:` });
       pushChat({ who: "Clue", color: "#f0b85c", kind: "clue", text: res.clue.text });
     } else {
-      playNothingFound(); // TODO(Phase 2.4): soft nothing-found whoosh
+      playNothingFound();   // soft whoosh on an empty hotspot
       pushChat({ who: "System", color: "#9ad6a0", kind: "system", text: `You examined ${res.hotspotName} — nothing of interest.` });
     }
   }, [finishSearch, flash, pushChat]);
@@ -177,11 +184,11 @@ export default function App() {
     const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     if (reduced) { doExamine(hotspotId); return; }
     setExamining({ hotspotId, startTime: Date.now() });
-    const stop = playSearchingLoop(); // TODO(Phase 2.4): looping searching sfx (no-op today)
+    playSearching();   // looping rustle for the duration of the search
     const timer = setTimeout(() => doExamine(hotspotId), 2500);
     // Defensive: if the searching state ever wedges, force-reset after 5s.
     const safety = setTimeout(() => { finishSearch(); setExamining(null); }, 5000);
-    searchRef.current = { timer, safety, stop };
+    searchRef.current = { timer, safety };
   }, [doExamine, examineResult, finishSearch]);
 
   // Cancel any in-flight search if the component unmounts.
@@ -258,10 +265,7 @@ export default function App() {
   useEffect(() => {
     if (!urgent || tickBurstFired.current) return;
     tickBurstFired.current = true;
-    let n = 0;
-    const id = setInterval(() => { playTick(); if (++n >= 7) clearInterval(id); }, 420);
-    const stop = setTimeout(() => clearInterval(id), 3000);
-    return () => { clearInterval(id); clearTimeout(stop); };
+    playTickBurst();   // one-shot ~3s mp3; let it play through, no repeat
   }, [urgent]);
 
   const handleAction = useCallback((key) => {

@@ -4,6 +4,7 @@ import { BOARD_W, BOARD_H, ROOM_IDS, roomRect } from "./boardData.js";
 import { ROOM_HOTSPOTS } from "@shared/roomHotspots.js";
 import { loadSprites } from "./sprites.js";
 import { Character } from "./Character.js";
+import { playFootstepsWalk, playFootstepsSprint, stopFootsteps } from "./sound.js";
 
 const HOTSPOT_RADIUS = 48; // how close the feet must be to examine a hotspot
 
@@ -118,6 +119,14 @@ export default function BoardCanvas({
         ch.sprint = enabled && Boolean(k.shift); // Shift → 2x; gated with input
         ch.update(dt);
 
+        // Footsteps follow the movement state: walk/sprint loop while moving,
+        // silence when idle. The sound module guards against per-frame restarts,
+        // so calling these every frame only acts on a real idle↔walk↔sprint
+        // transition. Disabled input idles the character, which stops them too.
+        if (!ch.isMoving()) stopFootsteps();
+        else if (ch.sprint) playFootstepsSprint();
+        else playFootstepsWalk();
+
         // Nearest UNEXAMINED hotspot in the current room, within reach.
         const room = ch.inCorridor ? null : ch.anchorRoom;
         let activeId = null;
@@ -155,7 +164,7 @@ export default function BoardCanvas({
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => { cancelAnimationFrame(raf); canvas.removeEventListener("click", onClick); };
+    return () => { cancelAnimationFrame(raf); canvas.removeEventListener("click", onClick); stopFootsteps(); };
   }, []);
 
   return (

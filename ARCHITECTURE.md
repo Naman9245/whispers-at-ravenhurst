@@ -183,8 +183,10 @@ else if (isWalkable(this.x, ny, open)) { this.y = ny; }
 
 - **`drawBoard.js`** is pure drawing (rooms, furniture, doorways, glow). **`sprites.js`**
   loads frames from `public/assets/sprites.json` into an image cache. **`sound.js`**
-  is a tiny Web-Audio bank (`unlockAudio`, `playTick`, `setMuted`) — synthesized, so
-  it adds no download weight.
+  is the single HTML5-`<audio>` sound manager (Phase 2.4a): six preloaded CC0 clips
+  (searching loop, clue/nothing dings, walk/sprint footsteps, tick burst) behind named
+  `play…()` exports, a global mute (`setMuted`, persisted as `wr.soundOn`), and
+  `unlockAudio()` to satisfy autoplay policy on the first gesture.
 
 ### 3.4 Networking (`client/src/net/socket.js`)
 A thin promise wrapper over Socket.io; every intent is an `emit` whose ack resolves

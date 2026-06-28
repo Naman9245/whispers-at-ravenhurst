@@ -1,7 +1,7 @@
 # Project Context for Claude Code
 
 > Read this first at the start of every session. It's the fast path to full context.
-> **Last updated:** 2026-06-21
+> **Last updated:** 2026-06-29
 
 ## What This Project Is
 
@@ -13,14 +13,22 @@ cheat-proof; built as a portfolio piece.
 ## Current Phase
 
 **Phase 2 (Polish & Immersion) — mostly done.** Phase 1 (vertical slice) is fully
-complete. The next big item is **Phase 2.4 (Audio)**. See [ROADMAP.md](ROADMAP.md)
-for the full per-item breakdown.
+complete. Audio **Pass 1 (2.4a) is done** — footsteps, examination sfx, tick burst,
+mute. The next big item is **Phase 2.4b (ambient storm + UI + dramatic stings)**. See
+[ROADMAP.md](ROADMAP.md) for the full per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **2.4a** — **Critical sound integration.** `client/src/game/sound.js` is now a real
+  HTML5-`<audio>` manager (6 preloaded CC0 clips, per-sound volumes, autoplay-unlock on
+  first gesture, global mute). Wired: walk/sprint **footsteps** (transition-driven in
+  `BoardCanvas`, no per-frame restarts), the **2.5s searching loop**, **clue-found** /
+  **nothing-found** dings, and a one-shot **~3s tick burst** at the 1:00 mark (replaced
+  the old synthesized tick). Menu **Sound: ON/OFF** persists in `localStorage`. Verified
+  by `.shots/audio-test.mjs` (30 checks). Credits: `client/public/sounds/CREDITS.md`.
 - **2.3a** — Modal **Enter/Esc** close shortcuts + **Shift sprint** (2× move speed).
 - **2.3b** — **Searching animation**: pressing E starts a 2.5s "searching" state
-  (input locked) before the result modal; audio wired as silent TODO stubs.
+  (input locked) before the result modal.
 - **2.3c** — **Cute white cloud speech bubble** during searching (canvas-rendered).
 - Earlier in Phase 2: minimalist fullscreen UI restructure, **hotspot exploration
   system** (flagship), timer-urgency redesign, lock-in action lockout, comprehensive
@@ -43,11 +51,17 @@ for the full per-item breakdown.
   to clients. The opponent is reduced to `{name, character, clueCount, lockedIn,
   connected}` — never position, clues, notebook, or examined hotspots.
 - **Timer urgency:** calm/green the whole game; a **3-second tick burst at the 1:00
-  mark** (only sound that currently plays), then **visual urgency only** (red timer +
-  red edge vignette + red ACCUSE) for the final minute. No banners.
+  mark** (one-shot `tick_burst.mp3`, fired once), then **visual urgency only** (red
+  timer + red edge vignette + red ACCUSE) for the final minute. No banners.
 - **Examine flow:** walk to a hotspot → press **E** (or click it) → **2.5s searching
-  animation** (cute white cloud bubble, input locked) → result modal (clue / "Nothing
-  of interest here."). `prefers-reduced-motion` skips the 2.5s.
+  animation** (cute white cloud bubble + looping searching sfx, input locked) → result
+  modal with a **clue-found ding** or **nothing-found whoosh**. `prefers-reduced-motion`
+  skips the 2.5s (and its loop).
+- **Audio (2.4a):** one HTML5-`<audio>` manager in `client/src/game/sound.js` — the
+  ONLY place sounds are defined/played. Footsteps are wired in `BoardCanvas`; searching
+  / clue / nothing / tick burst in `App`. Global mute is the menu toggle, persisted in
+  `localStorage` (`wr.soundOn`). Nothing plays until `unlockAudio()` runs on the first
+  user gesture. Dev-only `window.__wrAudio` handle mirrors `window.__wrChar` for e2e.
 - **Modals** close with **Enter or Esc** (and their buttons).
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
@@ -86,8 +100,8 @@ client/src/
 
 ## Active TODOs (Things to Remember)
 
-- **Phase 2.4 audio assets** — full list at the bottom of this file (all sound is
-  currently silent TODO stubs except the synthesized 1:00 tick burst).
+- **Phase 2.4b audio assets** — Pass 1 (footsteps, examination sfx, tick burst, mute)
+  is DONE; the remaining ambient/UI/dramatic list is at the bottom of this file.
 - **Live `claude-opus-4-8` API integration** — pipeline + validator exist; the call
   is the slot-in point in `server/ai/generateCase.js`. **Deferred — awaiting API
   credits.** (Tracked under Phase 3.)
@@ -102,7 +116,8 @@ client/src/
 
 - **Phase 1 (Vertical Slice):** ✅ DONE
 - **Phase 2 (Polish):** 🟡 mostly DONE — UI restructure, hotspots, sprint, modal
-  keys, searching animation, cute bubble all ✅; **Audio (2.4) is next**.
+  keys, searching animation, cute bubble, **audio Pass 1 (2.4a)** all ✅;
+  **Audio Pass 2 (2.4b: ambient + UI + dramatic) is next**.
 - **Phase 3 (Content Expansion):** 🔜 planned (live API, maps 2/3, multi-floor).
 - **Phase 4 (Launch):** 🔜 planned.
 
@@ -113,8 +128,9 @@ When the user starts a new session:
 2. Read [ROADMAP.md](ROADMAP.md) for the status of every phase/item.
 3. Ask the user **"Where would you like to continue?"** and show the pending items
    from the Active TODOs above.
-4. **Default suggestion: Phase 2.4 (Audio)** — the next logical polish step (the
-   examine/movement/ambient sound hooks are already stubbed and waiting).
+4. **Default suggestion: Phase 2.4b (ambient + UI + dramatic audio)** — the next polish
+   step now that Pass 1 (footsteps/examination/tick/mute) ships. The sound manager
+   (`sound.js`) is ready to extend with the remaining clips.
 
 ## User Preferences (Important)
 
@@ -136,30 +152,28 @@ When the user starts a new session:
   running server (start it with `WHISPERS_FAST_TIMERS=1` for the timer-transition
   tests, or `=demo` for an open accuse gate + long game).
 - **e2e:** puppeteer scripts in `.shots/*.mjs` (drive 2 real Chrome tabs; use the
-  dev-only `window.__wrChar` handle for precise movement; reduced-motion skips the
-  2.5s search).
+  dev-only `window.__wrChar` handle for precise movement and `window.__wrAudio.state()`
+  for audio assertions; reduced-motion skips the 2.5s search). Audio suite:
+  `.shots/audio-test.mjs` (launch Chrome with `--autoplay-policy=no-user-gesture-required`).
 - **Dev Mode:** lobby checkbox → short timers (60s / 20s / 30s) for fast testing.
 - **Git:** project repo is `whispers-at-ravenhurst` → GitHub `Naman9245/whispers-at-ravenhurst`
   (commit messages end with the `Co-Authored-By: Claude` trailer).
 
-## Sound Assets TODO (For Phase 2.4)
+## Sound Assets TODO
 
-Source CC0 from freesound.org / pixabay / mixkit. Hooks already stubbed in
-`client/src/game/sound.js` (`playSearchingLoop`, `playClueFound`, `playNothingFound`)
-plus the existing synthesized `playTick`/`unlockAudio`/`setMuted`.
+Source CC0 from freesound.org / pixabay / mixkit. All sounds live in
+`client/src/game/sound.js`; add a new clip = one entry in its `SOUNDS` map + a named
+`play…()` export, then call it from the event site. Log each file in
+`client/public/sounds/CREDITS.md`.
 
-**Examination**
-- Searching loop (paper rustling / drawer / shuffle, ~2.5s)
-- Clue-found ding (~0.5s)
-- Nothing-found whoosh (~0.5s)
+### Pass 1 — Critical (2.4a) ✅ DONE
+- ✅ Searching loop (`examination/searching.mp3`) — `playSearching` / `stopSearching`
+- ✅ Clue-found ding (`examination/clue_found.mp3`) — `playClueFound`
+- ✅ Nothing-found whoosh (`examination/nothing_found.mp3`) — `playNothingFound`
+- ✅ Footsteps walk + sprint (`movement/footsteps_{walk,sprint}.mp3`) — `playFootsteps*`
+- ✅ Tick burst (`timer/tick_burst.mp3`, ~3s at the 1:00 mark) — `playTickBurst`
 
-**Movement**
-- Footsteps walking loop
-- Footsteps sprinting loop (faster)
-
-**Timer**
-- Tick burst (3 seconds at the 1:00 mark) — currently synthesized; may replace.
-
+### Pass 2 — Ambient + UI + dramatic (2.4b) 🔜 NEXT
 **Ambient**
 - Background loop: rain + thunder + wind
 - Random distants: footsteps elsewhere, door creak, whispers, floor creak

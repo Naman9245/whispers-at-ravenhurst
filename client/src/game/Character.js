@@ -71,18 +71,23 @@ export class Character {
 
     if (mag > 0.01) {
       dx /= mag; dy /= mag;
-      this.dir = dirFromVector(dx, dy);
-      this.state = "walking";
+      this.dir = dirFromVector(dx, dy);   // face the way we're pushing, even if blocked
       // Sprint doubles speed; the walk animation stays at normal cadence (a 2x
       // cycle reads cartoonishly), so fast feet just cover more ground per step.
       const step = (MOVE_SPEED * (this.sprint ? 2 : 1) * dt) / 1000;
       const open = this._openRooms();
+      const sx = this.x, sy = this.y;   // feet position BEFORE this step
       const nx = this.x + dx * step;
       const ny = this.y + dy * step;
       // Move on both axes if possible, else slide along whichever wall yields.
       if (isWalkable(nx, ny, open)) { this.x = nx; this.y = ny; }
       else if (isWalkable(nx, this.y, open)) { this.x = nx; }
       else if (isWalkable(this.x, ny, open)) { this.y = ny; }
+      // AFTER collision: if the feet didn't actually advance (≥0.5px on either
+      // axis), a wall is blocking us — show IDLE (facing the wall) instead of a
+      // walk cycle going nowhere ("moonwalking"). Stays IDLE until we move again.
+      const moved = Math.abs(this.x - sx) >= 0.5 || Math.abs(this.y - sy) >= 0.5;
+      this.state = moved ? "walking" : "idle";
     } else {
       this.state = "idle";
     }

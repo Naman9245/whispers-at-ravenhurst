@@ -6,7 +6,7 @@ import { loadSprites } from "./sprites.js";
 import { Character } from "./Character.js";
 import { playFootstepsWalk, playFootstepsSprint, stopFootsteps } from "./sound.js";
 
-const HOTSPOT_RADIUS = 48; // how close the feet must be to examine a hotspot
+const HOTSPOT_RADIUS = 26; // how close the feet must be to examine a hotspot (almost touching)
 
 /**
  * Renders the mansion and THIS client's own character (privacy: never the
@@ -106,7 +106,6 @@ export default function BoardCanvas({
     canvas.addEventListener("click", onClick);
 
     let raf, last = performance.now();
-    let prevX = null, prevY = null;   // last frame's feet position (for the footstep-movement gate)
     const loop = (t) => {
       const dt = Math.min(50, t - last);
       last = t;
@@ -120,16 +119,12 @@ export default function BoardCanvas({
         ch.sprint = enabled && Boolean(k.shift); // Shift → 2x; gated with input
         ch.update(dt);
 
-        // Footsteps follow the movement state: walk/sprint loop while moving,
-        // silence when idle. We also gate on ACTUAL position change — pressing
-        // into a wall keeps state "walking" but the feet don't advance, so without
-        // this you'd hear running-in-place against the wall. The sound module
-        // guards against per-frame restarts, so calling these every frame only
-        // acts on a real idle↔walk↔sprint transition. Disabled input idles the
-        // character, which stops them too.
-        const moved = prevX !== null && (Math.abs(ch.x - prevX) >= 0.5 || Math.abs(ch.y - prevY) >= 0.5);
-        prevX = ch.x; prevY = ch.y;
-        if (!ch.isMoving() || !moved) stopFootsteps();
+        // Footsteps follow the movement state. Character.update() now sets state
+        // to "idle" when a wall blocks the step (feet didn't advance), so this is
+        // silent against a wall too. The sound module guards against per-frame
+        // restarts, so calling these every frame only acts on a real
+        // idle↔walk↔sprint transition. Disabled input idles the character too.
+        if (!ch.isMoving()) stopFootsteps();
         else if (ch.sprint) playFootstepsSprint();
         else playFootstepsWalk();
 

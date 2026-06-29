@@ -1,10 +1,11 @@
-// Phase 2.4a bugfixes e2e:
-//   BUG 1 — footsteps must be SILENT when movement is blocked by a wall (no
-//           running-in-place), but play when the feet actually advance.
-//   BUG 2 — pressing E auto-faces the character toward the hotspot before the
-//           searching animation, from any approach angle.
+// Phase 2.4a bugfix regression e2e. Covers:
+//   • Wall-block: holding a key into a wall → character goes IDLE (no "moonwalk"
+//     animation) AND footsteps fall silent; moving again resumes both.
+//   • Examine proximity is tight (~26px): E does nothing from across the room,
+//     works only when almost touching the furniture.
+//   • Auto-face: pressing E turns the character toward the hotspot first.
 // Headless Chrome has no speakers, so audio is asserted via window.__wrAudio.state();
-// movement/facing via window.__wrChar. Needs client (:5173) + server (:3001).
+// movement / facing / animation-state via window.__wrChar. Needs client + server.
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
 
@@ -13,7 +14,7 @@ const URL = "http://localhost:5173", VW = 1600, VH = 900;
 let fails = 0;
 const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c) fails++; };
 const clickByText = async (p, t) => { for (const h of await p.$$("button")) if ((await h.evaluate(b => b.textContent.trim())) === t) { await h.click(); return true; } return false; };
-const pos = (p) => p.evaluate(() => ({ x: window.__wrChar.x, y: window.__wrChar.y, room: window.__wrChar.anchorRoom, dir: window.__wrChar.dir }));
+const pos = (p) => p.evaluate(() => ({ x: window.__wrChar.x, y: window.__wrChar.y, room: window.__wrChar.anchorRoom, dir: window.__wrChar.dir, state: window.__wrChar.state }));
 const aud = (p) => p.evaluate(() => (window.__wrAudio ? window.__wrAudio.state() : null));
 const place = (p, x, y, dir) => p.evaluate(({ x, y, dir }) => { const c = window.__wrChar; c.x = x; c.y = y; if (dir) c.dir = dir; }, { x, y, dir });
 const down = async (p, keys) => { for (const k of keys) await p.keyboard.down(k); };
@@ -67,14 +68,16 @@ try {
   await sleep(280);                      // keep holding 'w'
   const a2 = await pos(h);
   ok("character is wall-pinned (position not advancing)", Math.abs(a2.y - a1.y) < 0.5 && Math.abs(a2.x - a1.x) < 0.5);
+  ok("blocked by wall → character animation is IDLE (no moonwalk)", a2.state === "idle");
   let s = await aud(h);
-  ok("blocked by wall → footsteps SILENT (idle, walk loop not playing)", s.footState === "idle" && s.playing.footstepsWalk === false);
+  ok("blocked by wall → footsteps SILENT (walk loop not playing)", s.footState === "idle" && s.playing.footstepsWalk === false);
   await up(h, ["w"]);
 
   console.log("\n[2] Move AWAY from the wall → footsteps resume immediately.");
   await down(h, ["s"]); await sleep(350); // walk south, off the wall
+  const mv = await pos(h);
   s = await aud(h);
-  ok("moving again → footsteps play", s.footState === "walk" && s.playing.footstepsWalk === true);
+  ok("moving again → animation WALKING + footsteps play", mv.state === "walking" && s.footState === "walk" && s.playing.footstepsWalk === true);
   await up(h, ["s"]);
 
   console.log("\n[3] SPRINT into the wall → no sprint footstep either.");
@@ -84,6 +87,7 @@ try {
   await sleep(220);
   const b2 = await pos(h);
   ok("character is sprint-pinned (position not advancing)", Math.abs(b2.y - b1.y) < 0.5 && Math.abs(b2.x - b1.x) < 0.5);
+  ok("sprint-blocked → character animation is IDLE (no moonwalk)", b2.state === "idle");
   s = await aud(h);
   ok("blocked by wall while sprinting → SILENT (no sprint/walk loop)", s.footState === "idle" && s.playing.footstepsSprint === false && s.playing.footstepsWalk === false);
   await up(h, ["Shift", "w"]);
@@ -94,18 +98,32 @@ try {
   const c1 = await pos(h);
   s = await aud(h);
   ok("sliding along the wall moves the feet (x advanced)", Math.abs(c1.x - c0.x) >= 0.5);
-  ok("walking along the wall → footsteps play", s.footState === "walk" && s.playing.footstepsWalk === true);
+  ok("walking along the wall → animation WALKING + footsteps play", c1.state === "walking" && s.footState === "walk" && s.playing.footstepsWalk === true);
   await up(h, ["d"]);
 
-  console.log("\n=== BUG 2: E auto-faces the character toward the hotspot ===");
-  // place char OFFSET from a hotspot, facing AWAY; press E; expect facing TOWARD it.
+  console.log("\n=== BUG 2: examination proximity is tight (~26px) ===");
+  console.log("\n[5] E from across the room does NOTHING (too far from any hotspot).");
+  await place(h, 160, 250, "south");   // ~76px from the nearest hotspot (the desk)
+  await sleep(140);
+  await pressE(h); await sleep(300);
+  ok("E from afar → no examination (no modal)", !(await hasModal(h)));
+
+  console.log("\n[6] Walk right up to the desk (~18px) → E examines it.");
+  await place(h, HS.desk[0] + 18, HS.desk[1], "east");   // ~18px from the desk centre
+  await sleep(140);
+  await pressE(h); await sleep(320);
+  ok("E up close → examination starts (modal opens)", await hasModal(h));
+  if (await hasModal(h)) { await h.keyboard.press("Enter"); await sleep(180); }
+
+  console.log("\n=== BUG (regression): E auto-faces the character toward the hotspot ===");
+  // place char ~18px from a hotspot (inside the tight radius), facing AWAY; press E;
+  // expect facing TOWARD it. (the desk is already examined above, so use the other 3.)
   const faceCases = [
-    { name: "desk from the east",        at: [HS.desk[0] + 40, HS.desk[1]],            away: "east",       expect: "west" },
-    { name: "bookshelf from the SE",     at: [HS.bookshelf[0] + 30, HS.bookshelf[1] + 30], away: "south-east", expect: "north-west" },
-    { name: "fireplace from the north",  at: [HS.fireplace[0], HS.fireplace[1] - 40],  away: "north",      expect: "south" },
-    { name: "armchair from the SW",      at: [HS.armchair[0] - 28, HS.armchair[1] + 28], away: "south-west", expect: "north-east" },
+    { name: "bookshelf from the SE",     at: [HS.bookshelf[0] + 13, HS.bookshelf[1] + 13], away: "south-east", expect: "north-west" },
+    { name: "fireplace from the north",  at: [HS.fireplace[0], HS.fireplace[1] - 18],      away: "north",      expect: "south" },
+    { name: "armchair from the SW",      at: [HS.armchair[0] - 13, HS.armchair[1] + 13],   away: "south-west", expect: "north-east" },
   ];
-  let caseNo = 5;
+  let caseNo = 7;
   for (const fc of faceCases) {
     await place(h, fc.at[0], fc.at[1], fc.away);
     await sleep(140);
@@ -113,9 +131,10 @@ try {
     await pressE(h);
     await sleep(320);
     const after = (await pos(h)).dir;
+    const opened = await hasModal(h);
     console.log(`   [${caseNo}] ${fc.name}: was '${before}' → now '${after}' (expect '${fc.expect}')`);
-    ok(`auto-face: ${fc.name} → faces ${fc.expect}`, before === fc.away && after === fc.expect);
-    if (await hasModal(h)) { await h.keyboard.press("Enter"); await sleep(180); }
+    ok(`auto-face: ${fc.name} → faces ${fc.expect} (and examined within ~18px)`, before === fc.away && after === fc.expect && opened);
+    if (opened) { await h.keyboard.press("Enter"); await sleep(180); }
     caseNo++;
   }
 

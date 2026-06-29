@@ -107,6 +107,11 @@ try {
   ok("final-minute urgency vignette present", (await h.$(".vignette-edges")) !== null);
 
   console.log("\n[2] FOOTSTEPS: idle→walk→sprint→walk→idle transitions.");
+  // Park on the left side of the study so the eastward walk/sprint run has a full
+  // room-width of clearance and never reaches the east wall — running into a wall
+  // now correctly silences footsteps (see bugfix-test), which isn't what [2] tests.
+  await h.evaluate(() => { window.__wrChar.x = 110; window.__wrChar.y = 246; });
+  await sleep(60);
   await down(h, ["d"]); await sleep(250);
   s = await aud(h);
   ok("walk: footstepsWalk loop playing", s.footState === "walk" && s.playing.footstepsWalk === true && (s.plays.footstepsWalk || 0) >= 1);

@@ -47,8 +47,11 @@ try {
   await w.goto(URL, { waitUntil: "networkidle2" });
   await w.waitForSelector(".lobby"); await clickByText(w, "Join with Code");
   await w.waitForSelector(".lb-input.code"); await w.type(".lb-input.code", code, { delay: 20 }); await clickByText(w, "Join");
-  await h.waitForSelector(".board-canvas"); await sleep(2000);
-  await h.bringToFront(); await h.mouse.click(VW / 2, VH / 2);
+  await h.waitForSelector(".board-canvas");
+  await h.bringToFront(); // foreground first so rAF runs (waitForFunction polls via rAF; hidden tabs pause it)
+  await h.waitForFunction(() => !!window.__wrChar); // sprites loaded → Character ready (avoids a sleep-timing flake)
+  await sleep(1500);
+  await h.mouse.click(VW / 2, VH / 2);
 
   console.log("\n[1] Press E → 2.5s searching (no instant modal); input locked; then modal.");
   await moveTo(h, ...SPOT.study_desk);

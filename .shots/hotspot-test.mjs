@@ -56,8 +56,11 @@ try {
   await watson.goto(URL, { waitUntil: "networkidle2" });
   await watson.waitForSelector(".lobby"); await clickByText(watson, "Join with Code");
   await watson.waitForSelector(".lb-input.code"); await watson.type(".lb-input.code", code, { delay: 20 }); await clickByText(watson, "Join");
-  await holmes.waitForSelector(".board-canvas"); await sleep(2000);
-  await holmes.bringToFront(); await holmes.mouse.click(VW / 2, VH / 2);
+  await holmes.waitForSelector(".board-canvas");
+  await holmes.bringToFront(); // foreground first so rAF runs (waitForFunction polls via rAF; hidden tabs pause it)
+  await holmes.waitForFunction(() => !!window.__wrChar); // sprites loaded → Character ready (avoids a sleep-timing flake)
+  await sleep(2000);
+  await holmes.mouse.click(VW / 2, VH / 2);
 
   console.log("\n[1] Indicators render; screenshot the Study with its 4 hotspots.");
   ok("start room is STUDY", (await pos(holmes)).room === "study");

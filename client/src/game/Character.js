@@ -52,6 +52,13 @@ export class Character {
   isMoving() { return this.state === "walking"; }
   get room() { return this.anchorRoom; }
 
+  // Instantly turn to face a board point (no walking). Used when examining a
+  // hotspot so the detective looks AT the furniture instead of away from it.
+  faceToward(tx, ty) {
+    const dx = tx - this.x, dy = ty - this.y;
+    if (Math.hypot(dx, dy) > 0.01) this.dir = dirFromVector(dx, dy);
+  }
+
   // Rooms the player may currently walk into. The central corridor physically
   // connects ALL six rooms, so every room is reachable — gating entry to only the
   // anchor's graph-neighbours left players stuck at the doorways of rooms they

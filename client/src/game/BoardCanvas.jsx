@@ -101,11 +101,12 @@ export default function BoardCanvas({
       const h = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === id);
       if (!h) return;
       const hx = rr.x + h.x * rr.w, hy = rr.y + h.y * rr.h;
-      if (Math.hypot(hx - ix, hy - iy) <= 26) onExamineRef.current?.(id);
+      if (Math.hypot(hx - ix, hy - iy) <= 26) { ch.faceToward(hx, hy); onExamineRef.current?.(id); }
     };
     canvas.addEventListener("click", onClick);
 
     let raf, last = performance.now();
+    let prevX = null, prevY = null;   // last frame's feet position (for the footstep-movement gate)
     const loop = (t) => {
       const dt = Math.min(50, t - last);
       last = t;
@@ -120,10 +121,15 @@ export default function BoardCanvas({
         ch.update(dt);
 
         // Footsteps follow the movement state: walk/sprint loop while moving,
-        // silence when idle. The sound module guards against per-frame restarts,
-        // so calling these every frame only acts on a real idle↔walk↔sprint
-        // transition. Disabled input idles the character, which stops them too.
-        if (!ch.isMoving()) stopFootsteps();
+        // silence when idle. We also gate on ACTUAL position change — pressing
+        // into a wall keeps state "walking" but the feet don't advance, so without
+        // this you'd hear running-in-place against the wall. The sound module
+        // guards against per-frame restarts, so calling these every frame only
+        // acts on a real idle↔walk↔sprint transition. Disabled input idles the
+        // character, which stops them too.
+        const moved = prevX !== null && (Math.abs(ch.x - prevX) >= 0.5 || Math.abs(ch.y - prevY) >= 0.5);
+        prevX = ch.x; prevY = ch.y;
+        if (!ch.isMoving() || !moved) stopFootsteps();
         else if (ch.sprint) playFootstepsSprint();
         else playFootstepsWalk();
 
@@ -141,9 +147,14 @@ export default function BoardCanvas({
         }
         activeIdRef.current = activeId;
 
-        // Edge-triggered E → examine the active hotspot once per press.
+        // Edge-triggered E → turn to face the hotspot, then examine it (once per press).
         const ePressed = enabled && Boolean(keysRef.current.e);
-        if (ePressed && !ePrevRef.current && activeId) onExamineRef.current?.(activeId);
+        if (ePressed && !ePrevRef.current && activeId) {
+          const rr = roomRect(ch.anchorRoom);
+          const h = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === activeId);
+          if (h) ch.faceToward(rr.x + h.x * rr.w, rr.y + h.y * rr.h);
+          onExamineRef.current?.(activeId);
+        }
         ePrevRef.current = ePressed;
       }
 
@@ -159,7 +170,11 @@ export default function BoardCanvas({
       if (ch && sid && !ch.inCorridor) {
         const rr = roomRect(ch.anchorRoom);
         const hs = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === sid);
-        if (hs) drawSearching(ctx, ch.x, ch.y, rr.x + hs.x * rr.w, rr.y + hs.y * rr.h, searchStartRef.current);
+        if (hs) {
+          const hx = rr.x + hs.x * rr.w, hy = rr.y + hs.y * rr.h;
+          ch.faceToward(hx, hy);   // hold the facing toward the hotspot for the whole search
+          drawSearching(ctx, ch.x, ch.y, hx, hy, searchStartRef.current);
+        }
       }
       raf = requestAnimationFrame(loop);
     };

@@ -19,6 +19,21 @@ mute. The next big item is **Phase 2.4b (ambient storm + UI + dramatic stings)**
 
 ## Recent Work (Last Session)
 
+- **Timer-expiry verification (0:00 force-resolve).** Playtest reported the game not
+  ending at 0:00. Investigated the full chain and found the code **correct**: server
+  arms the soft cap in `rooms.js` (`scheduleForceResolve` on join) → `resolveGame`
+  emits `game:reveal` + a final `state:update` → client `App` `net.on("game:reveal")`
+  → renders `RevealScreen`, which **unmounts the board** (rAF + key listeners torn
+  down, so movement is dead). Reproduced end-to-end in a real browser (Dev Mode, 60s):
+  reveal auto-appears on both tabs, both show **Forfeited**, truth + draw shown, Play
+  Again → lobby. Conclusion: the playtest bug was a **stale zombie dev server** running
+  old code, NOT a regression. **Testing gap closed:** `server/test/accusation.js` only
+  tests `resolve()` in isolation (sets `startedAt`, calls `resolve()` directly);
+  `lobbyFlow.js` [11] covers the server-socket soft-resolve but needs a running
+  `WHISPERS_FAST_TIMERS=1` server; nothing exercised the **React client's
+  `game:reveal` handling** until the new e2e **`.shots/timer-expiry-test.mjs`** (2-tab,
+  Dev-Mode timers). Lesson: always confirm you're testing a **fresh** server — a
+  long-lived zombie can mask/fake bugs.
 - **2.4a** — **Critical sound integration.** `client/src/game/sound.js` is now a real
   HTML5-`<audio>` manager (6 preloaded CC0 clips, per-sound volumes, autoplay-unlock on
   first gesture, global mute). Wired: walk/sprint **footsteps** (transition-driven in

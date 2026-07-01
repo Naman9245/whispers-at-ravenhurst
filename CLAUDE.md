@@ -34,6 +34,20 @@ mute. The next big item is **Phase 2.4b (ambient storm + UI + dramatic stings)**
   `game:reveal` handling** until the new e2e **`.shots/timer-expiry-test.mjs`** (2-tab,
   Dev-Mode timers). Lesson: always confirm you're testing a **fresh** server — a
   long-lived zombie can mask/fake bugs.
+- **Zombie-server guard in `scripts/dev.js`.** `npm run dev` now **frees the dev ports
+  (3001, 5173) before starting** — it detects and kills any process already bound to
+  them (cross-platform: `netstat`+`taskkill` on Windows, `lsof`+`SIGKILL` on \*nix) and
+  **logs each kill** (`[dev] port 3001 was in use — killed stale process pid …`), so the
+  zombie-server trap that faked the 0:00 "bug" can't recur. Clear ports log a green
+  "no zombies" line.
+- **Accusation-timing e2e coverage.** New **`.shots/accuse-timing-e2e.mjs`** gives the
+  two ACCUSE-driven endgame paths real 2-tab browser coverage alongside the no-accuse
+  path: **S8** — one player accuses, the other stays silent → the **30s opponent window**
+  closes → the non-accuser **auto-forfeits**, submitter wins; **S9** — **both** accuse →
+  reveal fires **immediately on the 2nd lock-in** (well under the window/soft-cap), no
+  forfeits. Together with `timer-expiry-test.mjs` (S1, soft-cap double forfeit), all
+  three critical accusation-timing paths are now covered in-browser, not just at the
+  socket level (`lobbyFlow.js` [11]).
 - **2.4a** — **Critical sound integration.** `client/src/game/sound.js` is now a real
   HTML5-`<audio>` manager (6 preloaded CC0 clips, per-sound volumes, autoplay-unlock on
   first gesture, global mute). Wired: walk/sprint **footsteps** (transition-driven in
@@ -159,7 +173,9 @@ When the user starts a new session:
 
 ## Tools / Commands Reference
 
-- `npm run dev` — start server (:3001) + client (:5173) together.
+- `npm run dev` — start server (:3001) + client (:5173) together. **Frees the dev
+  ports first** (kills any process already bound to 3001/5173 and logs it) so a stale
+  zombie server can never mask fresh code — see `scripts/dev.js`.
 - `npm run install:all` — install client + server dependencies.
 - `npm run server` / `npm run client` — run each separately.
 - **Server tests:** `cd server && node test/<name>.js` — `caseValidation`,
@@ -170,6 +186,10 @@ When the user starts a new session:
   dev-only `window.__wrChar` handle for precise movement and `window.__wrAudio.state()`
   for audio assertions; reduced-motion skips the 2.5s search). Audio suite:
   `.shots/audio-test.mjs` (launch Chrome with `--autoplay-policy=no-user-gesture-required`).
+  **Accusation-timing suite (all against a normal Dev-Mode `npm run dev`):**
+  `.shots/timer-expiry-test.mjs` (S1: nobody accuses → soft-cap double forfeit) and
+  `.shots/accuse-timing-e2e.mjs` (S8: window auto-forfeit · S9: both accuse → immediate
+  reveal).
 - **Dev Mode:** lobby checkbox → short timers (60s / 20s / 30s) for fast testing.
 - **Git:** project repo is `whispers-at-ravenhurst` → GitHub `Naman9245/whispers-at-ravenhurst`
   (commit messages end with the `Co-Authored-By: Claude` trailer).

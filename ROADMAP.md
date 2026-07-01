@@ -25,7 +25,7 @@ UI + dramatic audio)**. Phases 3–4 are planned. Session context lives in
 
 | # | Step | Status | Notes |
 |---|------|--------|-------|
-| 1 | Project scaffolding (client + server + shared) | ✅ | `npm run dev` runs both |
+| 1 | Project scaffolding (client + server + shared) | ✅ | `npm run dev` runs both; **frees dev ports first (kills stale zombie server/client, logs it)** |
 | 2 | Lobby — create/join, room codes | ✅ | 5-char unambiguous codes, auto-start on 2 players |
 | 3 | Mansion board render (canvas) | ✅ | reconciled to shared map data |
 | 4 | Sprites + free-roam movement | ✅ | WASD / arrow keys with collision (no click-to-move) |
@@ -34,7 +34,7 @@ UI + dramatic audio)**. Phases 3–4 are planned. Session context lives in
 | 7 | Investigation mechanic | ✅ | (later replaced by the hotspot system, 2.2) |
 | 8 | Suspect questioning | ✅ | dialogue trees, 3-question cap, evidence confront |
 | 9 | Notebook UI | ✅ | Suspects/Weapons/Rooms tabs, 3-state marks, evidence list |
-| 10 | Accusation system with dual-window timers | ✅ | base + reasoning + speed scoring; **0:00 force-resolve verified end-to-end in-browser** via `.shots/timer-expiry-test.mjs` |
+| 10 | Accusation system with dual-window timers | ✅ | base + reasoning + speed scoring; **all 3 timing paths verified end-to-end in-browser** — soft-cap force-resolve (`.shots/timer-expiry-test.mjs`) + window auto-forfeit (S8) + both-accuse immediate reveal (S9) (`.shots/accuse-timing-e2e.mjs`) |
 | 11 | Anti-cheat server-authoritative | ✅ | single `buildView` serializer, test-covered |
 | 12 | Disconnect handling | 🟡 | detected + `peer:status` + 30s cleanup; **token-based rejoin → Phase 4** |
 

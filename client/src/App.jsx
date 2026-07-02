@@ -15,7 +15,7 @@ import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
 import {
   unlockAudio, setMuted, playSearching, stopSearching, playClueFound, playNothingFound, playTickBurst,
-  playRainLoop, stopRainLoop, playDoorCreak, playFloorCreak, playNotebookOpen,
+  playRainLoop, stopRainLoop, playDoorCreak, playFloorCreak, playButtonClick, playNotebookOpen,
   playAccusationLockIn, playReveal,
 } from "./game/sound.js";
 import "./index.css";
@@ -163,6 +163,27 @@ export default function App() {
     schedule();
     return () => clearTimeout(id);
   }, [inGame]);
+
+  // Universal UI click sound: one delegated listener guarantees playButtonClick()
+  // on EVERY <button> in the game (action pills, modal pickers, menu items, close
+  // ×, Play Again, lobby …) so no button can be missed. Buttons that own a
+  // different sound opt out with data-sound="off" (the notebook buttons play the
+  // notebook swish instead). Disabled buttons never dispatch a click, and canvas
+  // hotspot examination isn't a <button>, so both are naturally excluded.
+  //
+  // CAPTURE phase (3rd arg = true) is essential: the modal wrappers call
+  // e.stopPropagation() (to stop backdrop click-through), which — because React's
+  // stopPropagation also stops the NATIVE event at the root — would otherwise hide
+  // clicks on buttons INSIDE modals from a bubble-phase listener. Capture fires
+  // top-down before any of that, so no button is ever missed.
+  useEffect(() => {
+    const onClick = (e) => {
+      const btn = e.target.closest?.("button");
+      if (btn && btn.dataset.sound !== "off") playButtonClick();
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
 
   // Unlock audio on the first user gesture (browser autoplay policy).
   useEffect(() => {
@@ -357,7 +378,7 @@ export default function App() {
             📜 <span className="ht-label">Activity</span>
             {unread > 0 && <span className="ht-badge">{unread}</span>}
           </button>
-          <button className={`hud-tool ${showNotebook ? "on" : ""}`} onClick={() => { if (!showNotebook) playNotebookOpen(); setShowNotebook((v) => !v); setShowMenu(false); }} title="Notebook">
+          <button className={`hud-tool ${showNotebook ? "on" : ""}`} data-sound="off" onClick={() => { playNotebookOpen(); setShowNotebook((v) => !v); setShowMenu(false); }} title="Notebook">
             📓 <span className="ht-label">Notebook</span>
           </button>
           <button className={`hud-tool icon ${showMenu ? "on" : ""}`} onClick={() => { setShowMenu((v) => !v); }} title="Menu" aria-label="Menu">☰</button>
@@ -400,7 +421,7 @@ export default function App() {
         <aside className="notebook-sidebar">
           <div className="panel-head">
             <span>NOTEBOOK</span>
-            <button className="panel-x" onClick={() => setShowNotebook(false)} aria-label="Close">×</button>
+            <button className="panel-x" data-sound="off" onClick={() => { playNotebookOpen(); setShowNotebook(false); }} aria-label="Close">×</button>
           </div>
           <DeductionNotebook
             caseInfo={view.caseInfo}

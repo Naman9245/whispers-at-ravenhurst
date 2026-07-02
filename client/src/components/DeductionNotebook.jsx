@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ROOM_HOTSPOTS, HOTSPOT_BY_ID } from "@shared/roomHotspots.js";
+import { playNotebookOpen } from "../game/sound.js";
 
 // Right-hand deduction notebook. Bound to the live case (caseInfo) and the
 // player's own found clues (foundClues). Everything the player marks here is
@@ -35,7 +36,13 @@ export default function DeductionNotebook({ caseInfo, foundClues = [], examinedH
 
       <div className="notebook-tabs">
         {["suspects", "weapons", "rooms"].map((t) => (
-          <button key={t} className={`nb-tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
+          // data-sound="off": switching tabs plays the notebook swish, not the generic click.
+          <button
+            key={t}
+            className={`nb-tab ${tab === t ? "active" : ""}`}
+            data-sound="off"
+            onClick={() => { if (t !== tab) playNotebookOpen(); setTab(t); }}
+          >
             {t.toUpperCase()}
           </button>
         ))}

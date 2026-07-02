@@ -4,8 +4,10 @@
 // sound manager's observable state via window.__wrAudio.state() (per-sound play
 // counts + each element's paused flag). What's verified on the REAL path:
 //   • rain starts with gameplay, resumes on unmute, and STOPS at the reveal
-//   • the UI click fires on real MOVE / QUESTION pill clicks
-//   • the notebook-open swish fires when (and only when) the panel opens
+//   • the UI click fires on real button clicks (pills + a modal-close, via App's
+//     delegated <button> listener — not just the action bar)
+//   • the notebook swish fires on EVERY notebook interaction (open, tab switch,
+//     close) and those buttons do NOT also fire the generic click (opt-out)
 //   • the reveal sting fires on the real dev-mode soft-cap force-resolve (60s)
 // The random creaks (30–90s scheduler) and the accusation-lock-in sting are
 // exercised deterministically through the dev-only window.__wrAudio.fire.* handle
@@ -64,26 +66,49 @@ try {
   await sleep(1000);
   s = await aud(h);
   ok("rain does not stack/restart (still one play, still playing)", s.playing.rain === true && (s.plays.rain || 0) === rainPlays);
-  ok("rain sits below gameplay sounds in the mix (element volume 0.12)", await h.evaluate(() => Math.abs(window.__wrAudio.bank.rain.volume - 0.12) < 1e-6));
+  ok("rain sits well below gameplay sounds in the mix (element volume 0.04)", await h.evaluate(() => Math.abs(window.__wrAudio.bank.rain.volume - 0.04) < 1e-6));
 
-  console.log("\n[2] UI SOUNDS: click on the primary pills; notebook-open on open only.");
+  console.log("\n[2] UI CLICK: fires on every button (pills + modal close), delegated listener.");
   let b = await aud(h);
   await clickByText(h, "MOVE"); await sleep(120);
   s = await aud(h);
-  ok("MOVE pill → button click fired", (s.plays.buttonClick || 0) > (b.plays.buttonClick || 0));
+  ok("MOVE pill → click fired", (s.plays.buttonClick || 0) > (b.plays.buttonClick || 0));
   b = s;
-  await clickByText(h, "QUESTION"); await sleep(150);
+  await clickByText(h, "QUESTION"); await sleep(150);    // opens the suspect modal
   s = await aud(h);
-  ok("QUESTION pill → button click fired", (s.plays.buttonClick || 0) > (b.plays.buttonClick || 0));
-  await h.keyboard.press("Escape"); await sleep(150);   // close the suspect modal
+  ok("QUESTION pill → click fired", (s.plays.buttonClick || 0) > (b.plays.buttonClick || 0));
+  b = s;
+  // Buttons INSIDE a modal: the modal wrapper calls e.stopPropagation(), so only a
+  // CAPTURE-phase listener catches these — this is the case the fix addresses.
+  await h.click(".suspect-modal .suspect-card"); await sleep(150);   // pick a suspect
+  s = await aud(h);
+  ok("suspect card (inside stopPropagation modal) → click fired", (s.plays.buttonClick || 0) > (b.plays.buttonClick || 0));
+  b = s;
+  await h.click(".suspect-modal .modal-close"); await sleep(150);    // close × (also inside modal)
+  s = await aud(h);
+  ok("modal close × → click fired (delegated, not action-bar-only)", (s.plays.buttonClick || 0) > (b.plays.buttonClick || 0));
+  await h.keyboard.press("Escape"); await sleep(100);      // safety: ensure the modal is fully closed
+
+  console.log("\n[2b] NOTEBOOK SWISH: on open + every tab switch + close; no generic click.");
   b = await aud(h);
-  await clickTitle(h, "Notebook"); await sleep(150);     // open
+  const clickBefore = b.plays.buttonClick || 0;
+  await clickTitle(h, "Notebook"); await sleep(150);     // OPEN
   s = await aud(h);
-  ok("Notebook OPEN → notebook-open swish fired", (s.plays.notebookOpen || 0) > (b.plays.notebookOpen || 0));
-  const nbPlays = s.plays.notebookOpen || 0;
-  await clickTitle(h, "Notebook"); await sleep(150);     // close
+  ok("Notebook OPEN → swish fired", (s.plays.notebookOpen || 0) > (b.plays.notebookOpen || 0));
+  ok("Notebook OPEN → no generic click (opted out)", (s.plays.buttonClick || 0) === clickBefore);
+  b = s;
+  await clickByText(h, "WEAPONS"); await sleep(120);     // tab switch
   s = await aud(h);
-  ok("Notebook CLOSE → no extra swish (open-only)", (s.plays.notebookOpen || 0) === nbPlays);
+  ok("tab switch → Weapons → swish fired", (s.plays.notebookOpen || 0) > (b.plays.notebookOpen || 0));
+  b = s;
+  await clickByText(h, "ROOMS"); await sleep(120);        // tab switch
+  s = await aud(h);
+  ok("tab switch → Rooms → swish fired", (s.plays.notebookOpen || 0) > (b.plays.notebookOpen || 0));
+  ok("tab switches never fired the generic click (opted out)", (s.plays.buttonClick || 0) === clickBefore);
+  b = s;
+  await clickTitle(h, "Notebook"); await sleep(150);     // CLOSE
+  s = await aud(h);
+  ok("Notebook CLOSE → swish fired (every interaction, not open-only)", (s.plays.notebookOpen || 0) > (b.plays.notebookOpen || 0));
 
   console.log("\n[3] RANDOM CREAKS: door / floor fire correctly (via dev handle).");
   b = await aud(h);
@@ -107,13 +132,14 @@ try {
   s = await aud(h);
   ok("mute stops the rain bed immediately", s.muted === true && s.playing.rain === false);
   const mutedClick = s.plays.buttonClick || 0, mutedCreak = s.plays.doorCreak || 0, mutedSting = s.plays.accusationLockIn || 0;
-  await fireSound(h, "playDoorCreak"); await fireSound(h, "playAccusationLockIn"); await sleep(80);
-  await clickByText(h, "MOVE"); await sleep(120);   // real click while muted
+  // Attempt every 2.4b one-shot via the fire handle while muted — none may sound.
+  // (Handle calls, not DOM clicks, so the open menu's scrim can't be disturbed.)
+  await fireSound(h, "playButtonClick"); await fireSound(h, "playDoorCreak"); await fireSound(h, "playAccusationLockIn"); await sleep(80);
   s = await aud(h);
   ok("muted: no click sound", (s.plays.buttonClick || 0) === mutedClick);
   ok("muted: no creak", (s.plays.doorCreak || 0) === mutedCreak);
   ok("muted: no dramatic sting", (s.plays.accusationLockIn || 0) === mutedSting);
-  await clickMenu(h, /Sound/); await sleep(150);    // → ON
+  await clickMenu(h, /Sound/); await sleep(150);    // → ON (menu still open; evaluate click)
   await h.evaluate(() => document.querySelector(".panel-scrim")?.click()); await sleep(150);  // close menu
   s = await aud(h);
   ok("unmute: rain bed resumes automatically", s.muted === false && s.playing.rain === true);
@@ -133,10 +159,10 @@ try {
   console.log("\n[7] INDEPENDENCE: the opponent's tab tracks its own sounds (no leak).");
   const ws = await aud(w);
   ok("Watson has his own audio manager", !!ws);
-  // Clean no-leak proofs: sounds fired ONLY on Holmes' tab (no per-tab scheduler)
-  // must be zero on Watson's. (Creaks are NOT a leak indicator — each tab runs its
-  // own 30–90s creak scheduler, so Watson legitimately hears his own ambient creaks.)
-  ok("Watson heard no UI clicks (Holmes-only, never clicked a pill)", (ws.plays.buttonClick || 0) === 0);
+  // Clean no-leak proofs: sounds Watson NEVER triggered must be zero on his tab —
+  // proving no cross-tab leakage. (Watson legitimately has his own buttonClick count
+  // from his lobby clicks and his own creak scheduler; those aren't leaks.)
+  ok("Watson heard no notebook swish (never opened his notebook)", (ws.plays.notebookOpen || 0) === 0);
   ok("Watson heard no lock-in sting (fired only on Holmes' tab)", (ws.plays.accusationLockIn || 0) === 0);
   ok("Watson got his own reveal sting (independent)", (ws.plays.reveal || 0) >= 1);
   await w.waitForSelector(".reveal-screen", { timeout: 5000 }).catch(() => {});

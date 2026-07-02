@@ -24,11 +24,11 @@ and portfolio transparency.
 
 | File | Used for | Source | License |
 |------|----------|--------|---------|
-| `ambient/rain_loop.mp3` | Quiet looping rain bed under the whole game (vol 0.12) | _TODO: source URL_ | CC0 |
+| `ambient/rain_loop.mp3` | Near-subliminal looping rain bed under the whole game (vol 0.04) | _TODO: source URL_ | CC0 |
 | `ambient/door_creak.mp3` | Random atmospheric creak (30–90s scheduler) | _TODO: source URL_ | CC0 |
 | `ambient/floor_creak.mp3` | Random atmospheric creak (30–90s scheduler) | _TODO: source URL_ | CC0 |
-| `ui/button_click.mp3` | Soft click on the primary action pills (MOVE / QUESTION / ACCUSE) | _TODO: source URL_ | CC0 |
-| `ui/notebook_open.mp3` | Swish when the Notebook panel slides open | _TODO: source URL_ | CC0 |
+| `ui/button_click.mp3` | Soft click on EVERY button (delegated capture-phase listener, vol 0.35) | _TODO: source URL_ | CC0 |
+| `ui/notebook_open.mp3` | Swish on every Notebook interaction — open, tab switch, close (vol 0.40) | _TODO: source URL_ | CC0 |
 | `dramatic/accusation_lockin.mp3` | Sting on the "LOCKED IN — awaiting opponent" moment | _TODO: source URL_ | CC0 |
 | `dramatic/reveal.mp3` | Sting the instant the reveal screen unveils the truth | _TODO: source URL_ | CC0 |
 
@@ -41,8 +41,9 @@ The sound manager is `client/src/game/sound.js` (HTML5 `<audio>`, preloaded on a
 start). Volumes, the global mute (menu **Sound: ON/OFF**, persisted in
 `localStorage`), and autoplay-unlock-on-first-gesture all live there. Event wiring:
 footsteps in `BoardCanvas.jsx` (movement-state transitions); searching + clue/nothing
-+ tick burst + rain lifecycle + creak scheduler + notebook-open + accusation-lock-in +
-reveal stings in `App.jsx`; the UI button click in `ActionBar.jsx`.
++ tick burst + rain lifecycle + creak scheduler + notebook swish + accusation-lock-in +
+reveal stings + the universal UI button click (one delegated capture-phase `<button>`
+listener) all in `App.jsx`.
 
 ## Still deferred (future polish pass)
 

@@ -3,8 +3,7 @@
 // through App. (Investigation now happens by walking up to furniture hotspots and
 // pressing E — there is no INVESTIGATE button.) Once the player has LOCKED IN,
 // every action is disabled (grayed, no layout shift) and ACCUSE reads "LOCKED IN ✓".
-import { playButtonClick } from "../game/sound.js";
-
+// (The UI click sound is handled globally by App's delegated <button> listener.)
 const ACTIONS = [
   { key: "MOVE", label: "MOVE" },
   { key: "QUESTION SUSPECT", label: "QUESTION" },
@@ -20,10 +19,7 @@ export default function ActionBar({
   onToggleHints,
   onAction,
 }) {
-  const handle = (key) => {
-    playButtonClick();   // soft click on the primary action pills (MOVE / QUESTION / ACCUSE)
-    return key === "MOVE" ? onToggleHints?.() : onAction?.(key);
-  };
+  const handle = (key) => (key === "MOVE" ? onToggleHints?.() : onAction?.(key));
   const labelFor = (a) => (a.key === "ACCUSE" ? (locked ? "LOCKED IN ✓" : accuseLabel) : a.label);
   return (
     <div className="action-bar">

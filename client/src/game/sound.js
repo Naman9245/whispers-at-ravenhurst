@@ -30,12 +30,14 @@ const SOUNDS = {
   footstepsSprint:  { src: "/sounds/movement/footsteps_sprint.mp3",   loop: true,  volume: 0.25 },
   tickBurst:        { src: "/sounds/timer/tick_burst.mp3",            loop: false, volume: 0.60 },
   // --- 2.4b: ambient bed + random atmospheric creaks ---
-  rain:             { src: "/sounds/ambient/rain_loop.mp3",           loop: true,  volume: 0.12 },
+  // Rain is deliberately near-subliminal (0.04) — a faint "weather outside" bed,
+  // not something you consciously notice over a long session.
+  rain:             { src: "/sounds/ambient/rain_loop.mp3",           loop: true,  volume: 0.04 },
   doorCreak:        { src: "/sounds/ambient/door_creak.mp3",          loop: false, volume: 0.18 },
   floorCreak:       { src: "/sounds/ambient/floor_creak.mp3",         loop: false, volume: 0.15 },
   // --- 2.4b: UI ---
-  buttonClick:      { src: "/sounds/ui/button_click.mp3",            loop: false, volume: 0.30 },
-  notebookOpen:     { src: "/sounds/ui/notebook_open.mp3",           loop: false, volume: 0.25 },
+  buttonClick:      { src: "/sounds/ui/button_click.mp3",            loop: false, volume: 0.35 },
+  notebookOpen:     { src: "/sounds/ui/notebook_open.mp3",           loop: false, volume: 0.40 },
   // --- 2.4b: dramatic stings ---
   accusationLockIn: { src: "/sounds/dramatic/accusation_lockin.mp3", loop: false, volume: 0.50 },
   reveal:           { src: "/sounds/dramatic/reveal.mp3",            loop: false, volume: 0.50 },

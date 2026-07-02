@@ -107,17 +107,21 @@ the old synthesized tick). Menu **Sound: ON/OFF** persists in `localStorage`. Ve
 `.shots/audio-test.mjs` (30 checks, 2-tab) + the searching/hotspot suites still green;
 prod build strips the dev handle. Credits in `client/public/sounds/CREDITS.md`.
 
-**Pass 2 — Ambient + UI + dramatic ✅** *(2.4b)*
-Seven new CC0 clips added to `sound.js` (same preload/volume/mute pattern): a quiet
-looping **rain bed** (vol 0.12, sits below all gameplay sounds), **random door/floor
-creaks** on a 30–90s self-rescheduling timer (picks one, only during the playing phase),
-a **UI button click** on the primary action pills (`ActionBar`), a **notebook-open**
-swish (open-only), and the **accusation-lock-in** + **reveal** dramatic stings. Rain
-lifecycle: starts with gameplay, stops at the reveal / on return to lobby, resumes on
-unmute. Everything is mute-aware and dev-handle-observable. Verified by the new
-`.shots/audio-2.4b-test.mjs` (30 checks, 2-tab: rain + clicks + notebook real, reveal via
-the real dev-mode soft-cap force-resolve, creaks/lock-in via the dev `fire.*` handle) with
-2.4a + server suites still green.
+**Pass 2 — Ambient + UI + dramatic ✅** *(2.4b, + balance/consistency polish)*
+Seven new CC0 clips added to `sound.js` (same preload/volume/mute pattern): a
+**near-subliminal rain bed** (vol **0.04**, well below all gameplay sounds), **random
+door/floor creaks** on a 30–90s self-rescheduling timer (picks one, only during the
+playing phase), a **UI button click** (vol 0.35), a **notebook swish** (vol 0.40, on
+open + every tab switch + close), and the **accusation-lock-in** + **reveal** dramatic
+stings. Rain lifecycle: starts with gameplay, stops at the reveal / on return to lobby,
+resumes on unmute. The UI click is a **single delegated capture-phase listener** in `App`
+over every `<button>` (capture is required — modal wrappers' `e.stopPropagation()` would
+otherwise hide in-modal buttons from a bubble listener; that was a real "some buttons
+click, others don't" bug); notebook buttons opt out via `data-sound="off"`. Everything is
+mute-aware and dev-handle-observable. Verified by `.shots/audio-2.4b-test.mjs` (**32
+checks**, 2-tab: rain + clicks + notebook + an in-modal button exercised for real, reveal
+via the real dev-mode soft-cap force-resolve, creaks/lock-in via the dev `fire.*` handle)
+with 2.4a + server suites still green.
 
 *Deferred to a future polish pass (intentionally not added now):* wind + a thunder layer
 (the storm bed is **rain-only** for now), distant footsteps, whispers, and the modal

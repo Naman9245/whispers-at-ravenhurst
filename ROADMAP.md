@@ -1,11 +1,11 @@
 # Roadmap — Whispers at Ravenhurst
 
-> **Last updated:** 2026-06-21
+> **Last updated:** 2026-07-02
 
 Progress tracker. **Phase 1 (vertical slice) is complete**; **Phase 2 (polish) is
-mostly complete** — audio **Pass 1 (2.4a) is done**; the next item is **2.4b (ambient +
-UI + dramatic audio)**. Phases 3–4 are planned. Session context lives in
-**[CLAUDE.md](CLAUDE.md)**.
+mostly complete** — audio **Pass 1 (2.4a) and Pass 2 (2.4b) are both done** (a few
+ambient/UI clips deferred to a future pass — see 2.4). Phases 3–4 are planned. Session
+context lives in **[CLAUDE.md](CLAUDE.md)**.
 
 ---
 
@@ -95,7 +95,7 @@ Restyled the searching bubble into a soft white comic speech-cloud (warm-white f
 navy border, drop shadow, downward tail, bouncing charcoal dots, gentle bob, puff
 in/out). Canvas-rendered (`drawSearching`); logic unchanged.
 
-### 2.4 — Audio Polish 🟡 *(Pass 1 done; Pass 2 next)*
+### 2.4 — Audio Polish ✅ *(Pass 1 + Pass 2 done)*
 
 **Pass 1 — Critical sounds ✅** *(2.4a)*
 `client/src/game/sound.js` rewritten as a real HTML5-`<audio>` manager (six preloaded
@@ -107,11 +107,21 @@ the old synthesized tick). Menu **Sound: ON/OFF** persists in `localStorage`. Ve
 `.shots/audio-test.mjs` (30 checks, 2-tab) + the searching/hotspot suites still green;
 prod build strips the dev handle. Credits in `client/public/sounds/CREDITS.md`.
 
-**Pass 2 — Ambient + UI + dramatic 🔜** *(2.4b, NEXT)*
-Background storm loop (rain + thunder + wind) and random distants (door creak, whispers,
-floor creak); UI sfx (modal open/close, button click, notebook); dramatic stings
-(accusation lock-in, reveal unveiling). Asset list in **[CLAUDE.md](CLAUDE.md) → Sound
-Assets TODO**.
+**Pass 2 — Ambient + UI + dramatic ✅** *(2.4b)*
+Seven new CC0 clips added to `sound.js` (same preload/volume/mute pattern): a quiet
+looping **rain bed** (vol 0.12, sits below all gameplay sounds), **random door/floor
+creaks** on a 30–90s self-rescheduling timer (picks one, only during the playing phase),
+a **UI button click** on the primary action pills (`ActionBar`), a **notebook-open**
+swish (open-only), and the **accusation-lock-in** + **reveal** dramatic stings. Rain
+lifecycle: starts with gameplay, stops at the reveal / on return to lobby, resumes on
+unmute. Everything is mute-aware and dev-handle-observable. Verified by the new
+`.shots/audio-2.4b-test.mjs` (30 checks, 2-tab: rain + clicks + notebook real, reveal via
+the real dev-mode soft-cap force-resolve, creaks/lock-in via the dev `fire.*` handle) with
+2.4a + server suites still green.
+
+*Deferred to a future polish pass (intentionally not added now):* wind + a thunder layer
+(the storm bed is **rain-only** for now), distant footsteps, whispers, and the modal
+open/close pair. Tracked in **[CLAUDE.md](CLAUDE.md) → Sound Assets TODO**.
 
 ### 2.5 — Speech bubbles + idle animations 🔜
 Contextual bubbles above the character (`...` investigating, `!`/"Aha!" on a clue, `?`
@@ -152,4 +162,6 @@ Watson: pocket-watch/bowler).
 ---
 
 > **Note:** Phase 2.4+ items are built in their own focused sessions. Audio **Pass 1
-> (2.4a) is complete**; **2.4b (ambient + UI + dramatic) is the next track.**
+> (2.4a) and Pass 2 (2.4b) are complete**; a few ambient/UI clips (wind + thunder,
+> distant footsteps, whispers, modal open/close) are **deferred to a later polish pass**.
+> The next track is **2.5 (speech bubbles + idle animations)**.

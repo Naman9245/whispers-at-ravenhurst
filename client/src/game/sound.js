@@ -1,8 +1,11 @@
-// HTML5 <audio> sound manager for Whispers at Ravenhurst (Phase 2.4a).
+// HTML5 <audio> sound manager for Whispers at Ravenhurst (Phase 2.4a + 2.4b).
 //
-// Six preloaded, one-file-per-event sounds: a looping "searching" rustle, a
-// clue-found ding, a nothing-found whoosh, looping walk/sprint footsteps, and a
-// one-shot ~3s tick burst fired once at the 1:00 mark. Everything respects a
+// One preloaded, one-file-per-event <audio> element per sound. Pass 1 (2.4a):
+// a looping "searching" rustle, a clue-found ding, a nothing-found whoosh,
+// looping walk/sprint footsteps, and a one-shot ~3s tick burst at the 1:00
+// mark. Pass 2 (2.4b) adds ambience + UI + dramatic stings: a quiet looping
+// rain bed, random door/floor creaks, a UI button click, a notebook-open
+// swish, and the accusation-lock-in / reveal stings. Everything respects a
 // global mute (the menu's Sound: ON/OFF) and the browser autoplay policy —
 // nothing is audible until unlockAudio() runs inside the first user gesture.
 //
@@ -12,16 +15,30 @@
 //  • Footsteps are a tiny state machine (idle/walk/sprint). The BoardCanvas
 //    render loop calls these helpers every frame; they no-op unless the state
 //    actually changes, so there is never a per-frame restart.
+//  • The rain bed is a loop like footsteps but has no state machine — App owns
+//    its lifecycle (start on gameplay, stop on reveal/lobby, resume on unmute).
 
-// Per-sound source + behaviour. Volumes are the tunable knobs: footsteps stay
-// low (ambient over a 20-minute game); the tick burst is the loudest (urgency).
+// Per-sound source + behaviour. Volumes are the tunable knobs. The rain bed sits
+// deliberately BELOW every gameplay-critical sound (footsteps 0.20+, searching
+// 0.30, dings 0.30+) so constant ambience never competes with feedback; the
+// tick burst and the dramatic stings are the loudest (urgency / punctuation).
 const SOUNDS = {
-  searching:       { src: "/sounds/examination/searching.mp3",     loop: true,  volume: 0.30 },
-  clueFound:       { src: "/sounds/examination/clue_found.mp3",     loop: false, volume: 0.50 },
-  nothingFound:    { src: "/sounds/examination/nothing_found.mp3",  loop: false, volume: 0.30 },
-  footstepsWalk:   { src: "/sounds/movement/footsteps_walk.mp3",    loop: true,  volume: 0.20 },
-  footstepsSprint: { src: "/sounds/movement/footsteps_sprint.mp3",  loop: true,  volume: 0.25 },
-  tickBurst:       { src: "/sounds/timer/tick_burst.mp3",           loop: false, volume: 0.60 },
+  searching:        { src: "/sounds/examination/searching.mp3",      loop: true,  volume: 0.30 },
+  clueFound:        { src: "/sounds/examination/clue_found.mp3",      loop: false, volume: 0.50 },
+  nothingFound:     { src: "/sounds/examination/nothing_found.mp3",   loop: false, volume: 0.30 },
+  footstepsWalk:    { src: "/sounds/movement/footsteps_walk.mp3",     loop: true,  volume: 0.20 },
+  footstepsSprint:  { src: "/sounds/movement/footsteps_sprint.mp3",   loop: true,  volume: 0.25 },
+  tickBurst:        { src: "/sounds/timer/tick_burst.mp3",            loop: false, volume: 0.60 },
+  // --- 2.4b: ambient bed + random atmospheric creaks ---
+  rain:             { src: "/sounds/ambient/rain_loop.mp3",           loop: true,  volume: 0.12 },
+  doorCreak:        { src: "/sounds/ambient/door_creak.mp3",          loop: false, volume: 0.18 },
+  floorCreak:       { src: "/sounds/ambient/floor_creak.mp3",         loop: false, volume: 0.15 },
+  // --- 2.4b: UI ---
+  buttonClick:      { src: "/sounds/ui/button_click.mp3",            loop: false, volume: 0.30 },
+  notebookOpen:     { src: "/sounds/ui/notebook_open.mp3",           loop: false, volume: 0.25 },
+  // --- 2.4b: dramatic stings ---
+  accusationLockIn: { src: "/sounds/dramatic/accusation_lockin.mp3", loop: false, volume: 0.50 },
+  reveal:           { src: "/sounds/dramatic/reveal.mp3",            loop: false, volume: 0.50 },
 };
 
 let muted = false;
@@ -120,7 +137,31 @@ export function stopFootsteps()       { setFootState("idle"); }
 // One ~3-second tick-burst mp3 at the 1:00 mark, then silence (App fires it once).
 export function playTickBurst() { fire("tickBurst"); }
 
+// ---- 2.4b ambient bed (App owns the lifecycle) ----------------------------
+// A quiet rain loop under the whole game. Like footsteps it's a loop, but there
+// is no state machine: App starts it when gameplay begins and stops it at the
+// reveal / on return to lobby. While muted, playRainLoop no-ops; App re-calls it
+// on unmute so the bed resumes. startLoop's "already running" guard makes any
+// extra playRainLoop() call harmless.
+export function playRainLoop() { startLoop("rain"); }
+export function stopRainLoop() { halt("rain"); }
+
+// ---- 2.4b random atmospheric creaks (App schedules these) -----------------
+export function playDoorCreak()  { fire("doorCreak"); }
+export function playFloorCreak() { fire("floorCreak"); }
+
+// ---- 2.4b UI --------------------------------------------------------------
+export function playButtonClick()  { fire("buttonClick"); }
+export function playNotebookOpen() { fire("notebookOpen"); }
+
+// ---- 2.4b dramatic stings -------------------------------------------------
+export function playAccusationLockIn() { fire("accusationLockIn"); }
+export function playReveal()           { fire("reveal"); }
+
 // Dev-only handle so e2e playtests can assert audio state (mirrors window.__wrChar).
+// `fire` exposes the one-shot triggers so e2e can exercise the random creaks
+// deterministically without waiting out their 30–90s scheduler (all still route
+// through fire(), so mute/unlock behaviour is exactly the real thing).
 if (typeof window !== "undefined" && import.meta.env.DEV && bank) {
   window.__wrAudio = {
     bank,
@@ -129,5 +170,6 @@ if (typeof window !== "undefined" && import.meta.env.DEV && bank) {
       plays: { ...plays },
       playing: Object.fromEntries(Object.entries(bank).map(([k, a]) => [k, !a.paused])),
     }),
+    fire: { playDoorCreak, playFloorCreak, playButtonClick, playNotebookOpen, playAccusationLockIn, playReveal },
   };
 }

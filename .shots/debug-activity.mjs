@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
 const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
-const URL = "http://localhost:5173", VW = 1600, VH = 900;
+const URL = "http://localhost:5173/?menu=skip", VW = 1600, VH = 900;
 const clickByText = async (p, t) => { for (const h of await p.$$("button")) if ((await h.evaluate(b => b.textContent.trim())) === t) { await h.click(); return true; } return false; };
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: "new", protocolTimeout: 120000, defaultViewport: { width: VW, height: VH }, args: [`--window-size=${VW},${VH}`] });
 try {

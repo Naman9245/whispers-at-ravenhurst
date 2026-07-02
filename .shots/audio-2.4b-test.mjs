@@ -17,7 +17,7 @@ import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
-const URL = "http://localhost:5173", VW = 1600, VH = 900;
+const URL = "http://localhost:5173/?menu=skip", VW = 1600, VH = 900;
 let fails = 0;
 const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c) fails++; };
 const clickByText = async (p, t) => { for (const h of await p.$$("button")) if ((await h.evaluate(b => b.textContent.trim())) === t) { await h.click(); return true; } return false; };

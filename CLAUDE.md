@@ -13,15 +13,40 @@ cheat-proof; built as a portfolio piece.
 ## Current Phase
 
 **Phase 2 (Polish & Immersion) — mostly done.** Phase 1 (vertical slice) is fully
-complete. Audio **Pass 1 (2.4a) AND Pass 2 (2.4b) are both done** — footsteps,
-examination sfx, tick burst, mute (2.4a) + rain bed, random creaks, UI click,
-notebook-open, accusation-lock-in / reveal stings (2.4b). A few ambient/UI clips are
-deferred (wind + thunder, distant footsteps, whispers, modal open/close). The next
-item is **Phase 2.5 (speech bubbles + idle animations)**. See [ROADMAP.md](ROADMAP.md)
-for the full per-item breakdown.
+complete. Audio **2.4a + 2.4b are done**, and the **Cinematic Main Menu (2.7) is
+done** — the app now opens on an animated title screen (idle mansion + wandering
+ghost detectives) before the lobby. A few ambient/UI clips remain deferred (wind +
+thunder, distant footsteps, whispers, modal open/close). The next item is **Phase 2.5
+(speech bubbles + idle animations)**. See [ROADMAP.md](ROADMAP.md) for the full
+per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **2.7 — Cinematic Main Menu.** New top-level `phase` state in App: **menu → lobby →
+  game → reveal** (`?menu=skip` jumps straight to the lobby — all 17 e2e suites use
+  it; reveal's "Main Menu" returns to the menu, "Play Again" stays lobby-bound).
+  `MainMenu.jsx` = typewriter title (~0.8s) + random tagline + case-file-tab buttons
+  (paper-lift hover + notebook swish; Begin → door creak + 500ms fade → the EXISTING
+  lobby) over `menuScene.js` — a pure-canvas idle engine reusing `drawBoard` +
+  `Character` + `pathBetween`: two translucent **ghost detectives** wander room→room
+  (waypoint steering, **10px arrival radius** — max frame step is 8px — 2s stuck-guard,
+  kill-switch `MENU_GHOSTS_ENABLED`), camera drift (1.06 overdraw + sin/cos), room-light
+  pulses, ~250ms lightning every 20–30s (visual-only, no thunder asset). **ONE rAF,
+  zero timers** — timestamp scheduling makes StrictMode double-mount and remount leaks
+  impossible; `stop()` = cancelAnimationFrame. **Detective's Desk**: Sound (shared
+  soundOn), Fullscreen (API + `fullscreenchange` sync), **Dev Mode default**
+  (`wr.devModeDefault` in localStorage → pre-checks the lobby checkbox; lobby stays the
+  per-room source of truth). **Case Files**: fetches + renders `/sounds/CREDITS.md`
+  live (~40-line md renderer, no dep), builder credit, repo link, **v0.9.0** from
+  package.json (bumped root+client from 0.1.0). Rain + creaks now cover menu AND game
+  (App `ambient = atMenu || inGame`). **Real bug found & fixed:** on a fresh load the
+  first gesture's `unlockAudio()` priming raced the menu rain — `startLoop` saw the
+  element playing (muted prime) and skipped, then the prime paused it; `unlockAudio()`
+  now returns a settle-promise and App flips `audioUnlocked` only after it resolves.
+  Lobby waiting reskin (partner-detective text, `CASE Nº` via CSS `::before` — e2e
+  still parses the raw code from textContent). Verified: new `.shots/menu-test.mjs`
+  (**32 checks**, full cycle incl. reveal→menu restart) + 2.4a + 2.4b + timer-expiry +
+  standalone server tests all green; `.shots/menu-{1-main,2-casefiles}.png`.
 - **2.4b audio polish (balance + consistency).** Three follow-up fixes: (1) **rain
   lowered 0.12 → 0.04** — near-subliminal so it can't grate over a long session; (2)
   **notebook swish 0.25 → 0.40 and now on EVERY interaction** — open, each tab switch,
@@ -139,6 +164,13 @@ for the full per-item breakdown.
 - **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
   floor creak (never both), only during the `playing` phase; each tab runs its own
   scheduler (players hear their own ambient creaks — this is not a leak).
+- **Main menu (2.7):** the app opens on a cinematic menu (`phase` state in App) BEFORE
+  the lobby; `?menu=skip` (used by every e2e suite) starts on the lobby. The idle
+  backdrop lives in `client/src/game/menuScene.js` — ONE rAF, zero timers (timestamp
+  scheduling), `MENU_GHOSTS_ENABLED` kill-switch, dev handle `window.__wrMenu`. Rain +
+  creaks run on the menu AND in-game via App's `ambient` flag. `wr.devModeDefault`
+  (localStorage, set from the Detective's Desk) only pre-checks the lobby's Dev Mode
+  checkbox — the checkbox stays the per-room source of truth.
 - **Modals** close with **Enter or Esc** (and their buttons).
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
@@ -164,14 +196,16 @@ server/
   test/                 # node tests: caseValidation, accusation, movement,
                         #   lobbyFlow, lockout, hotspots
 client/src/
-  App.jsx               # phases (lobby→playing→reveal), event wiring, searching SM
+  App.jsx               # phases (menu→lobby→playing→reveal), event wiring, searching SM
   net/socket.js         # promise-based intent senders (the `net` object)
   game/                 # BoardCanvas.jsx (rAF loop, WASD/E/click), Character.js
                         #   (feet-based collision, sprint), drawBoard.js (board +
-                        #   drawHotspots + drawSearching), sprites.js, sound.js
+                        #   drawHotspots + drawSearching), sprites.js, sound.js,
+                        #   menuScene.js (2.7 idle-mansion engine + ghost AI)
   components/           # PlayerHud, TimerBar, ClueTracker, ActionBar, ActivityLog,
                         #   GameMenu, DeductionNotebook, SuspectModal, AccusationModal,
-                        #   ExamineModal, RevealScreen, Lobby
+                        #   ExamineModal, RevealScreen, Lobby, MainMenu, DeskPanel,
+                        #   CaseFilesPanel
 .shots/                 # puppeteer e2e scripts + screenshots (dev artifacts)
 ```
 
@@ -195,9 +229,9 @@ client/src/
 
 - **Phase 1 (Vertical Slice):** ✅ DONE
 - **Phase 2 (Polish):** 🟡 mostly DONE — UI restructure, hotspots, sprint, modal
-  keys, searching animation, cute bubble, **audio Pass 1 (2.4a)** and **Pass 2 (2.4b:
-  rain bed + creaks + UI click + notebook + dramatic stings)** all ✅ (a few ambient/UI
-  clips deferred); **Phase 2.5 (speech bubbles + idle animations) is next**.
+  keys, searching animation, cute bubble, **audio 2.4a + 2.4b**, and the **cinematic
+  main menu (2.7)** all ✅ (a few ambient/UI clips deferred); **Phase 2.5 (speech
+  bubbles + idle animations) is next**.
 - **Phase 3 (Content Expansion):** 🔜 planned (live API, maps 2/3, multi-floor).
 - **Phase 4 (Launch):** 🔜 planned.
 
@@ -235,8 +269,12 @@ When the user starts a new session:
   running server (start it with `WHISPERS_FAST_TIMERS=1` for the timer-transition
   tests, or `=demo` for an open accuse gate + long game).
 - **e2e:** puppeteer scripts in `.shots/*.mjs` (drive 2 real Chrome tabs; use the
-  dev-only `window.__wrChar` handle for precise movement and `window.__wrAudio.state()`
-  for audio assertions; reduced-motion skips the 2.5s search). Audio suite:
+  dev-only `window.__wrChar` handle for precise movement, `window.__wrAudio.state()`
+  for audio assertions, and `window.__wrMenu.state()` for the main-menu ghosts;
+  reduced-motion skips the 2.5s search). **All suites load `?menu=skip`** to start on
+  the lobby; the menu itself is covered by `.shots/menu-test.mjs` (32 checks, run
+  against a normal Dev-Mode `npm run dev`). Run scripts **from the repo root** (some
+  save screenshots to `.shots/…` relative paths). Audio suite:
   `.shots/audio-test.mjs` (launch Chrome with `--autoplay-policy=no-user-gesture-required`).
   **Accusation-timing suite (all against a normal Dev-Mode `npm run dev`):**
   `.shots/timer-expiry-test.mjs` (S1: nobody accuses → soft-cap double forfeit) and

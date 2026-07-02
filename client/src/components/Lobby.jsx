@@ -7,7 +7,11 @@ import { net } from "../net/socket.js";
 export default function Lobby({ onError }) {
   const [mode, setMode] = useState("home");   // "home" | "create" | "join" | "waiting"
   const [name, setName] = useState("");
-  const [devMode, setDevMode] = useState(false);
+  // Pre-checked from the Detective's Desk "Dev Mode default" (main menu). The
+  // checkbox here remains the per-room source of truth sent to the server.
+  const [devMode, setDevMode] = useState(() => {
+    try { return localStorage.getItem("wr.devModeDefault") === "1"; } catch { return false; }
+  });
   const [code, setCode] = useState("");
   const [waitingCode, setWaitingCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -85,10 +89,12 @@ export default function Lobby({ onError }) {
 
         {mode === "waiting" && (
           <div className="lobby-waiting">
-            <div className="lb-label">Share this code with your opponent</div>
+            <div className="lb-label">Case file opened — share this code with your partner</div>
+            {/* "CASE #" framing comes from a CSS ::before — the element's
+                textContent must stay the RAW code (e2e scripts parse it). */}
             <div className="lb-code-display">{waitingCode}</div>
             {devMode && <div className="lb-devtag">DEV MODE</div>}
-            <div className="lb-spinner">Waiting for a second detective…</div>
+            <div className="lb-spinner">Waiting for your partner detective…</div>
           </div>
         )}
       </div>

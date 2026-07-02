@@ -136,6 +136,29 @@ Watson: pocket-watch/bowler).
 - Scripted scare event at the 5-minute mark (lights flicker, scream, a new clue).
 - Hostile suspects after their 3 questions are spent (deflect / refuse).
 
+### 2.7 — Cinematic Main Menu ✅
+A proper entry screen BEFORE the lobby (flow: **menu → lobby → game → reveal**; the
+reveal's "Main Menu" button now returns to the menu, "Play Again" stays lobby-bound).
+**Idle-mansion backdrop** (`client/src/game/menuScene.js`): reuses `drawBoard` +
+`Character` + `pathBetween` for two translucent autonomous ghost detectives wandering
+room→room (waypoint steering, 10px arrival radius, 2s stuck-guard, kill-switch
+`MENU_GHOSTS_ENABLED`), slow canvas-level camera drift (1.06 overdraw + sin/cos),
+random room-light pulses, and a ~250ms lightning flicker every 20–30s (visual-only —
+no thunder asset yet). ONE rAF, zero timers → StrictMode-safe, leak-proof `stop()`.
+**UI:** typewriter title (~0.8s), random tagline (5-pool), case-file-tab buttons with
+paper-lift hover + notebook-swish, gold magnifier SVG cursor, Begin Investigation →
+door creak + 500ms fade → the EXISTING lobby. **Detective's Desk:** Sound (shared
+state), Fullscreen (API + `fullscreenchange` sync), Dev Mode default (localStorage
+`wr.devModeDefault` pre-checks the lobby checkbox — lobby stays per-room source of
+truth). **Case Files:** fetches + renders `sounds/CREDITS.md` live (tiny md renderer),
+builder credit, repo link, `v0.9.0` from package.json (bumped root+client). Rain/creak
+ambience now covers menu + game (App's `ambient`); fixed a real unlock race (rain's
+first `startLoop` during unlock priming got paused by the prime — `unlockAudio()` now
+resolves when priming settles). Lobby waiting reskin (text + `CASE Nº` via CSS
+`::before`; e2e still reads the raw code). e2e: all 17 suites migrated to
+`?menu=skip`; new **`.shots/menu-test.mjs`** (32 checks, full cycle incl.
+reveal→menu return) — all green, plus 2.4a/2.4b/timer-expiry/server regressions.
+
 ---
 
 ## Phase 3 — Content Expansion · **FUTURE** 🔜

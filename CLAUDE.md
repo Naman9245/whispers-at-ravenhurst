@@ -22,22 +22,33 @@ for the full per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **2.4b audio polish (balance + consistency).** Three follow-up fixes: (1) **rain
+  lowered 0.12 → 0.04** — near-subliminal so it can't grate over a long session; (2)
+  **notebook swish 0.25 → 0.40 and now on EVERY interaction** — open, each tab switch,
+  and close (was open-only); (3) **UI click made consistent across ALL buttons** via a
+  single delegated **capture-phase** listener in `App` (replacing the per-`ActionBar`
+  call, vol 0.30 → 0.35). Capture matters: the modal wrappers' `e.stopPropagation()`
+  (via React) also stops the native event, so a bubble-phase listener silently missed
+  buttons INSIDE `SuspectModal` / `AccusationModal` — a real "click on some buttons but
+  not others" bug, now fixed. Notebook buttons opt out with `data-sound="off"` and play
+  the swish instead. Verified: `.shots/audio-2.4b-test.mjs` extended to **32 checks**
+  (incl. an in-modal suspect-card click + tab-switch swishes) — all green; 2.4a suite +
+  prod build clean. (Learned along the way: programmatic `element.click()` doesn't
+  trigger the delegated listener in Chrome under these modals — e2e must use real clicks.)
 - **2.4b — Ambient + UI + dramatic audio.** Added 7 CC0 clips to `sound.js` (same
-  preload/volume/mute pattern as 2.4a): a quiet looping **rain bed** (vol **0.12**,
-  deliberately below every gameplay sound), **random door/floor creaks** on a **30–90s**
-  self-rescheduling timer (picks one, only during the `playing` phase), a **UI button
-  click** on the primary action pills (wired in `ActionBar.jsx`), a **notebook-open**
-  swish (open-only, not on close), and the **accusation-lock-in** + **reveal** dramatic
-  stings. Rain lifecycle in `App.jsx`: starts with gameplay, stops at the reveal / on
-  return to lobby, **resumes on unmute** (effect keyed on `inGame` + `soundOn`).
-  Everything is mute-aware (routes through the same `fire`/`startLoop` guards). Extended
-  the dev-only `window.__wrAudio` handle with a `fire.*` map so e2e can trigger the
-  creaks/stings deterministically. Verified by the new **`.shots/audio-2.4b-test.mjs`**
-  (30 checks, 2-tab: rain + clicks + notebook exercised for real, **reveal via the real
-  dev-mode soft-cap force-resolve**, creaks/lock-in via the `fire.*` handle); 2.4a suite
-  + standalone server tests still green; prod build clean. ⚠️ `rain_loop.mp3` is **~19 MB**
-  — flagged in `CREDITS.md` for re-encoding before launch. *Deferred* (intentionally):
-  wind + thunder (storm bed is rain-only), distant footsteps, whispers, modal open/close.
+  preload/volume/mute pattern as 2.4a): a quiet looping **rain bed**, **random door/floor
+  creaks** on a **30–90s** self-rescheduling timer (picks one, only during the `playing`
+  phase), a **UI button click**, a **notebook** swish, and the **accusation-lock-in** +
+  **reveal** dramatic stings. Rain lifecycle in `App.jsx`: starts with gameplay, stops at
+  the reveal / on return to lobby, **resumes on unmute** (effect keyed on `inGame` +
+  `soundOn`). Everything is mute-aware (routes through the same `fire`/`startLoop`
+  guards). Extended the dev-only `window.__wrAudio` handle with a `fire.*` map so e2e can
+  trigger the creaks/stings deterministically. Verified by **`.shots/audio-2.4b-test.mjs`**
+  (2-tab: rain + clicks + notebook exercised for real, **reveal via the real dev-mode
+  soft-cap force-resolve**, creaks/lock-in via the `fire.*` handle); 2.4a suite +
+  standalone server tests still green. ⚠️ `rain_loop.mp3` is **~19 MB** — flagged in
+  `CREDITS.md` for re-encoding before launch. *Deferred* (intentionally): wind + thunder
+  (storm bed is rain-only), distant footsteps, whispers, modal open/close.
 - **Timer-expiry verification (0:00 force-resolve).** Playtest reported the game not
   ending at 0:00. Investigated the full chain and found the code **correct**: server
   arms the soft cap in `rooms.js` (`scheduleForceResolve` on join) → `resolveGame`
@@ -106,17 +117,25 @@ for the full per-item breakdown.
   modal with a **clue-found ding** or **nothing-found whoosh**. `prefers-reduced-motion`
   skips the 2.5s (and its loop).
 - **Audio (2.4a + 2.4b):** one HTML5-`<audio>` manager in `client/src/game/sound.js` —
-  the ONLY place sounds are defined/played. Footsteps are wired in `BoardCanvas`; the UI
-  button click in `ActionBar`; everything else (searching / clue / nothing / tick burst,
-  and 2.4b's rain lifecycle, creak scheduler, notebook-open, accusation-lock-in, reveal)
-  in `App`. Global mute is the menu toggle, persisted in `localStorage` (`wr.soundOn`);
-  muting stops all playing sound (incl. the rain bed) and unmuting **resumes the rain**.
-  Nothing plays until `unlockAudio()` runs on the first user gesture. Dev-only
-  `window.__wrAudio` handle mirrors `window.__wrChar` for e2e (now also exposes a `fire.*`
-  map for deterministically triggering the one-shots).
-- **Rain bed (2.4b):** a single quiet loop (vol **0.12**) under the whole game — App
-  owns its lifecycle (start on gameplay, stop at reveal / lobby, resume on unmute). It
-  MUST sit below all gameplay-critical sounds in the mix; don't raise it above footsteps.
+  the ONLY place sounds are defined/played. Footsteps are wired in `BoardCanvas`;
+  everything else (searching / clue / nothing / tick burst, and 2.4b's rain lifecycle,
+  creak scheduler, notebook swish, accusation-lock-in, reveal) in `App`. Global mute is
+  the menu toggle, persisted in `localStorage` (`wr.soundOn`); muting stops all playing
+  sound (incl. the rain bed) and unmuting **resumes the rain**. Nothing plays until
+  `unlockAudio()` runs on the first user gesture. Dev-only `window.__wrAudio` handle
+  mirrors `window.__wrChar` for e2e (also exposes a `fire.*` map for triggering one-shots).
+- **UI click (2.4b):** a SINGLE delegated **capture-phase** click listener in `App`
+  (`document.addEventListener("click", …, true)`) plays `playButtonClick()` for every
+  `<button>` — so no button is ever missed. **Capture is required**: modal wrappers call
+  `e.stopPropagation()` (backdrop guard), which via React also stops the native event, so
+  a bubble-phase listener would silently miss in-modal buttons. Buttons that own another
+  sound opt out with `data-sound="off"` (the notebook buttons → notebook swish). Disabled
+  buttons don't dispatch clicks, and canvas hotspot examination isn't a `<button>`.
+- **Rain bed (2.4b):** a single **near-subliminal** loop (vol **0.04**) under the whole
+  game — App owns its lifecycle (start on gameplay, stop at reveal / lobby, resume on
+  unmute). It MUST stay well below all gameplay-critical sounds; don't raise it.
+- **Notebook swish (2.4b):** `playNotebookOpen()` fires on EVERY notebook interaction —
+  open, each tab switch (Suspects/Weapons/Rooms), and close (vol **0.40**).
 - **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
   floor creak (never both), only during the `playing` phase; each tab runs its own
   scheduler (players hear their own ambient creaks — this is not a leak).

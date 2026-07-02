@@ -1,7 +1,7 @@
 # Project Context for Claude Code
 
 > Read this first at the start of every session. It's the fast path to full context.
-> **Last updated:** 2026-06-29
+> **Last updated:** 2026-07-02
 
 ## What This Project Is
 
@@ -13,12 +13,31 @@ cheat-proof; built as a portfolio piece.
 ## Current Phase
 
 **Phase 2 (Polish & Immersion) — mostly done.** Phase 1 (vertical slice) is fully
-complete. Audio **Pass 1 (2.4a) is done** — footsteps, examination sfx, tick burst,
-mute. The next big item is **Phase 2.4b (ambient storm + UI + dramatic stings)**. See
-[ROADMAP.md](ROADMAP.md) for the full per-item breakdown.
+complete. Audio **Pass 1 (2.4a) AND Pass 2 (2.4b) are both done** — footsteps,
+examination sfx, tick burst, mute (2.4a) + rain bed, random creaks, UI click,
+notebook-open, accusation-lock-in / reveal stings (2.4b). A few ambient/UI clips are
+deferred (wind + thunder, distant footsteps, whispers, modal open/close). The next
+item is **Phase 2.5 (speech bubbles + idle animations)**. See [ROADMAP.md](ROADMAP.md)
+for the full per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **2.4b — Ambient + UI + dramatic audio.** Added 7 CC0 clips to `sound.js` (same
+  preload/volume/mute pattern as 2.4a): a quiet looping **rain bed** (vol **0.12**,
+  deliberately below every gameplay sound), **random door/floor creaks** on a **30–90s**
+  self-rescheduling timer (picks one, only during the `playing` phase), a **UI button
+  click** on the primary action pills (wired in `ActionBar.jsx`), a **notebook-open**
+  swish (open-only, not on close), and the **accusation-lock-in** + **reveal** dramatic
+  stings. Rain lifecycle in `App.jsx`: starts with gameplay, stops at the reveal / on
+  return to lobby, **resumes on unmute** (effect keyed on `inGame` + `soundOn`).
+  Everything is mute-aware (routes through the same `fire`/`startLoop` guards). Extended
+  the dev-only `window.__wrAudio` handle with a `fire.*` map so e2e can trigger the
+  creaks/stings deterministically. Verified by the new **`.shots/audio-2.4b-test.mjs`**
+  (30 checks, 2-tab: rain + clicks + notebook exercised for real, **reveal via the real
+  dev-mode soft-cap force-resolve**, creaks/lock-in via the `fire.*` handle); 2.4a suite
+  + standalone server tests still green; prod build clean. ⚠️ `rain_loop.mp3` is **~19 MB**
+  — flagged in `CREDITS.md` for re-encoding before launch. *Deferred* (intentionally):
+  wind + thunder (storm bed is rain-only), distant footsteps, whispers, modal open/close.
 - **Timer-expiry verification (0:00 force-resolve).** Playtest reported the game not
   ending at 0:00. Investigated the full chain and found the code **correct**: server
   arms the soft cap in `rooms.js` (`scheduleForceResolve` on join) → `resolveGame`
@@ -86,11 +105,21 @@ mute. The next big item is **Phase 2.4b (ambient storm + UI + dramatic stings)**
   animation** (cute white cloud bubble + looping searching sfx, input locked) → result
   modal with a **clue-found ding** or **nothing-found whoosh**. `prefers-reduced-motion`
   skips the 2.5s (and its loop).
-- **Audio (2.4a):** one HTML5-`<audio>` manager in `client/src/game/sound.js` — the
-  ONLY place sounds are defined/played. Footsteps are wired in `BoardCanvas`; searching
-  / clue / nothing / tick burst in `App`. Global mute is the menu toggle, persisted in
-  `localStorage` (`wr.soundOn`). Nothing plays until `unlockAudio()` runs on the first
-  user gesture. Dev-only `window.__wrAudio` handle mirrors `window.__wrChar` for e2e.
+- **Audio (2.4a + 2.4b):** one HTML5-`<audio>` manager in `client/src/game/sound.js` —
+  the ONLY place sounds are defined/played. Footsteps are wired in `BoardCanvas`; the UI
+  button click in `ActionBar`; everything else (searching / clue / nothing / tick burst,
+  and 2.4b's rain lifecycle, creak scheduler, notebook-open, accusation-lock-in, reveal)
+  in `App`. Global mute is the menu toggle, persisted in `localStorage` (`wr.soundOn`);
+  muting stops all playing sound (incl. the rain bed) and unmuting **resumes the rain**.
+  Nothing plays until `unlockAudio()` runs on the first user gesture. Dev-only
+  `window.__wrAudio` handle mirrors `window.__wrChar` for e2e (now also exposes a `fire.*`
+  map for deterministically triggering the one-shots).
+- **Rain bed (2.4b):** a single quiet loop (vol **0.12**) under the whole game — App
+  owns its lifecycle (start on gameplay, stop at reveal / lobby, resume on unmute). It
+  MUST sit below all gameplay-critical sounds in the mix; don't raise it above footsteps.
+- **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
+  floor creak (never both), only during the `playing` phase; each tab runs its own
+  scheduler (players hear their own ambient creaks — this is not a leak).
 - **Modals** close with **Enter or Esc** (and their buttons).
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
@@ -129,8 +158,10 @@ client/src/
 
 ## Active TODOs (Things to Remember)
 
-- **Phase 2.4b audio assets** — Pass 1 (footsteps, examination sfx, tick burst, mute)
-  is DONE; the remaining ambient/UI/dramatic list is at the bottom of this file.
+- **Deferred audio clips** — Pass 1 (2.4a) and Pass 2 (2.4b) are DONE. Still to source
+  + slot into `sound.js` later: **wind + thunder** (storm bed is rain-only), **distant
+  footsteps**, **whispers**, and the **modal open/close** pair. List at the bottom of
+  this file. Also re-encode **`rain_loop.mp3` (~19 MB)** to a smaller seamless loop.
 - **Live `claude-opus-4-8` API integration** — pipeline + validator exist; the call
   is the slot-in point in `server/ai/generateCase.js`. **Deferred — awaiting API
   credits.** (Tracked under Phase 3.)
@@ -145,8 +176,9 @@ client/src/
 
 - **Phase 1 (Vertical Slice):** ✅ DONE
 - **Phase 2 (Polish):** 🟡 mostly DONE — UI restructure, hotspots, sprint, modal
-  keys, searching animation, cute bubble, **audio Pass 1 (2.4a)** all ✅;
-  **Audio Pass 2 (2.4b: ambient + UI + dramatic) is next**.
+  keys, searching animation, cute bubble, **audio Pass 1 (2.4a)** and **Pass 2 (2.4b:
+  rain bed + creaks + UI click + notebook + dramatic stings)** all ✅ (a few ambient/UI
+  clips deferred); **Phase 2.5 (speech bubbles + idle animations) is next**.
 - **Phase 3 (Content Expansion):** 🔜 planned (live API, maps 2/3, multi-floor).
 - **Phase 4 (Launch):** 🔜 planned.
 
@@ -157,9 +189,10 @@ When the user starts a new session:
 2. Read [ROADMAP.md](ROADMAP.md) for the status of every phase/item.
 3. Ask the user **"Where would you like to continue?"** and show the pending items
    from the Active TODOs above.
-4. **Default suggestion: Phase 2.4b (ambient + UI + dramatic audio)** — the next polish
-   step now that Pass 1 (footsteps/examination/tick/mute) ships. The sound manager
-   (`sound.js`) is ready to extend with the remaining clips.
+4. **Default suggestion: Phase 2.5 (speech bubbles + idle animations)** — the next polish
+   step now that audio Pass 1 (2.4a) and Pass 2 (2.4b) both ship. *(Optional smaller
+   audio follow-up:* the deferred clips — wind + thunder for the storm bed, distant
+   footsteps, whispers, modal open/close — slot straight into `sound.js` when sourced.)
 
 ## User Preferences (Important)
 
@@ -208,16 +241,26 @@ Source CC0 from freesound.org / pixabay / mixkit. All sounds live in
 - ✅ Footsteps walk + sprint (`movement/footsteps_{walk,sprint}.mp3`) — `playFootsteps*`
 - ✅ Tick burst (`timer/tick_burst.mp3`, ~3s at the 1:00 mark) — `playTickBurst`
 
-### Pass 2 — Ambient + UI + dramatic (2.4b) 🔜 NEXT
+### Pass 2 — Ambient + UI + dramatic (2.4b) ✅ DONE
 **Ambient**
-- Background loop: rain + thunder + wind
-- Random distants: footsteps elsewhere, door creak, whispers, floor creak
+- ✅ Rain bed loop (`ambient/rain_loop.mp3`, vol 0.12) — `playRainLoop` / `stopRainLoop`
+- ✅ Random door creak (`ambient/door_creak.mp3`) — `playDoorCreak` (30–90s scheduler)
+- ✅ Random floor creak (`ambient/floor_creak.mp3`) — `playFloorCreak` (30–90s scheduler)
 
 **UI**
-- Modal open / close
-- Button click
-- Notebook open / close
+- ✅ Button click (`ui/button_click.mp3`) — `playButtonClick` (primary action pills)
+- ✅ Notebook open (`ui/notebook_open.mp3`) — `playNotebookOpen` (open-only)
 
 **Dramatic**
-- Accusation lock-in sting
-- Reveal-screen unveiling
+- ✅ Accusation lock-in sting (`dramatic/accusation_lockin.mp3`) — `playAccusationLockIn`
+- ✅ Reveal-screen unveiling (`dramatic/reveal.mp3`) — `playReveal`
+
+### Deferred to a later polish pass 🔜
+**Ambient**
+- Storm layers: **thunder + wind** (the bed is rain-only for now)
+- Random distants: **footsteps elsewhere**, **whispers**
+
+**UI**
+- **Modal open / close** (the ExamineModal/SuspectModal/AccusationModal backdrops)
+
+> Reminder: re-encode **`rain_loop.mp3` (~19 MB)** to a smaller seamless loop before launch.

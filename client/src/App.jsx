@@ -13,7 +13,11 @@ import SuspectModal from "./components/SuspectModal.jsx";
 import AccusationModal from "./components/AccusationModal.jsx";
 import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
-import { unlockAudio, setMuted, playSearching, stopSearching, playClueFound, playNothingFound, playTickBurst } from "./game/sound.js";
+import {
+  unlockAudio, setMuted, playSearching, stopSearching, playClueFound, playNothingFound, playTickBurst,
+  playRainLoop, stopRainLoop, playDoorCreak, playFloorCreak, playNotebookOpen,
+  playAccusationLockIn, playReveal,
+} from "./game/sound.js";
 import "./index.css";
 
 const COLOR = { holmes: "#6fd6c4", watson: "#f0b85c" };
@@ -100,7 +104,10 @@ export default function App() {
     const offPeer = net.on("peer:status", ({ connected }) =>
       flash(connected ? "Opponent reconnected." : "Opponent disconnected…")
     );
-    const offReveal = net.on("game:reveal", (payload) => { setReveal(payload); setShowAccuse(false); });
+    const offReveal = net.on("game:reveal", (payload) => {
+      setReveal(payload); setShowAccuse(false);
+      playReveal();   // dramatic sting the instant the truth is unveiled (rain bed stops via inGame)
+    });
     return () => { offStart(); offUpdate(); offChat(); offPeer(); offReveal(); };
   }, [flash, applyView]);
 
@@ -125,6 +132,37 @@ export default function App() {
     setMuted(!soundOn);
     try { localStorage.setItem("wr.soundOn", soundOn ? "1" : "0"); } catch { /* private mode */ }
   }, [soundOn]);
+
+  // Is gameplay actually on screen? (Not lobby, not the reveal.) Drives the
+  // rain bed and the creak scheduler below.
+  const inGame = view?.status === "playing" && !reveal;
+
+  // Rain ambience: a quiet loop under the whole game. Starts when gameplay
+  // begins, stops at the reveal / on return to lobby. Declared AFTER the mute
+  // effect so `muted` is fresh — muting stops the bed (via setMuted→stopAll),
+  // and this re-runs on unmute (soundOn dep) to resume it.
+  useEffect(() => {
+    if (inGame && soundOn) playRainLoop();
+    else stopRainLoop();
+  }, [inGame, soundOn]);
+
+  // Random atmospheric creaks: every 30–90s (re-randomised each time) play EITHER
+  // a door OR a floor creak, only while gameplay is on screen. A self-rescheduling
+  // timeout (not a fixed interval) gives the varied cadence; fire() no-ops while
+  // muted, so nothing creaks when the sound is off.
+  useEffect(() => {
+    if (!inGame) return;
+    let id;
+    const schedule = () => {
+      const delay = 30_000 + Math.random() * 60_000;   // 30–90s
+      id = setTimeout(() => {
+        (Math.random() < 0.5 ? playDoorCreak : playFloorCreak)();
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => clearTimeout(id);
+  }, [inGame]);
 
   // Unlock audio on the first user gesture (browser autoplay policy).
   useEffect(() => {
@@ -215,6 +253,7 @@ export default function App() {
     const res = await net.accuse(payload);
     if (!res?.ok) return res;   // modal shows the specific error inline
     setShowAccuse(false);
+    playAccusationLockIn();   // dramatic sting on the "LOCKED IN — awaiting opponent" moment
     flash("Accusation locked — awaiting opponent's accusation…");
     return res;
   }, [flash]);
@@ -318,7 +357,7 @@ export default function App() {
             📜 <span className="ht-label">Activity</span>
             {unread > 0 && <span className="ht-badge">{unread}</span>}
           </button>
-          <button className={`hud-tool ${showNotebook ? "on" : ""}`} onClick={() => { setShowNotebook((v) => !v); setShowMenu(false); }} title="Notebook">
+          <button className={`hud-tool ${showNotebook ? "on" : ""}`} onClick={() => { if (!showNotebook) playNotebookOpen(); setShowNotebook((v) => !v); setShowMenu(false); }} title="Notebook">
             📓 <span className="ht-label">Notebook</span>
           </button>
           <button className={`hud-tool icon ${showMenu ? "on" : ""}`} onClick={() => { setShowMenu((v) => !v); }} title="Menu" aria-label="Menu">☰</button>

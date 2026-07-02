@@ -2,7 +2,7 @@
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
 const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
-const URL = "http://localhost:5173", VW = 1600, VH = 900, BOARD_W = 1472, BOARD_H = 860;
+const URL = "http://localhost:5173/?menu=skip", VW = 1600, VH = 900, BOARD_W = 1472, BOARD_H = 860;
 const clickByText = async (p, t) => { for (const h of await p.$$("button")) if ((await h.evaluate(b => b.textContent.trim())) === t) { await h.click(); return true; } return false; };
 const pos = (p) => p.evaluate(() => ({ x: window.__wrChar.x, y: window.__wrChar.y }));
 async function moveTo(page, tx, ty, tol = 10, max = 200) {

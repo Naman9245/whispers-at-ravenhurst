@@ -366,7 +366,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; }
+  /* transitions too — the menu's fade / paper-lift are transitions, which the
+     animation rule alone would not stop */
+  * { animation: none !important; transition: none !important; }
 }
 
 /* ===== Lobby ===== */
@@ -666,4 +668,126 @@ body {
 
 @media (max-width: 720px) {
   .reveal-players { grid-template-columns: 1fr; }
+}
+
+/* ============================ Main Menu (2.7) ============================ */
+/* Cinematic entry screen: idle-mansion canvas behind a typewriter title and
+   case-file-tab buttons. The magnifier cursor is an inline SVG data URI in the
+   project gold (#c9a23f → %23c9a23f). */
+.main-menu {
+  position: fixed; inset: 0; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='9' cy='9' r='6' fill='rgba(201,162,63,0.15)' stroke='%23c9a23f' stroke-width='2.5'/%3E%3Cline x1='13.5' y1='13.5' x2='21' y2='21' stroke='%23c9a23f' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") 9 9, auto;
+}
+.main-menu button {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ccircle cx='9' cy='9' r='6' fill='rgba(201,162,63,0.3)' stroke='%23f0b85c' stroke-width='2.5'/%3E%3Cline x1='13.5' y1='13.5' x2='21' y2='21' stroke='%23f0b85c' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") 9 9, pointer;
+}
+.mm-canvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; image-rendering: pixelated;
+}
+.mm-scrim {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(21,14,30,0.25) 0%, rgba(21,14,30,0.66) 78%),
+    linear-gradient(rgba(21,14,30,0.35), rgba(21,14,30,0.55));
+}
+.mm-content {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 24px; text-align: center;
+}
+.mm-title span { display: block; min-height: 1.15em; }   /* no shift while typing */
+.mm-caret {
+  display: inline-block; width: 0.55ch; height: 0.85em; margin-left: 5px;
+  background: var(--amber); vertical-align: -2px;
+  animation: mm-caret 0.8s steps(2, start) infinite;
+}
+@keyframes mm-caret { 50% { opacity: 0; } }
+.mm-tagline {
+  margin: 0; font-style: italic; font-size: 15px;
+  color: rgba(240,230,210,0.78); text-shadow: 1px 1px 0 #000;
+}
+
+/* Case-file tab buttons */
+.mm-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 26px; width: min(330px, 84vw); }
+.mm-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  font-family: inherit; font-size: 16px; font-weight: 700; letter-spacing: 1px;
+  color: var(--cream); text-align: left;
+  background: linear-gradient(rgba(240,230,210,0.10), rgba(240,230,210,0.05));
+  border: 1px solid rgba(201,162,63,0.5); border-left: 5px solid var(--gold);
+  border-radius: 3px 8px 8px 3px; padding: 13px 18px;
+  box-shadow: 0 2px 0 rgba(0,0,0,0.45);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.mm-btn:hover {
+  transform: translateY(-3px);                             /* paper lift */
+  background: linear-gradient(rgba(240,230,210,0.17), rgba(240,230,210,0.09));
+  box-shadow: 0 6px 14px rgba(0,0,0,0.55), 0 2px 0 rgba(0,0,0,0.45);
+}
+.mm-btn-icon { color: var(--amber); font-size: 14px; }
+
+/* Fade-to-black hand-off into the lobby */
+.mm-fade {
+  position: fixed; inset: 0; z-index: 60; background: #000;
+  opacity: 0; transition: opacity 0.5s ease; pointer-events: none;
+}
+.mm-fade.on { opacity: 1; pointer-events: all; }
+
+/* Themed panels (Detective's Desk / Case Files) */
+.mm-panel-backdrop {
+  position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.mm-panel {
+  width: min(480px, 92vw); max-height: 82vh; overflow-y: auto;
+  background: linear-gradient(rgba(52,36,26,0.97), rgba(38,26,20,0.97));   /* warm wood/parchment */
+  border: 2px solid var(--gold); border-radius: 8px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6); padding: 16px 18px;
+}
+.mm-panel.files { width: min(560px, 94vw); }
+.mm-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 14px; font-weight: 800; letter-spacing: 2px; color: var(--amber);
+  border-bottom: 1px dashed rgba(201,162,63,0.5); padding-bottom: 9px; margin-bottom: 12px;
+}
+.mm-hint { font-size: 10px; font-weight: 400; font-style: italic; opacity: 0.7; margin-left: 5px; }
+.mm-panel-foot { margin-top: 12px; text-align: center; }
+
+/* Case Files credits body (rendered from /sounds/CREDITS.md) */
+.mm-credits-body { font-size: 12px; line-height: 1.55; color: rgba(240,230,210,0.88); }
+.mm-credits-body h3 { font-size: 14px; color: var(--amber); letter-spacing: 1px; margin: 4px 0 8px; }
+.mm-credits-body h4 { font-size: 12.5px; color: var(--gold); letter-spacing: 1px; margin: 12px 0 6px; }
+.mm-credits-body blockquote {
+  margin: 8px 0; padding: 6px 10px; font-size: 11px;
+  border-left: 3px solid var(--gold); background: rgba(201,162,63,0.08);
+}
+.mm-credits-body code {
+  font-family: inherit; font-size: 11px; color: var(--teal);
+  background: rgba(0,0,0,0.3); padding: 0 4px; border-radius: 3px;
+}
+.mm-credits-body a { color: var(--teal); }
+.mm-credits-loading { opacity: 0.6; font-style: italic; }
+.mm-credits-table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 11px; }
+.mm-credits-table th {
+  text-align: left; color: var(--amber); font-size: 10.5px; letter-spacing: 1px;
+  border-bottom: 1px solid rgba(201,162,63,0.5); padding: 3px 6px;
+}
+.mm-credits-table td { padding: 3px 6px; border-bottom: 1px solid rgba(240,230,210,0.08); vertical-align: top; }
+.mm-credits-footer {
+  display: flex; flex-direction: column; gap: 5px; align-items: center;
+  margin-top: 14px; padding-top: 10px; border-top: 1px dashed rgba(201,162,63,0.5);
+  font-size: 12px; color: rgba(240,230,210,0.85);
+}
+.mm-repo-link { color: var(--teal); text-decoration: none; }
+.mm-repo-link:hover { text-decoration: underline; }
+.mm-version { font-size: 11px; color: var(--amber); letter-spacing: 1px; }
+
+/* Waiting-room case framing: decorative only — e2e parses the element's
+   textContent for the raw room code, so the label lives in a ::before. */
+.lb-code-display::before {
+  content: "CASE Nº"; display: block;
+  font-size: 12px; font-weight: 700; letter-spacing: 4px;
+  color: var(--gold); text-shadow: none; margin-bottom: 2px;
 }

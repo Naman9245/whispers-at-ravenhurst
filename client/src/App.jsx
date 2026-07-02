@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { net } from "./net/socket.js";
 import Lobby from "./components/Lobby.jsx";
+import MainMenu from "./components/MainMenu.jsx";
 import BoardCanvas from "./game/BoardCanvas.jsx";
 import PlayerHud from "./components/PlayerHud.jsx";
 import ActionBar from "./components/ActionBar.jsx";
@@ -35,6 +36,13 @@ function fmtMs(ms) {
 // the activity log and notebook live behind toggles and slide in from the edges,
 // so nothing covers the board during normal play.
 export default function App() {
+  // Top-level phase BEFORE any server state exists: the cinematic main menu,
+  // then the lobby. Once a game starts, `view` takes over. `?menu=skip` jumps
+  // straight to the lobby (used by the .shots e2e suites).
+  const [phase, setPhase] = useState(() => {
+    try { return new URLSearchParams(location.search).get("menu") === "skip" ? "lobby" : "menu"; }
+    catch { return "menu"; }
+  });
   const [view, setView] = useState(null);
   const [chat, setChat] = useState([]);
   const [showHints, setShowHints] = useState(false);
@@ -55,6 +63,7 @@ export default function App() {
   const [soundOn, setSoundOn] = useState(() => {
     try { return localStorage.getItem("wr.soundOn") !== "0"; } catch { return true; }
   });
+  const [audioUnlocked, setAudioUnlocked] = useState(false);  // first-gesture autoplay unlock ran
   const [seen, setSeen] = useState(0);          // activity entries already viewed
   const [pingDot, setPingDot] = useState(false);
 
@@ -133,25 +142,30 @@ export default function App() {
     try { localStorage.setItem("wr.soundOn", soundOn ? "1" : "0"); } catch { /* private mode */ }
   }, [soundOn]);
 
-  // Is gameplay actually on screen? (Not lobby, not the reveal.) Drives the
-  // rain bed and the creak scheduler below.
+  // Where the storm ambience lives: the cinematic main menu AND active gameplay
+  // (not the lobby, not the reveal). Drives the rain bed + creak scheduler below.
   const inGame = view?.status === "playing" && !reveal;
+  const atMenu = phase === "menu" && !view && !reveal;
+  const ambient = atMenu || inGame;
 
-  // Rain ambience: a quiet loop under the whole game. Starts when gameplay
-  // begins, stops at the reveal / on return to lobby. Declared AFTER the mute
-  // effect so `muted` is fresh — muting stops the bed (via setMuted→stopAll),
-  // and this re-runs on unmute (soundOn dep) to resume it.
+  // Rain ambience: a quiet loop under the menu and the whole game. Stops in the
+  // lobby / at the reveal. Declared AFTER the mute effect so `muted` is fresh —
+  // muting stops the bed (via setMuted→stopAll), and this re-runs on unmute
+  // (soundOn dep) to resume it. The audioUnlocked dep matters on a FRESH page
+  // load: the menu mounts before any gesture, so the first playRainLoop() no-ops
+  // (autoplay lock); re-running after the unlock gesture actually starts it.
   useEffect(() => {
-    if (inGame && soundOn) playRainLoop();
+    if (ambient && soundOn) playRainLoop();
     else stopRainLoop();
-  }, [inGame, soundOn]);
+  }, [ambient, soundOn, audioUnlocked]);
 
   // Random atmospheric creaks: every 30–90s (re-randomised each time) play EITHER
-  // a door OR a floor creak, only while gameplay is on screen. A self-rescheduling
-  // timeout (not a fixed interval) gives the varied cadence; fire() no-ops while
-  // muted, so nothing creaks when the sound is off.
+  // a door OR a floor creak, on the menu and while gameplay is on screen. A
+  // self-rescheduling timeout (not a fixed interval) gives the varied cadence;
+  // fire() no-ops while muted, so nothing creaks when the sound is off. Cleanup
+  // clears the pending timeout, so menu→lobby→game can never stack schedulers.
   useEffect(() => {
-    if (!inGame) return;
+    if (!ambient) return;
     let id;
     const schedule = () => {
       const delay = 30_000 + Math.random() * 60_000;   // 30–90s
@@ -162,7 +176,7 @@ export default function App() {
     };
     schedule();
     return () => clearTimeout(id);
-  }, [inGame]);
+  }, [ambient]);
 
   // Universal UI click sound: one delegated listener guarantees playButtonClick()
   // on EVERY <button> in the game (action pills, modal pickers, menu items, close
@@ -185,10 +199,13 @@ export default function App() {
     return () => document.removeEventListener("click", onClick, true);
   }, []);
 
-  // Unlock audio on the first user gesture (browser autoplay policy).
+  // Unlock audio on the first user gesture (browser autoplay policy). Flips
+  // audioUnlocked AFTER the priming settles so ambience that no-oped pre-gesture
+  // (menu rain) re-triggers cleanly — mid-prime, startLoop would be skipped and
+  // then paused by the prime itself.
   useEffect(() => {
     const unlock = () => {
-      unlockAudio();
+      Promise.resolve(unlockAudio()).then(() => setAudioUnlocked(true));
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
     };
@@ -344,7 +361,17 @@ export default function App() {
   }, [chat.length]);
 
   if (reveal) {
-    return <RevealScreen reveal={reveal} me={view?.you?.character} onPlayAgain={backToLobby} onMainMenu={backToLobby} />;
+    return (
+      <RevealScreen
+        reveal={reveal}
+        me={view?.you?.character}
+        onPlayAgain={backToLobby}
+        onMainMenu={() => { backToLobby(); setPhase("menu"); }}
+      />
+    );
+  }
+  if (atMenu) {
+    return <MainMenu onBegin={() => setPhase("lobby")} soundOn={soundOn} onToggleSound={() => setSoundOn((s) => !s)} />;
   }
   if (!view || view.status === "lobby") {
     return <Lobby onError={flash} />;

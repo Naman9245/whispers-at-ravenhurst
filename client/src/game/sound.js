@@ -100,17 +100,24 @@ function stopAll() {
 // so later programmatic plays — the clue/nothing dings, the timer tick burst,
 // and the rAF-driven footstep loops, none of which originate in a gesture — are
 // allowed by the browser autoplay policy.
+//
+// Returns a promise that resolves once ALL priming has settled. Callers that
+// want to start a loop right after unlocking (the main menu's rain bed) must
+// wait for it: mid-prime an element is playing-muted, so startLoop's "already
+// running" guard would skip it and the prime's pause() would then silence it.
 export function unlockAudio() {
-  if (unlocked || !bank) return;
+  if (unlocked || !bank) return Promise.resolve();
   unlocked = true;
-  for (const a of Object.values(bank)) {
+  const primes = Object.values(bank).map((a) => {
     try {
       a.muted = true;
       const p = a.play();
-      if (p?.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
-      else { a.pause(); a.currentTime = 0; a.muted = false; }
+      if (p?.then) return p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; }).catch(() => { a.muted = false; });
+      a.pause(); a.currentTime = 0; a.muted = false;
     } catch { a.muted = false; }
-  }
+    return Promise.resolve();
+  });
+  return Promise.allSettled(primes);
 }
 
 // ---- examination (App's 2.5s searching flow) ------------------------------

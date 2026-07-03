@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { playDoorCreak, playNotebookOpen } from "../game/sound.js";
+import { playNotebookOpen } from "../game/sound.js";
 import DeskPanel from "./DeskPanel.jsx";
 import CaseFilesPanel from "./CaseFilesPanel.jsx";
 
@@ -7,9 +7,10 @@ import CaseFilesPanel from "./CaseFilesPanel.jsx";
 // typewriter title, a random tagline, and three case-file-style entries.
 // The idle-mansion backdrop is NOT rendered here — App mounts a shared
 // <MenuBackdrop/> that stays alive across menu ⇄ lobby, so "Begin
-// Investigation" only creaks the door and fades the CONTENT out (~300ms)
-// before handing off to the EXISTING lobby via onBegin — same scene, new
-// foreground. Rain + random creaks are owned by App (its `ambient` effects).
+// Investigation" just fades the CONTENT out (~300ms) before handing off to the
+// EXISTING lobby via onBegin — same scene, new foreground. The buttons use the
+// standard UI click (creaks are ambient-only, reserved for the random in-game
+// scheduler). Rain + creaks are owned by App (its `ambient` / `inGame` effects).
 
 export const TAGLINES = [
   "Only one detective uncovers the truth.",
@@ -55,9 +56,9 @@ export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
   const begin = () => {
     if (leaving) return;               // double-click guard
     setLeaving(true);
-    playDoorCreak();                   // the manor door groans open…
-    // Content-only fade (the shared backdrop keeps running underneath —
-    // NO cut to black; the lobby panel takes over the same scene).
+    // Content-only fade (the shared backdrop keeps running underneath — NO cut
+    // to black; the lobby panel takes over the same scene). The button's own
+    // click sound comes from App's delegated listener (no data-sound="off").
     leaveTimer.current = setTimeout(onBegin, reducedMotion() ? 0 : 300);
   };
 
@@ -75,8 +76,7 @@ export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
         <p className="mm-tagline">{tagline}</p>
 
         <div className="mm-actions">
-          {/* data-sound="off": Begin plays the door creak, not the generic click */}
-          <button className="mm-btn" data-sound="off" onMouseEnter={() => playNotebookOpen()} onClick={begin}>
+          <button className="mm-btn" onMouseEnter={() => playNotebookOpen()} onClick={begin}>
             <span className="mm-btn-icon">▶</span> Begin Investigation
           </button>
           <button className="mm-btn" onMouseEnter={() => playNotebookOpen()} onClick={() => setPanel("desk")}>

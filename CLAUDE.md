@@ -22,6 +22,24 @@ per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **2.7 bug-fix pass (5 playtest bugs).** (1) **Reliable click sound** — `fire()` in
+  `sound.js` now plays a short-lived **clone** per shot (a single `<audio>` can't
+  retrigger mid-play → the "sometimes silent" clicks); clones are cached, referenced
+  until `ended`, and stopped by `stopAll()`. (2) **Persistent rain** — added a
+  `loopIntent` set + an `ended`→restart self-heal on loop elements and a defensive
+  `a.loop = true` in `startLoop`, so the bed can't die mid-session. (3a) **Creaks
+  regated to `inGame` only** (the continuity fix had broadened them to `ambient`, so
+  they fired on menu/lobby); rain stays `ambient`, creaks are gameplay-only. (3b)
+  **Begin no longer plays `playDoorCreak()`** — creaks are strictly the random in-game
+  scheduler now; Begin uses the standard delegated UI click (dropped its
+  `data-sound="off"`). (4) **Ghost separation** in `menuScene.js` — spawn in different
+  rooms, exclude the other ghost's current/target room when picking a destination
+  (`targetRoom` published), and a per-frame `separateGhosts` repulsion (GHOST_SEP 46px,
+  walkable-clamped) so they never overlap. (5) **Tagline overlap** — `.mm-tagline` got
+  a semi-opaque pill backdrop anchored to the text, covering any room label behind it
+  at any width. Verified: `menu-test.mjs` → **47 checks** (rapid-click reliability,
+  ghost min-separation sampling, zero-creaks-in-pre-game, rain-never-stops, Begin
+  click-not-creak) + 2.4a/2.4b regressions green.
 - **2.7 fix-up — Menu/Lobby visual continuity.** The lobby no longer feels like a
   different app: the idle-mansion scene is extracted into **`MenuBackdrop.jsx`**, and
   App mounts it ONCE in a shared `.pre-game` wrapper covering **menu AND lobby** —
@@ -188,9 +206,10 @@ per-item breakdown.
   `MENU_GHOSTS_ENABLED` kill-switch, dev handle `window.__wrMenu`); it renders through
   **`MenuBackdrop.jsx`, which App mounts ONCE in the shared `.pre-game` wrapper over
   BOTH menu and lobby** — never remount it per screen (same tree position = the scene
-  never resets; it unmounts only when a game starts / the reveal shows). Rain + creaks
-  run on ALL pre-game screens AND in-game via App's `ambient` flag (only the reveal is
-  storm-free). Menu↔lobby transitions are content-only fades — **no cuts to black**.
+  never resets; it unmounts only when a game starts / the reveal shows). **Rain** runs
+  on ALL pre-game screens AND in-game via App's `ambient` flag (only the reveal is
+  storm-free); **random creaks are `inGame`-only** (never on menu/lobby — and no button
+  triggers a creak). Menu↔lobby transitions are content-only fades — **no cuts to black**.
   Lobby entry buttons are `.mm-btn` case-file tabs whose icons are CSS
   `content: attr(data-icon)` — their **textContent must stay exactly** "Create Room" /
   "Join with Code" (e2e exact-matches). `wr.devModeDefault` (localStorage, set from

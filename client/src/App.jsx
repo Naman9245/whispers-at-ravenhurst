@@ -163,12 +163,14 @@ export default function App() {
   }, [ambient, soundOn, audioUnlocked]);
 
   // Random atmospheric creaks: every 30–90s (re-randomised each time) play EITHER
-  // a door OR a floor creak, on the menu and while gameplay is on screen. A
+  // a door OR a floor creak — ONLY during real gameplay (the investigation phase),
+  // never on the menu/lobby/panels. (Rain is `ambient`; creaks are strictly
+  // `inGame` — the shared pre-game backdrop must stay silent of creaks.) A
   // self-rescheduling timeout (not a fixed interval) gives the varied cadence;
   // fire() no-ops while muted, so nothing creaks when the sound is off. Cleanup
   // clears the pending timeout, so menu→lobby→game can never stack schedulers.
   useEffect(() => {
-    if (!ambient) return;
+    if (!inGame) return;
     let id;
     const schedule = () => {
       const delay = 30_000 + Math.random() * 60_000;   // 30–90s

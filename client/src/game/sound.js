@@ -47,6 +47,8 @@ let muted = false;
 let unlocked = false;
 let footState = "idle";       // "idle" | "walk" | "sprint"
 const plays = {};             // per-sound play count (observability; drives the dev handle)
+const loopIntent = new Set(); // loop keys we intend to keep alive (drives self-heal)
+const oneShots = new Set();   // live one-shot clones, referenced until they finish
 
 // Preload one <audio> element per sound on import (i.e. at app start). Guarded so
 // non-browser environments (node tests/SSR) don't throw on `new Audio`.
@@ -56,6 +58,15 @@ const bank = (typeof Audio !== "undefined")
       a.preload = "auto";
       a.loop = s.loop;
       a.volume = s.volume;
+      // Self-heal loops: if a loop element ever fires `ended` (loop somehow
+      // dropped, a decode hiccup, a boundary glitch on the long rain file…),
+      // restart it as long as we still intend it to play. Guarantees the rain
+      // bed never dies during menu/lobby/game until we explicitly halt it.
+      if (s.loop) a.addEventListener("ended", () => {
+        if (loopIntent.has(key) && !muted && unlocked) {
+          try { a.currentTime = 0; a.play()?.catch(() => {}); } catch { /* ignore */ }
+        }
+      });
       return [key, a];
     }))
   : null;
@@ -70,28 +81,49 @@ export function setMuted(v) {
 export function isMuted() { return muted; }
 
 // ---- low-level helpers ----------------------------------------------------
-// One-shot: rewind to 0 then play (a single element can't stack on itself).
+// One-shot: play a fresh CLONE so rapid/overlapping presses each play cleanly
+// from the start. A single <audio> element can't retrigger reliably mid-play —
+// that's the "sometimes silent" click. Clones are cheap (the file is already
+// cached), are kept referenced so they can't be GC'd mid-play, and self-remove
+// when they finish.
 function fire(key) {
-  const a = el(key);
-  if (!a || muted || !unlocked) return;
-  try { a.currentTime = 0; a.play()?.catch(() => {}); plays[key] = (plays[key] || 0) + 1; } catch { /* ignore */ }
+  const base = el(key);
+  if (!base || muted || !unlocked) return;
+  try {
+    const node = base.cloneNode(true);
+    node.loop = false;
+    node.volume = base.volume;
+    oneShots.add(node);
+    const done = () => oneShots.delete(node);
+    node.addEventListener("ended", done, { once: true });
+    node.addEventListener("error", done, { once: true });
+    node.play()?.catch(done);
+    plays[key] = (plays[key] || 0) + 1;
+  } catch { /* ignore */ }
 }
 // Loop: start only if not already running, so repeated calls don't restart it.
+// Records loop intent + re-asserts `loop=true` so the bed genuinely loops forever.
 function startLoop(key) {
   const a = el(key);
   if (!a || muted || !unlocked) return;
+  loopIntent.add(key);
+  a.loop = true;
   if (!a.paused) return;
   try { a.currentTime = 0; a.play()?.catch(() => {}); plays[key] = (plays[key] || 0) + 1; } catch { /* ignore */ }
 }
-// Stop + rewind. Safe to call when already stopped (no-op).
+// Stop + rewind. Safe to call when already stopped (no-op). Clears loop intent
+// so the self-heal handler won't resurrect a deliberately-stopped loop.
 function halt(key) {
   const a = el(key);
   if (!a) return;
+  loopIntent.delete(key);
   try { a.pause(); a.currentTime = 0; } catch { /* ignore */ }
 }
 function stopAll() {
   if (!bank) return;
   for (const key of Object.keys(bank)) halt(key);
+  for (const node of oneShots) { try { node.pause(); } catch { /* ignore */ } }
+  oneShots.clear();
   footState = "idle";
 }
 

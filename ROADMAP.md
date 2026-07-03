@@ -171,6 +171,15 @@ with the same style unifying the Desk/Case Files footers. `menu-test.mjs` → **
 checks** (continuity marker across round-trips, rain-through-lobby, back navigation,
 backdrop-unmounts-in-game, fresh-scene-after-reveal).
 
+**Bug-fix pass (5 playtest bugs):** (1) reliable click sound — `fire()` plays a
+clone-per-shot so rapid presses never go silent; (2) persistent rain — `loopIntent` +
+`ended`→restart self-heal + defensive `loop=true`; (3) creaks regated to `inGame` only
+(the continuity fix had broadened them to `ambient`) and the Begin button's door-creak
+removed (creaks are strictly the random in-game scheduler now); (4) ghost separation
+(different-room spawns + target-room exclusion + a 46px repulsion pass) so the two
+detectives never overlap; (5) tagline overlap fixed with a text-anchored pill backdrop.
+`menu-test.mjs` → **47 checks**; 2.4a/2.4b audio suites still green.
+
 ---
 
 ## Phase 3 — Content Expansion · **FUTURE** 🔜

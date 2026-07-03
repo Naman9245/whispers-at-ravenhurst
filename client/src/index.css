@@ -719,9 +719,14 @@ body {
   animation: mm-caret 0.8s steps(2, start) infinite;
 }
 @keyframes mm-caret { 50% { opacity: 0; } }
+/* Semi-opaque pill anchored to the text itself: it always covers exactly
+   whatever room label sits behind the tagline, at any viewport width (so the
+   overlap can't just reappear over a different label at another size). */
 .mm-tagline {
   margin: 0; font-style: italic; font-size: 15px;
-  color: rgba(240,230,210,0.78); text-shadow: 1px 1px 0 #000;
+  color: rgba(240,230,210,0.92); text-shadow: 1px 1px 0 #000;
+  display: inline-block; padding: 5px 16px; border-radius: 999px;
+  background: rgba(21,14,30,0.74); border: 1px solid rgba(201,162,63,0.3);
 }
 
 /* Case-file tab buttons */

@@ -4,10 +4,12 @@
 // ghosts (via the dev window.__wrMenu handle), rain-after-first-gesture, hover
 // swish, the Detective's Desk panel (sound toggle + dev-mode default → lobby
 // carry-over), the Case Files panel (CREDITS.md rendered + version), Begin
-// Investigation (door creak + content fade → the lobby OVER THE SAME LIVING
-// BACKDROP — a __wrMenu marker proves the scene is never remounted, and the
-// rain carries through), the lobby's menu-style entry buttons + themed ← Back
-// (round-trips to the menu without a scene restart), and the full cycle:
+// Investigation (standard click, NO creak, + content fade → the lobby OVER THE
+// SAME LIVING BACKDROP — a __wrMenu marker proves the scene is never remounted,
+// and the rain carries through), rapid-click reliability (clone-per-shot), that
+// NO creaks ever fire in the pre-game family (creaks are in-game-only), the
+// ghosts never overlapping, the lobby's menu-style entry buttons + themed ←
+// Back (round-trips to the menu without a scene restart), and the full cycle:
 // dev-mode game (backdrop fully unmounted) → reveal → "Main Menu" returns to a
 // FRESH menu scene with no leaked errors.
 // Needs client (:5173) + server (:3001) running.
@@ -65,12 +67,22 @@ try {
   ok("both ghosts spawned (sprites loaded)", haveGhosts);
   if (haveGhosts) {
     const s0 = await menuState(h);
-    await sleep(5500);   // idle is 2–4s max, so any 5.5s window must include movement
-    const s1 = await menuState(h);
-    const moved = s0.ghosts.some((g, i) =>
-      Math.hypot(g.x - s1.ghosts[i].x, g.y - s1.ghosts[i].y) > 4);
-    ok("ghosts actually moved over 5.5s", moved);
-    ok("ghosts stayed on the board", s1.ghosts.every((g) => g.x > 0 && g.x < 1328 && g.y > 0 && g.y < 860));
+    ok("ghosts spawn in DIFFERENT rooms", s0.ghosts[0].room !== s0.ghosts[1].room);
+    // Sample separation across a long window that spans several room changes and
+    // corridor crossings — they must never come close to overlapping.
+    let minSep = Infinity;
+    let moved = false;
+    for (let i = 0; i < 40; i++) {          // ~8s of sampling
+      const st = await menuState(h);
+      const [a, b] = st.ghosts;
+      minSep = Math.min(minSep, Math.hypot(a.x - b.x, a.y - b.y));
+      if (Math.hypot(a.x - s0.ghosts[0].x, a.y - s0.ghosts[0].y) > 4) moved = true;
+      await sleep(200);
+    }
+    ok("ghosts actually wander (moved from spawn)", moved);
+    ok(`ghosts never overlap (min separation ${minSep.toFixed(0)}px > 28)`, minSep > 28);
+    const last = await menuState(h);
+    ok("ghosts stayed on the board", last.ghosts.every((g) => g.x > 0 && g.x < 1328 && g.y > 0 && g.y < 860));
   }
 
   console.log("\n[3] AUDIO: rain after the first gesture; hover plays the notebook swish.");
@@ -85,6 +97,23 @@ try {
   await sleep(150);
   s = await aud(h);
   ok("button hover → notebook swish", (s.plays.notebookOpen || 0) > swishBefore);
+
+  console.log("\n[3b] RAPID CLICKS: every press fires a click (clone-per-shot, no misses).");
+  // Detective's Desk button toggles a panel open — closing with Esc between
+  // clicks keeps it clickable. 6 rapid presses must yield 6 click increments.
+  const clickB4 = (await aud(h)).plays.buttonClick || 0;
+  const N = 6;
+  for (let i = 0; i < N; i++) {
+    await clickByText(h, "Detective");   // opens desk panel (a real click)
+    await h.keyboard.press("Escape");    // close it again
+    await sleep(40);                     // deliberately fast
+  }
+  await sleep(150);
+  s = await aud(h);
+  ok(`all ${N} rapid clicks fired (buttonClick +${(s.plays.buttonClick || 0) - clickB4})`,
+    (s.plays.buttonClick || 0) - clickB4 >= N);
+  ok("no creak fired from any click (creaks are ambient-only)",
+    (s.plays.doorCreak || 0) === 0 && (s.plays.floorCreak || 0) === 0);
 
   console.log("\n[4] DETECTIVE'S DESK: sound toggle + dev-mode default.");
   await clickByText(h, "Detective");
@@ -116,18 +145,19 @@ try {
   ok("GitHub repo link shown", filesText.includes("github.com/Naman9245/whispers-at-ravenhurst"));
   await h.keyboard.press("Escape"); await sleep(150);
 
-  console.log("\n[6] BEGIN INVESTIGATION: door creak → content fade → the EXISTING lobby, SAME scene.");
+  console.log("\n[6] BEGIN INVESTIGATION: click (no creak) → content fade → the EXISTING lobby, SAME scene.");
   // Tag the running scene so we can prove the backdrop is never remounted
   // across menu ⇄ lobby (a remount = fresh __wrMenu = the marker vanishes).
   await h.evaluate(() => { if (window.__wrMenu) window.__wrMenu.__marker = "continuity"; });
   s = await aud(h);
-  const creaksBefore = s.plays.doorCreak || 0;
+  const creaksBefore = (s.plays.doorCreak || 0) + (s.plays.floorCreak || 0);
   const clicksBefore = s.plays.buttonClick || 0;
   await clickByText(h, "Begin Investigation");
   await sleep(150);
   s = await aud(h);
-  ok("door creak fired on Begin", (s.plays.doorCreak || 0) > creaksBefore);
-  ok("Begin did NOT fire the generic click (data-sound off)", (s.plays.buttonClick || 0) === clicksBefore);
+  ok("Begin fires the standard UI click", (s.plays.buttonClick || 0) > clicksBefore);
+  ok("Begin does NOT fire a creak (creaks are ambient-only now)",
+    (s.plays.doorCreak || 0) + (s.plays.floorCreak || 0) === creaksBefore);
   await h.waitForSelector(".lobby", { timeout: 2000 });
   ok("lobby appeared after the ~300ms content fade", (await h.$(".lobby")) !== null);
   ok("main menu content unmounted", (await h.$(".main-menu")) === null);
@@ -163,6 +193,14 @@ try {
   await h.waitForSelector(".lobby-form");
   const preChecked = await h.$eval('.lb-check input[type="checkbox"]', (el) => el.checked);
   ok("Dev Mode checkbox pre-checked from the desk default", preChecked === true);
+
+  console.log("\n[7b] CREAK GATING: after ALL menu/lobby/panel/back activity, ZERO creaks.");
+  // Everything above (menu, panels, rapid clicks, lobby, ← Back round-trips) is
+  // pre-game — the creak scheduler is gated to real gameplay, so nothing creaked.
+  s = await aud(h);
+  ok("no door/floor creak anywhere in the pre-game family of screens",
+    (s.plays.doorCreak || 0) === 0 && (s.plays.floorCreak || 0) === 0);
+  ok("rain STILL looping after the whole pre-game session (never stopped)", s.playing.rain === true);
 
   console.log("\n[8] FULL CYCLE: dev game → reveal → Main Menu returns to the menu.");
   await clickByText(h, "Create");   // dev mode already checked via the default

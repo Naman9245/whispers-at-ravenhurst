@@ -20,7 +20,7 @@
 import { drawBoard } from "./drawBoard.js";
 import { Character } from "./Character.js";
 import { loadSprites } from "./sprites.js";
-import { BOARD_W, BOARD_H, ROOM_IDS, roomRect, pathBetween, PALETTE } from "./boardData.js";
+import { BOARD_W, BOARD_H, ROOM_IDS, roomRect, pathBetween, isWalkable, PALETTE } from "./boardData.js";
 
 // Kill switch for the wandering detectives (leave the rest of the scene alive)
 // in case they misbehave or cost too much on low-end devices.
@@ -30,6 +30,7 @@ const DRIFT_SCALE = 1.06;      // overdraw so drift never exposes the board edge
 const DRIFT_X = 12, DRIFT_Y = 8;             // px amplitude (< overdraw margin ~40/26)
 const ARRIVE = 10;                           // waypoint arrival radius (> max 8px step)
 const GHOST_ALPHA = 0.55;
+const GHOST_SEP = 46;          // min feet-distance before the two ghosts repel apart
 const LIGHT_EVERY_MIN = 4000, LIGHT_EVERY_MAX = 6000, LIGHT_DUR = 2500;
 const LIGHTNING_MIN = 20000, LIGHTNING_MAX = 30000, LIGHTNING_DUR = 260;
 
@@ -39,18 +40,27 @@ const pick = (arr) => arr[(Math.random() * arr.length) | 0];
 // One autonomous wanderer: idle in a room → pick another room → walk the
 // pathBetween() waypoints → idle 2–4s → repeat. A 2s stuck guard drops the
 // route and goes idle if collision ever pins us (self-heals corner cases).
+// `targetRoom` is published so the OTHER ghost can steer clear (they never head
+// to the same room), and a per-frame repulsion pass keeps them from overlapping
+// when their paths cross in the corridor.
 class Ghost {
   constructor(ch, now) {
     this.ch = ch;
     this.waypoints = [];
+    this.targetRoom = null;
     this.idleUntil = now + rand(400, 2400);  // stagger the first departure
     this.lastX = ch.x; this.lastY = ch.y;
     this.stuckMs = 0;
   }
-  update(now, dt) {
+  update(now, dt, others) {
     const ch = this.ch;
     if (!this.waypoints.length && now >= this.idleUntil) {
-      const next = pick(ROOM_IDS.filter((r) => r !== ch.anchorRoom));
+      // Avoid the room the other ghost is in OR heading to, so they spread out.
+      const taken = new Set();
+      for (const o of others) { if (o === this) continue; taken.add(o.ch.anchorRoom); if (o.targetRoom) taken.add(o.targetRoom); }
+      const free = ROOM_IDS.filter((r) => r !== ch.anchorRoom && !taken.has(r));
+      const next = pick(free.length ? free : ROOM_IDS.filter((r) => r !== ch.anchorRoom));
+      this.targetRoom = next;
       this.waypoints = pathBetween(ch.anchorRoom, next);
     }
     if (this.waypoints.length) {
@@ -59,7 +69,7 @@ class Ghost {
       const d = Math.hypot(dx, dy);
       if (d < ARRIVE) {
         this.waypoints.shift();
-        if (!this.waypoints.length) { ch.setInput(0, 0); this.idleUntil = now + rand(2000, 4000); }
+        if (!this.waypoints.length) { ch.setInput(0, 0); this.targetRoom = null; this.idleUntil = now + rand(2000, 4000); }
       } else {
         ch.setInput(dx / d, dy / d);
       }
@@ -71,13 +81,38 @@ class Ghost {
     if (this.waypoints.length && Math.hypot(ch.x - this.lastX, ch.y - this.lastY) < 0.5) {
       this.stuckMs += dt;
       if (this.stuckMs > 2000) {
-        this.waypoints = []; ch.setInput(0, 0);
+        this.waypoints = []; ch.setInput(0, 0); this.targetRoom = null;
         this.idleUntil = now + rand(2000, 4000); this.stuckMs = 0;
       }
     } else {
       this.stuckMs = 0;
     }
     this.lastX = ch.x; this.lastY = ch.y;
+  }
+}
+
+// Nudge a ghost by (dx,dy) but only into walkable space (slide on one axis if a
+// wall blocks the diagonal) — the same collision rule the character movement uses.
+function nudge(ch, dx, dy) {
+  if (isWalkable(ch.x + dx, ch.y + dy, ROOM_IDS)) { ch.x += dx; ch.y += dy; }
+  else if (isWalkable(ch.x + dx, ch.y, ROOM_IDS)) { ch.x += dx; }
+  else if (isWalkable(ch.x, ch.y + dy, ROOM_IDS)) { ch.y += dy; }
+}
+// Repulsion pass: push any two ghosts closer than GHOST_SEP apart so they never
+// visually overlap (room-exclusion handles the common case; this covers paths
+// crossing in the corridor).
+function separateGhosts(ghosts) {
+  for (let i = 0; i < ghosts.length; i++) {
+    for (let j = i + 1; j < ghosts.length; j++) {
+      const a = ghosts[i].ch, b = ghosts[j].ch;
+      let dx = b.x - a.x, dy = b.y - a.y;
+      let d = Math.hypot(dx, dy);
+      if (d >= GHOST_SEP) continue;
+      if (d < 0.01) { dx = 1; dy = 0; d = 1; }   // exactly coincident → arbitrary axis
+      const push = (GHOST_SEP - d) / 2, ux = dx / d, uy = dy / d;
+      nudge(a, -ux * push, -uy * push);
+      nudge(b, ux * push, uy * push);
+    }
   }
 }
 
@@ -109,7 +144,8 @@ export function startMenuScene(canvas, { reducedMotion = false } = {}) {
   const ghosts = [];
   if (MENU_GHOSTS_ENABLED) {
     const now = performance.now();
-    const starts = [pick(ROOM_IDS), pick(ROOM_IDS)];
+    const startA = pick(ROOM_IDS);
+    const starts = [startA, pick(ROOM_IDS.filter((r) => r !== startA))];  // never spawn in the same room
     Promise.all([loadSprites("holmes"), loadSprites("watson")])
       .then(([h, w]) => {
         if (!alive) return;
@@ -147,8 +183,10 @@ export function startMenuScene(canvas, { reducedMotion = false } = {}) {
     }
 
     // Ghost detectives (translucent, fully in-board thanks to real collision).
+    // Update all, then push any overlapping pair apart, then draw.
+    for (const g of ghosts) g.update(t, dt, ghosts);
+    separateGhosts(ghosts);
     for (const g of ghosts) {
-      g.update(t, dt);
       ctx.globalAlpha = GHOST_ALPHA;
       g.ch.draw(ctx);
       ctx.globalAlpha = 1;

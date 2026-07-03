@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { net } from "../net/socket.js";
+import { playNotebookOpen } from "../game/sound.js";
 
 // Lobby: create a room (you become Holmes) or join one by code (you become
 // Watson). On create, we wait here showing the code until the server emits
-// game:start (handled in App when the second player joins).
-export default function Lobby({ onError }) {
+// game:start (handled in App when the second player joins). Rendered over the
+// SAME living MenuBackdrop as the main menu (App owns it) — visually this is
+// the same scene with a different foreground panel. `onBack` returns to the
+// main menu (shown on the home mode only — never while a room is in flight).
+export default function Lobby({ onError, onBack }) {
   const [mode, setMode] = useState("home");   // "home" | "create" | "join" | "waiting"
   const [name, setName] = useState("");
   // Pre-checked from the Detective's Desk "Dev Mode default" (main menu). The
@@ -36,6 +40,13 @@ export default function Lobby({ onError }) {
 
   return (
     <div className="lobby">
+      {/* ← back to the main menu (only while nothing is in flight) */}
+      {mode === "home" && onBack && (
+        <button className="mm-back lobby-back" onMouseEnter={() => playNotebookOpen()} onClick={onBack}>
+          ← Back
+        </button>
+      )}
+
       <div className="lobby-title">
         <span>WHISPERS AT</span>
         <span>RAVENHURST</span>
@@ -45,8 +56,11 @@ export default function Lobby({ onError }) {
       <div className="lobby-card">
         {mode === "home" && (
           <div className="lobby-actions">
-            <button className="lb-btn primary" onClick={() => setMode("create")}>Create Room</button>
-            <button className="lb-btn" onClick={() => setMode("join")}>Join with Code</button>
+            {/* Same case-file-tab style as the main menu buttons. Icons come
+                from CSS content (data-icon) so textContent stays EXACTLY
+                "Create Room" / "Join with Code" — every e2e suite matches on it. */}
+            <button className="mm-btn" data-icon="🗝" onMouseEnter={() => playNotebookOpen()} onClick={() => setMode("create")}>Create Room</button>
+            <button className="mm-btn" data-icon="✉" onMouseEnter={() => playNotebookOpen()} onClick={() => setMode("join")}>Join with Code</button>
           </div>
         )}
 

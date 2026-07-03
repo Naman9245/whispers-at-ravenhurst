@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { net } from "./net/socket.js";
 import Lobby from "./components/Lobby.jsx";
 import MainMenu from "./components/MainMenu.jsx";
+import MenuBackdrop from "./components/MenuBackdrop.jsx";
 import BoardCanvas from "./game/BoardCanvas.jsx";
 import PlayerHud from "./components/PlayerHud.jsx";
 import ActionBar from "./components/ActionBar.jsx";
@@ -142,14 +143,16 @@ export default function App() {
     try { localStorage.setItem("wr.soundOn", soundOn ? "1" : "0"); } catch { /* private mode */ }
   }, [soundOn]);
 
-  // Where the storm ambience lives: the cinematic main menu AND active gameplay
-  // (not the lobby, not the reveal). Drives the rain bed + creak scheduler below.
+  // Where the storm ambience lives: every pre-game screen (menu AND lobby —
+  // they share one continuous idle-mansion scene, so the storm carries through)
+  // plus active gameplay. Only the reveal is storm-free.
   const inGame = view?.status === "playing" && !reveal;
   const atMenu = phase === "menu" && !view && !reveal;
-  const ambient = atMenu || inGame;
+  const preGame = !view && !reveal;
+  const ambient = preGame || inGame;
 
-  // Rain ambience: a quiet loop under the menu and the whole game. Stops in the
-  // lobby / at the reveal. Declared AFTER the mute effect so `muted` is fresh —
+  // Rain ambience: a quiet loop under the menu, the lobby and the whole game.
+  // Stops at the reveal. Declared AFTER the mute effect so `muted` is fresh —
   // muting stops the bed (via setMuted→stopAll), and this re-runs on unmute
   // (soundOn dep) to resume it. The audioUnlocked dep matters on a FRESH page
   // load: the menu mounts before any gesture, so the first playRainLoop() no-ops
@@ -370,11 +373,20 @@ export default function App() {
       />
     );
   }
-  if (atMenu) {
-    return <MainMenu onBegin={() => setPhase("lobby")} soundOn={soundOn} onToggleSound={() => setSoundOn((s) => !s)} />;
-  }
   if (!view || view.status === "lobby") {
-    return <Lobby onError={flash} />;
+    // Pre-game screens share ONE living backdrop (same tree position across
+    // menu ⇄ lobby, so React never remounts it — the scene never resets). It
+    // unmounts only when the game starts or the reveal takes over.
+    return (
+      <div className="pre-game">
+        <MenuBackdrop />
+        {atMenu ? (
+          <MainMenu onBegin={() => setPhase("lobby")} soundOn={soundOn} onToggleSound={() => setSoundOn((s) => !s)} />
+        ) : (
+          <Lobby onError={flash} onBack={() => setPhase("menu")} />
+        )}
+      </div>
+    );
   }
 
   const me = view.you.character;

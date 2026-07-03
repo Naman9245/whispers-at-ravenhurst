@@ -1,11 +1,15 @@
-// Phase 2.7 e2e: the cinematic main menu. Drives the REAL entry URL (no
-// ?menu=skip — this suite is the one that exercises the menu itself): typewriter
-// title, random tagline, idle-mansion ghosts (via the dev window.__wrMenu
-// handle), rain-after-first-gesture, hover swish, the Detective's Desk panel
-// (sound toggle + dev-mode default → lobby carry-over), the Case Files panel
-// (CREDITS.md rendered + version), Begin Investigation (door creak + fade →
-// lobby, rain stops), and the full cycle: dev-mode game → reveal → "Main Menu"
-// returns to the menu with rain resumed and no leaked errors.
+// Phase 2.7 e2e: the cinematic main menu (+ the menu/lobby continuity fix-up).
+// Drives the REAL entry URL (no ?menu=skip — this suite is the one that
+// exercises the menu itself): typewriter title, random tagline, idle-mansion
+// ghosts (via the dev window.__wrMenu handle), rain-after-first-gesture, hover
+// swish, the Detective's Desk panel (sound toggle + dev-mode default → lobby
+// carry-over), the Case Files panel (CREDITS.md rendered + version), Begin
+// Investigation (door creak + content fade → the lobby OVER THE SAME LIVING
+// BACKDROP — a __wrMenu marker proves the scene is never remounted, and the
+// rain carries through), the lobby's menu-style entry buttons + themed ← Back
+// (round-trips to the menu without a scene restart), and the full cycle:
+// dev-mode game (backdrop fully unmounted) → reveal → "Main Menu" returns to a
+// FRESH menu scene with no leaked errors.
 // Needs client (:5173) + server (:3001) running.
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -112,7 +116,10 @@ try {
   ok("GitHub repo link shown", filesText.includes("github.com/Naman9245/whispers-at-ravenhurst"));
   await h.keyboard.press("Escape"); await sleep(150);
 
-  console.log("\n[6] BEGIN INVESTIGATION: door creak → fade → the EXISTING lobby; rain stops.");
+  console.log("\n[6] BEGIN INVESTIGATION: door creak → content fade → the EXISTING lobby, SAME scene.");
+  // Tag the running scene so we can prove the backdrop is never remounted
+  // across menu ⇄ lobby (a remount = fresh __wrMenu = the marker vanishes).
+  await h.evaluate(() => { if (window.__wrMenu) window.__wrMenu.__marker = "continuity"; });
   s = await aud(h);
   const creaksBefore = s.plays.doorCreak || 0;
   const clicksBefore = s.plays.buttonClick || 0;
@@ -122,11 +129,34 @@ try {
   ok("door creak fired on Begin", (s.plays.doorCreak || 0) > creaksBefore);
   ok("Begin did NOT fire the generic click (data-sound off)", (s.plays.buttonClick || 0) === clicksBefore);
   await h.waitForSelector(".lobby", { timeout: 2000 });
-  ok("lobby appeared after the ~500ms fade", (await h.$(".lobby")) !== null);
-  ok("main menu unmounted", (await h.$(".main-menu")) === null);
+  ok("lobby appeared after the ~300ms content fade", (await h.$(".lobby")) !== null);
+  ok("main menu content unmounted", (await h.$(".main-menu")) === null);
+  ok("idle-mansion backdrop STILL under the lobby", (await h.$(".mm-canvas")) !== null);
+  ok("backdrop never remounted (scene marker survived)",
+    (await h.evaluate(() => window.__wrMenu?.__marker)) === "continuity");
   await sleep(300);
   s = await aud(h);
-  ok("rain stopped in the lobby", s.playing.rain === false);
+  ok("rain CONTINUES in the lobby (same scene, storm carries through)", s.playing.rain === true);
+
+  console.log("\n[6b] LOBBY RESTYLE: menu-style entry buttons + themed back button.");
+  const entryBtns = await h.$$eval(".lobby-actions .mm-btn", (els) =>
+    els.map((e) => ({ text: e.textContent.trim(), icon: e.dataset.icon || "" })));
+  ok("Create Room is an mm-btn with an icon (textContent stays exact)",
+    entryBtns.some((b) => b.text === "Create Room" && b.icon.length > 0));
+  ok("Join with Code is an mm-btn with an icon (textContent stays exact)",
+    entryBtns.some((b) => b.text === "Join with Code" && b.icon.length > 0));
+  ok("themed ← Back button present (top-left)", (await h.$(".lobby-back")) !== null);
+
+  console.log("\n[6c] ← BACK: returns to the menu; the scene never restarts.");
+  await clickByText(h, "← Back");
+  await h.waitForSelector(".main-menu", { timeout: 2000 });
+  ok("back on the main menu", (await h.$(".main-menu")) !== null);
+  ok("backdrop STILL never remounted (marker intact)",
+    (await h.evaluate(() => window.__wrMenu?.__marker)) === "continuity");
+  s = await aud(h);
+  ok("rain uninterrupted through the round-trip", s.playing.rain === true);
+  await clickByText(h, "Begin Investigation");   // head back to the lobby for [7]
+  await h.waitForSelector(".lobby", { timeout: 2000 });
 
   console.log("\n[7] DESK CARRY-OVER: Dev Mode default pre-checks the lobby checkbox.");
   await clickByText(h, "Create Room");
@@ -150,6 +180,8 @@ try {
   await clickByText(w, "Join");
   await h.waitForSelector(".board-canvas", { timeout: 15000 });
   ok("game started from the menu-first flow", true);
+  ok("menu backdrop fully unmounted during gameplay (no __wrMenu, no canvas)",
+    (await h.evaluate(() => window.__wrMenu === undefined)) && (await h.$(".mm-canvas")) === null);
   await h.bringToFront(); await h.mouse.click(VW / 2, VH / 2);
   await sleep(400);
   s = await aud(h);
@@ -167,6 +199,8 @@ try {
     { timeout: 6000 }
   ).then(() => true).catch(() => false);
   ok("menu scene restarted cleanly (ghosts respawned)", back);
+  ok("post-game backdrop is a FRESH scene (old marker gone)",
+    (await h.evaluate(() => window.__wrMenu?.__marker)) === undefined);
 
   console.log("\n[errors]:", errors.length ? errors.slice(0, 6).join(" | ") : "none");
   ok("no console/page errors across the whole cycle", errors.length === 0);

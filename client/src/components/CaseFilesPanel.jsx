@@ -101,7 +101,7 @@ export default function CaseFilesPanel({ onClose }) {
         </div>
 
         <div className="mm-panel-foot">
-          <button className="lb-btn ghost" onClick={onClose}>‹ Back to the manor</button>
+          <button className="mm-back" onClick={onClose}>← Back</button>
         </div>
       </div>
     </div>

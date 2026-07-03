@@ -22,6 +22,24 @@ per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **2.7 fix-up — Menu/Lobby visual continuity.** The lobby no longer feels like a
+  different app: the idle-mansion scene is extracted into **`MenuBackdrop.jsx`**, and
+  App mounts it ONCE in a shared `.pre-game` wrapper covering **menu AND lobby** —
+  same tree position across the swap, so React never remounts it (verified in e2e via
+  a `__wrMenu` marker that survives menu ⇄ lobby round-trips; it unmounts only when a
+  game starts or the reveal shows). Begin Investigation's **fade-to-black is gone** —
+  now a ~300ms content-only fade (same scene, new foreground panel; the lobby card
+  glides in). **Rain + creaks now carry through the lobby** (`ambient = preGame ||
+  inGame` — only the reveal is storm-free). Lobby **Create Room / Join with Code**
+  restyled as menu-style `.mm-btn` case-file tabs with icons — icons come from CSS
+  `content: attr(data-icon)` so **textContent stays exactly "Create Room" / "Join with
+  Code"** (all 17 e2e suites exact-match on it) — plus hover paper-lift + notebook
+  swish; room create/join logic untouched. Themed **← Back** button (`.mm-back`):
+  lobby top-left (home mode only — never while a room is in flight) → main menu;
+  Desk/Case Files footers unified to the same style. Magnifier cursor now covers the
+  whole pre-game wrapper. `menu-test.mjs` grew to **41 checks** (continuity marker,
+  rain-through-lobby, back round-trip, backdrop-unmounts-in-game, fresh-scene-after-
+  reveal) — all green; audio 2.4a/2.4b + timer-expiry suites still green.
 - **2.7 — Cinematic Main Menu.** New top-level `phase` state in App: **menu → lobby →
   game → reveal** (`?menu=skip` jumps straight to the lobby — all 17 e2e suites use
   it; reveal's "Main Menu" returns to the menu, "Play Again" stays lobby-bound).
@@ -166,11 +184,18 @@ per-item breakdown.
   scheduler (players hear their own ambient creaks — this is not a leak).
 - **Main menu (2.7):** the app opens on a cinematic menu (`phase` state in App) BEFORE
   the lobby; `?menu=skip` (used by every e2e suite) starts on the lobby. The idle
-  backdrop lives in `client/src/game/menuScene.js` — ONE rAF, zero timers (timestamp
-  scheduling), `MENU_GHOSTS_ENABLED` kill-switch, dev handle `window.__wrMenu`. Rain +
-  creaks run on the menu AND in-game via App's `ambient` flag. `wr.devModeDefault`
-  (localStorage, set from the Detective's Desk) only pre-checks the lobby's Dev Mode
-  checkbox — the checkbox stays the per-room source of truth.
+  scene engine lives in `client/src/game/menuScene.js` (ONE rAF, zero timers,
+  `MENU_GHOSTS_ENABLED` kill-switch, dev handle `window.__wrMenu`); it renders through
+  **`MenuBackdrop.jsx`, which App mounts ONCE in the shared `.pre-game` wrapper over
+  BOTH menu and lobby** — never remount it per screen (same tree position = the scene
+  never resets; it unmounts only when a game starts / the reveal shows). Rain + creaks
+  run on ALL pre-game screens AND in-game via App's `ambient` flag (only the reveal is
+  storm-free). Menu↔lobby transitions are content-only fades — **no cuts to black**.
+  Lobby entry buttons are `.mm-btn` case-file tabs whose icons are CSS
+  `content: attr(data-icon)` — their **textContent must stay exactly** "Create Room" /
+  "Join with Code" (e2e exact-matches). `wr.devModeDefault` (localStorage, set from
+  the Detective's Desk) only pre-checks the lobby's Dev Mode checkbox — the checkbox
+  stays the per-room source of truth.
 - **Modals** close with **Enter or Esc** (and their buttons).
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
@@ -204,8 +229,8 @@ client/src/
                         #   menuScene.js (2.7 idle-mansion engine + ghost AI)
   components/           # PlayerHud, TimerBar, ClueTracker, ActionBar, ActivityLog,
                         #   GameMenu, DeductionNotebook, SuspectModal, AccusationModal,
-                        #   ExamineModal, RevealScreen, Lobby, MainMenu, DeskPanel,
-                        #   CaseFilesPanel
+                        #   ExamineModal, RevealScreen, Lobby, MainMenu, MenuBackdrop
+                        #   (shared pre-game scene), DeskPanel, CaseFilesPanel
 .shots/                 # puppeteer e2e scripts + screenshots (dev artifacts)
 ```
 

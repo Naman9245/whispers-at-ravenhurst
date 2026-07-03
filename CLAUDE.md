@@ -22,6 +22,15 @@ per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **Title/tagline overlap — guaranteed fix (retry).** The earlier tagline-pill fix
+  only touched the main menu's `.mm-tagline`; the reported overlap was actually the
+  **lobby's** `.lobby-tagline` ("A two-detective race to the truth." over DINING HALL),
+  a separate element. Replaced the approach with a shared **`.mm-titlecard`** — a
+  **fully-opaque** panel (`#181022` base + a subtle sheen gradient, gold border) wrapping
+  the title + tagline block on BOTH pre-game screens (menu + lobby), above the canvas /
+  below the form card. Nothing from the animated board can bleed through at any drift
+  position or width. Verified with screenshots at two drift positions + the lobby Join
+  screen; `menu-test.mjs` (47) still green.
 - **2.7 bug-fix pass (5 playtest bugs).** (1) **Reliable click sound** — `fire()` in
   `sound.js` now plays a short-lived **clone** per shot (a single `<audio>` can't
   retrigger mid-play → the "sometimes silent" clicks); clones are cached, referenced

@@ -47,11 +47,15 @@ export default function Lobby({ onError, onBack }) {
         </button>
       )}
 
-      <div className="lobby-title">
-        <span>WHISPERS AT</span>
-        <span>RAVENHURST</span>
+      {/* Solid title card (shared with the main menu) so the title + tagline are
+          always readable over the animated backdrop — no room label bleeds through. */}
+      <div className="mm-titlecard">
+        <div className="lobby-title">
+          <span>WHISPERS AT</span>
+          <span>RAVENHURST</span>
+        </div>
+        <p className="lobby-tagline">A two-detective race to the truth.</p>
       </div>
-      <p className="lobby-tagline">A two-detective race to the truth.</p>
 
       <div className="lobby-card">
         {mode === "home" && (

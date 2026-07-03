@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from "react";
-import { startMenuScene } from "../game/menuScene.js";
-import { BOARD_W, BOARD_H } from "../game/boardData.js";
 import { playDoorCreak, playNotebookOpen } from "../game/sound.js";
 import DeskPanel from "./DeskPanel.jsx";
 import CaseFilesPanel from "./CaseFilesPanel.jsx";
 
-// Cinematic main menu (Phase 2.7) — the first thing a player sees. An idle
-// mansion (menuScene.js) drifts behind a typewriter title, a random tagline,
-// and three case-file-style entries. "Begin Investigation" creaks the door,
-// fades to black (~500ms) and hands off to the EXISTING lobby via onBegin.
-// Rain + random creaks are owned by App (its `ambient` effects cover the menu).
+// Cinematic main menu (Phase 2.7) — the first thing a player sees: a
+// typewriter title, a random tagline, and three case-file-style entries.
+// The idle-mansion backdrop is NOT rendered here — App mounts a shared
+// <MenuBackdrop/> that stays alive across menu ⇄ lobby, so "Begin
+// Investigation" only creaks the door and fades the CONTENT out (~300ms)
+// before handing off to the EXISTING lobby via onBegin — same scene, new
+// foreground. Rain + random creaks are owned by App (its `ambient` effects).
 
 export const TAGLINES = [
   "Only one detective uncovers the truth.",
@@ -28,19 +28,11 @@ const reducedMotion = () =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
 export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
-  const canvasRef = useRef(null);
   const leaveTimer = useRef(null);
   const [chars, setChars] = useState(() => (reducedMotion() ? TITLE_LEN : 0));
   const [tagline] = useState(() => TAGLINES[(Math.random() * TAGLINES.length) | 0]);
   const [panel, setPanel] = useState(null);      // null | "desk" | "files"
-  const [leaving, setLeaving] = useState(false); // Begin clicked → fade out
-
-  // Idle mansion backdrop — one scene per mount, stop() on unmount
-  // (StrictMode-safe: the engine is a single rAF with no external timers).
-  useEffect(() => {
-    const stop = startMenuScene(canvasRef.current, { reducedMotion: reducedMotion() });
-    return stop;
-  }, []);
+  const [leaving, setLeaving] = useState(false); // Begin clicked → content fades out
 
   // Typewriter title (~0.8s). Reduced motion starts complete (chars init).
   useEffect(() => {
@@ -64,7 +56,9 @@ export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
     if (leaving) return;               // double-click guard
     setLeaving(true);
     playDoorCreak();                   // the manor door groans open…
-    leaveTimer.current = setTimeout(onBegin, reducedMotion() ? 0 : 500);
+    // Content-only fade (the shared backdrop keeps running underneath —
+    // NO cut to black; the lobby panel takes over the same scene).
+    leaveTimer.current = setTimeout(onBegin, reducedMotion() ? 0 : 300);
   };
 
   const line1 = TITLE_1.slice(0, chars);
@@ -73,10 +67,7 @@ export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
 
   return (
     <div className="main-menu">
-      <canvas ref={canvasRef} className="mm-canvas" width={BOARD_W} height={BOARD_H} aria-hidden="true" />
-      <div className="mm-scrim" aria-hidden="true" />
-
-      <div className="mm-content">
+      <div className={`mm-content ${leaving ? "leaving" : ""}`}>
         <div className="lobby-title mm-title" aria-label={`${TITLE_1} ${TITLE_2}`}>
           <span>{line1}{typing && chars <= TITLE_1.length && <span className="mm-caret" />}</span>
           <span>{line2}{typing && chars > TITLE_1.length && <span className="mm-caret" />}</span>
@@ -101,8 +92,6 @@ export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
         <DeskPanel soundOn={soundOn} onToggleSound={onToggleSound} onClose={() => setPanel(null)} />
       )}
       {panel === "files" && <CaseFilesPanel onClose={() => setPanel(null)} />}
-
-      <div className={`mm-fade ${leaving ? "on" : ""}`} aria-hidden="true" />
     </div>
   );
 }

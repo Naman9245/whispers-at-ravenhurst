@@ -147,17 +147,29 @@ random room-light pulses, and a ~250ms lightning flicker every 20–30s (visual-
 no thunder asset yet). ONE rAF, zero timers → StrictMode-safe, leak-proof `stop()`.
 **UI:** typewriter title (~0.8s), random tagline (5-pool), case-file-tab buttons with
 paper-lift hover + notebook-swish, gold magnifier SVG cursor, Begin Investigation →
-door creak + 500ms fade → the EXISTING lobby. **Detective's Desk:** Sound (shared
+door creak + content fade → the EXISTING lobby. **Detective's Desk:** Sound (shared
 state), Fullscreen (API + `fullscreenchange` sync), Dev Mode default (localStorage
 `wr.devModeDefault` pre-checks the lobby checkbox — lobby stays per-room source of
 truth). **Case Files:** fetches + renders `sounds/CREDITS.md` live (tiny md renderer),
 builder credit, repo link, `v0.9.0` from package.json (bumped root+client). Rain/creak
-ambience now covers menu + game (App's `ambient`); fixed a real unlock race (rain's
-first `startLoop` during unlock priming got paused by the prime — `unlockAudio()` now
-resolves when priming settles). Lobby waiting reskin (text + `CASE Nº` via CSS
-`::before`; e2e still reads the raw code). e2e: all 17 suites migrated to
-`?menu=skip`; new **`.shots/menu-test.mjs`** (32 checks, full cycle incl.
-reveal→menu return) — all green, plus 2.4a/2.4b/timer-expiry/server regressions.
+ambience covers all pre-game screens + gameplay (App's `ambient`); fixed a real unlock
+race (rain's first `startLoop` during unlock priming got paused by the prime —
+`unlockAudio()` now resolves when priming settles). Lobby waiting reskin (text +
+`CASE Nº` via CSS `::before`; e2e still reads the raw code). e2e: all 17 suites
+migrated to `?menu=skip`; new **`.shots/menu-test.mjs`** — all green, plus
+2.4a/2.4b/timer-expiry/server regressions.
+
+**Continuity fix-up:** the idle scene was extracted into **`MenuBackdrop.jsx`**, which
+App mounts ONCE in a shared `.pre-game` wrapper across **menu AND lobby** — the scene
+(and the storm audio) carries through screen swaps with no remount/reset, unmounting
+only when a game starts or the reveal shows. Begin Investigation's fade-to-black became
+a ~300ms content-only fade; the lobby card glides in over the same scene. Lobby entry
+buttons restyled as `.mm-btn` case-file tabs (icons via CSS `attr(data-icon)`, so
+textContent stays exact for e2e; hover lift + notebook swish; create/join logic
+untouched), and a themed **← Back** (`.mm-back`) returns lobby→menu (home mode only),
+with the same style unifying the Desk/Case Files footers. `menu-test.mjs` → **41
+checks** (continuity marker across round-trips, rain-through-lobby, back navigation,
+backdrop-unmounts-in-game, fresh-scene-after-reveal).
 
 ---
 

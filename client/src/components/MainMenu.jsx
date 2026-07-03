@@ -69,11 +69,14 @@ export default function MainMenu({ onBegin, soundOn, onToggleSound }) {
   return (
     <div className="main-menu">
       <div className={`mm-content ${leaving ? "leaving" : ""}`}>
-        <div className="lobby-title mm-title" aria-label={`${TITLE_1} ${TITLE_2}`}>
-          <span>{line1}{typing && chars <= TITLE_1.length && <span className="mm-caret" />}</span>
-          <span>{line2}{typing && chars > TITLE_1.length && <span className="mm-caret" />}</span>
+        {/* Solid title card: nothing from the animated board can bleed through */}
+        <div className="mm-titlecard">
+          <div className="lobby-title mm-title" aria-label={`${TITLE_1} ${TITLE_2}`}>
+            <span>{line1}{typing && chars <= TITLE_1.length && <span className="mm-caret" />}</span>
+            <span>{line2}{typing && chars > TITLE_1.length && <span className="mm-caret" />}</span>
+          </div>
+          <p className="mm-tagline">{tagline}</p>
         </div>
-        <p className="mm-tagline">{tagline}</p>
 
         <div className="mm-actions">
           <button className="mm-btn" onMouseEnter={() => playNotebookOpen()} onClick={begin}>

@@ -719,15 +719,33 @@ body {
   animation: mm-caret 0.8s steps(2, start) infinite;
 }
 @keyframes mm-caret { 50% { opacity: 0; } }
-/* Semi-opaque pill anchored to the text itself: it always covers exactly
-   whatever room label sits behind the tagline, at any viewport width (so the
-   overlap can't just reappear over a different label at another size). */
 .mm-tagline {
   margin: 0; font-style: italic; font-size: 15px;
-  color: rgba(240,230,210,0.92); text-shadow: 1px 1px 0 #000;
-  display: inline-block; padding: 5px 16px; border-radius: 999px;
-  background: rgba(21,14,30,0.74); border: 1px solid rgba(201,162,63,0.3);
+  color: rgba(240,230,210,0.85); text-shadow: 1px 1px 0 #000;
 }
+
+/* Solid title card behind the WHISPERS AT RAVENHURST + tagline block on BOTH
+   pre-game screens (main menu AND lobby). Near-opaque, so NOTHING from the
+   animated board (room labels, furniture, lighting pulses, ghosts) can bleed
+   through at ANY drift position or viewport width — it sits above the canvas
+   but below the lobby form card. Generous padding so it reads as an intentional
+   parchment title card, not a patch. */
+.mm-titlecard {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 8px;
+  max-width: 92vw; padding: 24px 52px 28px; z-index: 2;
+  /* FULLY OPAQUE base (#181022) → guaranteed zero bleed-through; the gradient on
+     top is just a subtle sheen so it reads as a title card, not a flat box. */
+  background:
+    linear-gradient(rgba(240,230,210,0.05), rgba(0,0,0,0.10)),
+    #181022;
+  border: 1px solid rgba(201,162,63,0.4); border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+}
+/* Inside the card the title/tagline own no outer margins (the card's gap spaces
+   them); the lobby tagline's default negative margin would misalign otherwise. */
+.mm-titlecard .lobby-title,
+.mm-titlecard .lobby-tagline,
+.mm-titlecard .mm-tagline { margin: 0; }
 
 /* Case-file tab buttons */
 .mm-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 26px; width: min(330px, 84vw); }

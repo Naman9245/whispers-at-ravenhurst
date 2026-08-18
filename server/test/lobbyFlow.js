@@ -266,7 +266,7 @@ log("\n[11] Timer transitions:");
   log("      neither player accuses; waiting out the 8s soft cap…");
   const [r] = await Promise.all([revH, revW]); // soft timer force-resolves
   check("[soft] game force-resolves with no lock-ins", r.players.every((p) => p.forfeited));
-  check("[soft] both forfeit → tie (both 'win' at 0)", r.winners.length === 2);
+  check("[soft] both forfeit → NOBODY wins (forfeiting is not a win)", r.winners.length === 0);
   h.close(); w.close();
 }
 

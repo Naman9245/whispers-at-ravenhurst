@@ -1,3 +1,5 @@
+import { PROGRESS_TOTAL } from "@shared/constants.js";
+
 // Right section of the unified HUD bar. Shows ONLY each player's found-count out
 // of the total — never which room, what the clue is, or where anyone is. Uses a
 // progress bar (not 7 boxes) so the count always fits inside the panel.
@@ -6,7 +8,7 @@ const PLAYERS = [
   { id: "watson", name: "Watson", color: "#f0b85c" },
 ];
 
-export default function ClueTracker({ total = 5, counts = {}, me }) {
+export default function ClueTracker({ total = PROGRESS_TOTAL, counts = {}, me }) {
   return (
     <div className="hud-sec hud-clues">
       <div className="ct-title">CLUES FOUND</div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { QUESTION_POOL } from "@shared/questions.js";
 import { QUESTION_CAP } from "@shared/constants.js";
 
@@ -20,6 +20,23 @@ export default function SuspectModal({ caseInfo, foundClues = [], questioning = 
   const log = (selectedId && dialogues[selectedId]) || [];
   const outOfQuestions = qState.asked >= QUESTION_CAP;
   const unusedClues = foundClues.filter((c) => !qState.confronted.includes(c.id));
+
+
+  // Drop focus from whatever opened this modal (the ACCUSE / QUESTION pill keeps
+  // DOM focus behind the overlay). Without this, closing with Esc and then
+  // pressing Enter re-activates that still-focused button and re-opens the modal.
+  useEffect(() => { document.activeElement?.blur?.(); }, []);
+
+  // Enter / Esc close the modal, matching ExamineModal and the in-game help.
+  // Listener lives only while this modal is mounted; BoardCanvas movement input
+  // is already suppressed for the duration (App's modalOpen → inputEnabled).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Enter" || e.key === "Escape") { e.preventDefault(); onClose?.(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>

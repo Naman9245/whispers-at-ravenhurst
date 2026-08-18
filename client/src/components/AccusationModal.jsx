@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // Final accusation. The player names a culprit, weapon and room, then cites 2–3
 // supporting clues from their own evidence. LOCK IN is always clickable: if the
@@ -21,6 +21,24 @@ export default function AccusationModal({ caseInfo, foundClues = [], onSubmit, o
   const [clueIds, setClueIds] = useState([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+
+  // Drop focus from whatever opened this modal (the ACCUSE / QUESTION pill keeps
+  // DOM focus behind the overlay). Without this, closing with Esc and then
+  // pressing Enter re-activates that still-focused button and re-opens the modal.
+  useEffect(() => { document.activeElement?.blur?.(); }, []);
+
+  // Esc closes (same as clicking the backdrop). Deliberately NOT Enter: locking
+  // in is irreversible, so a stray Return must never submit — and it must not
+  // silently discard a half-built accusation either. Esc is also ignored while a
+  // submission is in flight.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape" && !busy) { e.preventDefault(); onClose?.(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, busy]);
 
   const pick = (setter) => (val) => { setError(""); setter(val); };
 

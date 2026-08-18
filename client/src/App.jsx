@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { SEARCH_MS } from "@shared/constants.js";
 import { net } from "./net/socket.js";
 import Lobby from "./components/Lobby.jsx";
 import MainMenu from "./components/MainMenu.jsx";
@@ -69,6 +70,7 @@ export default function App() {
   const [pingDot, setPingDot] = useState(false);
 
   const toastTimer = useRef(null);
+  const inGameRef = useRef(false);              // "am I still in a live game?" — read by the reveal guard
   const searchRef = useRef(null);              // active hotspot search: { timer, safety, stop }
   const clockOffset = useRef(0);                // serverNow - clientNow
   const accuseAnnounced = useRef(false);        // toasted when the window opened
@@ -111,10 +113,15 @@ export default function App() {
         kind: line.kind || "ambient", ts: Date.now(),
       }])
     );
-    const offPeer = net.on("peer:status", ({ connected }) =>
-      flash(connected ? "Opponent reconnected." : "Opponent disconnected…")
+    const offPeer = net.on("peer:status", ({ connected, left }) =>
+      flash(left ? "Opponent left the game." : connected ? "Opponent reconnected." : "Opponent disconnected…")
     );
     const offReveal = net.on("game:reveal", (payload) => {
+      // Guard: only accept a reveal for a game we are actually still in. A room
+      // we exited can still resolve on its own soft cap, and this listener is
+      // mounted for the whole app lifetime — without this check that stale
+      // reveal would yank the player out of the menu/lobby/next game.
+      if (!inGameRef.current) return;
       setReveal(payload); setShowAccuse(false);
       playReveal();   // dramatic sting the instant the truth is unveiled (rain bed stops via inGame)
     });
@@ -147,6 +154,7 @@ export default function App() {
   // they share one continuous idle-mansion scene, so the storm carries through)
   // plus active gameplay. Only the reveal is storm-free.
   const inGame = view?.status === "playing" && !reveal;
+  inGameRef.current = inGame;   // mirrored for the always-mounted game:reveal listener
   const atMenu = phase === "menu" && !view && !reveal;
   const preGame = !view && !reveal;
   const ambient = preGame || inGame;
@@ -181,7 +189,11 @@ export default function App() {
     };
     schedule();
     return () => clearTimeout(id);
-  }, [ambient]);
+    // MUST depend on `inGame`, not `ambient`: ambient is ALREADY true on the
+    // menu/lobby, so keying on it meant the dep never changed at lobby→game and
+    // the effect never re-ran — the scheduler was never armed and creaks never
+    // played at all. `inGame` is the flag this effect actually reads.
+  }, [inGame]);
 
   // Universal UI click sound: one delegated listener guarantees playButtonClick()
   // on EVERY <button> in the game (action pills, modal pickers, menu items, close
@@ -233,6 +245,15 @@ export default function App() {
     [view]
   );
 
+  // STABLE close handler for the examine result modal. This identity matters:
+  // ExamineModal arms its 5s auto-close in an effect keyed on [result, onClose],
+  // and App re-renders every second (the countdown heartbeat). An inline arrow
+  // here would be a fresh function every second, tearing down and re-arming that
+  // timeout forever — the modal would never auto-close.
+  const closeExamine = useCallback(() => setExamineResult(null), []);
+  const closeSuspects = useCallback(() => setShowSuspects(false), []);
+  const closeAccuse = useCallback(() => setShowAccuse(false), []);
+
   // Clear any in-flight hotspot search (timers + searching sfx).
   const finishSearch = useCallback(() => {
     const s = searchRef.current;
@@ -266,7 +287,7 @@ export default function App() {
     if (reduced) { doExamine(hotspotId); return; }
     setExamining({ hotspotId, startTime: Date.now() });
     playSearching();   // looping rustle for the duration of the search
-    const timer = setTimeout(() => doExamine(hotspotId), 2500);
+    const timer = setTimeout(() => doExamine(hotspotId), SEARCH_MS);
     // Defensive: if the searching state ever wedges, force-reset after 5s.
     const safety = setTimeout(() => { finishSearch(); setExamining(null); }, 5000);
     searchRef.current = { timer, safety };
@@ -303,6 +324,11 @@ export default function App() {
 
   const backToLobby = useCallback(() => {
     finishSearch();
+    // Tell the server we're out. Without this the GameRoom kept running: its soft
+    // cap would later fire and push a `game:reveal` at us in the lobby / next
+    // game, and the opponent was never told their rival had walked away.
+    inGameRef.current = false;
+    net.leaveRoom();
     setReveal(null); setView(null); setShowAccuse(false); setExamineResult(null); setExamining(null);
     setShowSuspects(false); setDialogues({}); setChat([]); setRegion(null);
     setShowActivity(false); setShowNotebook(false); setShowMenu(false);
@@ -392,7 +418,10 @@ export default function App() {
   }
 
   const me = view.you.character;
-  const counts = { [me]: view.you.clueCount, [view.opponent?.character]: view.opponent?.clueCount || 0 };
+  // Keyed by character id. Guarded: with no opponent present, spreading an
+  // undefined character would create a literal "undefined" key in the map.
+  const counts = { [me]: view.you.clueCount };
+  if (view.opponent?.character) counts[view.opponent.character] = view.opponent.clueCount || 0;
 
   // Current region: local movement is authoritative for UI; fall back to server.
   const curRoom = region?.room ?? view.you.room;
@@ -490,7 +519,7 @@ export default function App() {
           dialogues={dialogues}
           onAsk={askSuspect}
           onConfront={confrontSuspect}
-          onClose={() => setShowSuspects(false)}
+          onClose={closeSuspects}
         />
       )}
 
@@ -499,12 +528,12 @@ export default function App() {
           caseInfo={view.caseInfo}
           foundClues={view.you.foundClues}
           onSubmit={submitAccusation}
-          onClose={() => setShowAccuse(false)}
+          onClose={closeAccuse}
         />
       )}
 
       {examineResult && (
-        <ExamineModal result={examineResult} onClose={() => setExamineResult(null)} />
+        <ExamineModal result={examineResult} onClose={closeExamine} />
       )}
     </div>
   );

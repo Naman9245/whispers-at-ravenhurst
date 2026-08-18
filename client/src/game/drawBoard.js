@@ -3,6 +3,7 @@
 import {
   PALETTE as P, GEO, COLS, ROWS, ROOMS, CONNECTIONS, roomRect, DOOR_HALF,
 } from "./boardData.js";
+import { SEARCH_MS } from "@shared/constants.js";
 
 // ---- low-level helpers -------------------------------------------------
 const rect = (c, x, y, w, h, fill, stroke, sw = 1) => {
@@ -265,7 +266,7 @@ export function drawHotspots(c, roomId, hotspots, examined, activeId) {
 // A cute white comic speech-cloud above the character (white fill, navy border,
 // soft shadow, down-tail, bouncing charcoal dots, gentle bob, puff in/out) plus a
 // glow on the hotspot being examined. (cx,cy) = feet; (hx,hy) = hotspot pixel.
-const SEARCH_DUR = 2500; // must match SEARCH_MS in App.jsx (puff-out timing)
+const SEARCH_DUR = SEARCH_MS; // shared with App.jsx's search timeout (puff-out timing)
 
 // One closed path: a rounded-rect cloud body with a small downward tail at centre,
 // so a single fill (with shadow) + single stroke (border) render cleanly.

@@ -335,8 +335,15 @@ export class GameRoom {
       s.total = s.base + s.reasoning + s.speed;
     }
 
-    const max = Math.max(...this.players.map((p) => scores[p.id].total));
-    const winners = this.players.filter((p) => scores[p.id].total === max).map((p) => p.character);
+    // Only players who actually SUBMITTED an accusation can win. Previously the
+    // max was taken over everyone, so a double forfeit (nobody accused → both
+    // score 0) came out as "winners: [holmes, watson]" and the reveal announced
+    // "A draw — both detectives prevail." for a game no one played. Forfeiting is
+    // not a way to win; with no contenders `winners` is empty and RevealScreen's
+    // "No one cracked the case." branch finally becomes reachable.
+    const contenders = this.players.filter((p) => !scores[p.id].forfeited);
+    const max = contenders.length ? Math.max(...contenders.map((p) => scores[p.id].total)) : -1;
+    const winners = contenders.filter((p) => scores[p.id].total === max).map((p) => p.character);
 
     this.reveal = this._buildReveal(scores, winners);
     return this.reveal;

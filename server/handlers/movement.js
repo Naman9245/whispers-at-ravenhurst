@@ -1,7 +1,10 @@
 // SERVER-AUTHORITATIVE region tracking. The client free-roams in pixel space and
 // reports the room it has entered (or that it has stepped into the corridor). The
-// server validates room changes against the connection graph and pushes vague,
-// location-free notes to both players. Positions themselves are never broadcast.
+// server validates that the reported room EXISTS (see GameRoom.setRegion) and
+// pushes vague, location-free notes to both players. Positions themselves are
+// never broadcast. NOTE: entry is deliberately not gated on the connection graph
+// — the corridor physically joins all six rooms, so walls + doorways (enforced by
+// the shared collision geometry) are the real constraint.
 export function registerMovement(io, socket, store) {
   socket.on("region:enter", ({ room, inCorridor } = {}, cb) => {
     const gameRoom = store.roomOf(socket);

@@ -224,7 +224,22 @@ per-item breakdown.
   "Join with Code" (e2e exact-matches). `wr.devModeDefault` (localStorage, set from
   the Detective's Desk) only pre-checks the lobby's Dev Mode checkbox — the checkbox
   stays the per-room source of truth.
-- **Modals** close with **Enter or Esc** (and their buttons).
+- **Modals** close with **Esc** (and their buttons). **Enter** also closes the
+  Examine and Suspect modals, but is deliberately inert on the **Accusation**
+  modal — locking in is irreversible, so a stray Return must never submit. Every
+  modal blurs the trigger button on mount; otherwise the still-focused ACCUSE /
+  QUESTION pill re-activates on Enter and the modal instantly re-opens.
+- **Leaving a room is a server intent, not a client state reset.** Exit Game /
+  Play Again / Main Menu all send **`room:leave`**; the server drops the player,
+  `socket.leave()`s the code, tells the opponent (`peer:status {left:true}`) and
+  **reaps the room once empty**. Creating/joining also detaches from any previous
+  room, so one socket never holds two. App additionally ignores a `game:reveal`
+  that arrives when it is no longer in a game (`inGameRef`) — an abandoned room
+  can still resolve on its own soft cap and must never hijack the screen.
+- **Forfeiting is never a win.** `resolve()` picks winners only among players who
+  actually submitted an accusation, so a double forfeit yields `winners: []` and
+  the reveal reads "No one cracked the case." (It used to take the max over
+  everyone, so both forfeiters tied at 0 and it announced a draw.)
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
 - **Hotspot→clue mapping is never sent** to a client until that exact spot is examined.
@@ -332,7 +347,9 @@ When the user starts a new session:
   **Accusation-timing suite (all against a normal Dev-Mode `npm run dev`):**
   `.shots/timer-expiry-test.mjs` (S1: nobody accuses → soft-cap double forfeit) and
   `.shots/accuse-timing-e2e.mjs` (S8: window auto-forfeit · S9: both accuse → immediate
-  reveal).
+  reveal). **Room lifecycle + modal keys:** `.shots/room-lifecycle-test.mjs`
+  (Exit Game detaches server-side · no stale-reveal hijack · opponent notified ·
+  rooms reaped · forfeit ≠ win · Esc/Enter modal contract).
 - **Dev Mode:** lobby checkbox → short timers (60s / 20s / 30s) for fast testing.
 - **Git:** project repo is `whispers-at-ravenhurst` → GitHub `Naman9245/whispers-at-ravenhurst`
   (commit messages end with the `Co-Authored-By: Claude` trailer).

@@ -6,6 +6,7 @@ import {
 import { getBoardLayers } from "./boardLayers.js";
 import { SEARCH_MS } from "@shared/constants.js";
 import { objectsIn } from "@shared/roomObjects.js";
+import { objectImg, blitPixel } from "./objectSprites.js";
 
 // ---- low-level helpers -------------------------------------------------
 const rect = (c, x, y, w, h, fill, stroke, sw = 1) => {
@@ -147,6 +148,16 @@ function drawFromObjects(c, roomId, ox, oy) {
   for (const o of objectsIn(roomId)) {
     const ax = ox + o.x, ay = oy + o.y;
     if (o.solid) shadowFor(c, ax, ay, o.w, o.h);
+    // Optional PNG art wins when present; the procedural renderer below is the
+    // permanent fallback (and the loading state). The rect stays the collision
+    // box either way — a tall sprite may overhang it via a negative offset.
+    const img = o.sprite ? objectImg(o.sprite) : null;
+    if (img) {
+      blitPixel(c, img,
+        ax + (o.spriteOffsetX || 0), ay + (o.spriteOffsetY || 0),
+        o.spriteW ?? o.w, o.spriteH ?? o.h);
+      continue;
+    }
     switch (o.kind) {
       // `rug` honours the object's own colour so the maroon P.rug the legacy
       // rooms used is reachable from the migrated path (it was hardcoded to
@@ -533,6 +544,46 @@ function checkMark(c, px, py, alpha) {
   c.strokeStyle = "#6ed68a"; c.lineWidth = 3; c.lineCap = "round"; c.lineJoin = "round";
   c.beginPath(); c.moveTo(px - 6, py); c.lineTo(px - 1, py + 6); c.lineTo(px + 7, py - 6); c.stroke();
   c.restore();
+}
+
+// ---- depth sorting -----------------------------------------------------
+// Lets the detective stand BEHIND tall furniture instead of always on top of it.
+//
+// Rather than keeping a second offscreen layer of re-drawn furniture, this blits
+// the object's sub-rect straight out of the already-baked `bg`. That matters: a
+// separately-painted occluder would miss the baked lighting, shadows and room
+// tint, so an occluding bookshelf would visibly glow brighter than the identical
+// shelf beside it. Taking the pixels from `bg` is consistent for free, and needs
+// no extra canvas.
+//
+// Cost is a handful of small drawImage calls per frame — usually zero, since we
+// only touch `tall` objects in the character's own room whose bounds actually
+// intersect the sprite.
+const CH_HALF_W = 50, CH_TOP = 76, CH_BOT = 24;   // sprite box around the FEET
+
+export function drawOccluders(c, roomId, feetX, feetY, isCurrentRoom = false) {
+  if (!roomId) return;
+  const { bg } = getBoardLayers(paintStatic);
+  const r = roomRect(roomId);
+  const cl = feetX - CH_HALF_W, cr = feetX + CH_HALF_W;
+  const ct = feetY - CH_TOP, cb = feetY + CH_BOT;
+  for (const o of objectsIn(roomId)) {
+    if (!o.tall) continue;
+    const ax = r.x + o.x, ay = r.y + o.y, bottom = ay + o.h;
+    // A piece only occludes when it extends BELOW the feet — i.e. the detective
+    // is standing further back than the object's front face.
+    if (bottom <= feetY) continue;
+    if (ax > cr || ax + o.w < cl || ay > cb || bottom < ct) continue;   // no overlap
+    c.drawImage(bg, ax, ay, o.w, o.h, ax, ay, o.w, o.h);
+    // Re-apply the current-room wash, painted per-frame over bg and therefore
+    // missing from the freshly re-blitted patch.
+    if (isCurrentRoom) {
+      c.save();
+      c.fillStyle = "rgba(111,214,196,0.14)";
+      c.fillRect(ax, ay, o.w, o.h);
+      c.restore();
+    }
+  }
 }
 
 // Draw the current room's hotspot indicators. `hotspots` are normalized (0–1)

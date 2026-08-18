@@ -24,7 +24,7 @@ export default function GameMenu({ open, soundOn, roomCode, devMode, onToggleSou
             <li>Walk up to furniture and press <b>E</b> to examine it (takes a moment to search); <b>Question</b> suspects for testimony.</li>
             <li>Mark suspects, weapons &amp; rooms in your <b>Notebook</b> as you deduce.</li>
             <li>When <b>Accuse</b> opens, name culprit + weapon + room and <b>lock in</b>.</li>
-            <li><b>Enter</b> or <b>Esc</b> closes popups.</li>
+            <li><b>Esc</b> closes popups (<b>Enter</b> too, except on the accusation form).</li>
           </ol>
         </div>
 

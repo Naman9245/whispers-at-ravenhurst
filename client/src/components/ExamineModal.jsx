@@ -6,6 +6,12 @@ import { useEffect } from "react";
 const TAG_LABEL = { physical_evidence: "Physical Evidence", testimony: "Testimony", document: "Document" };
 
 export default function ExamineModal({ result, onClose }) {
+
+  // Drop focus from whatever opened this modal (the ACCUSE / QUESTION pill keeps
+  // DOM focus behind the overlay). Without this, closing with Esc and then
+  // pressing Enter re-activates that still-focused button and re-opens the modal.
+  useEffect(() => { document.activeElement?.blur?.(); }, []);
+
   // Auto-close after 5s.
   useEffect(() => {
     const t = setTimeout(() => onClose?.(), 5000);

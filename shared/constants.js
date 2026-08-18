@@ -16,6 +16,10 @@ export const TIMER_PRESETS = {
   dev:        { softTimer: 60,   accuseGate: 20,  opponentWindow: 30 },  // short, for testing
 };
 
+// Hotspot examination: how long the "searching" animation runs before the result
+// modal opens. Shared so the canvas bubble's puff-out lands exactly on the commit.
+export const SEARCH_MS = 2500;
+
 // Suspect questioning budget (per suspect, per player).
 export const QUESTION_CAP = 3;
 

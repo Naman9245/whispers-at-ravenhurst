@@ -26,11 +26,42 @@ export class RoomStore {
 
   get(code) { return this.rooms.get((code || "").toUpperCase()); }
   roomOf(socket) { return this.get(socket.data.roomCode); }
+
+  // Drop a room once nobody is left in it. Called from every exit path (explicit
+  // leave AND the disconnect grace timeout) — previously only the disconnect path
+  // deleted rooms, so every finished / abandoned game stayed in this Map for the
+  // lifetime of the process.
+  reapIfEmpty(room) {
+    if (!room || room.players.length > 0) return false;
+    room.clearTimers();
+    this.rooms.delete(room.code);
+    console.log(`[lobby] room ${room.code} closed (empty)`);
+    return true;
+  }
+}
+
+// Detach one socket from its room: drop the player, leave the socket.io room,
+// forget the code, tell whoever remains, and reap the room if it's now empty.
+// `left: true` distinguishes a deliberate exit from a dropped connection.
+export function detachFromRoom(io, socket, store, { left = false } = {}) {
+  const room = store.roomOf(socket);
+  if (!room) return null;
+  const player = room.player(socket.id);
+  room.removePlayer(socket.id);
+  socket.leave(room.code);
+  socket.data.roomCode = null;
+  socket.data.token = null;
+  io.to(room.code).emit("peer:status", { connected: false, left });
+  for (const p of room.players) io.to(p.id).emit("state:update", room.viewFor(p.id));
+  console.log(`[lobby] ${player?.name || socket.id} left ${room.code} (${room.players.length} remaining)`);
+  store.reapIfEmpty(room);
+  return room;
 }
 
 export function registerLobby(io, socket, store) {
   // Create a room; creator becomes Holmes (player 1).
   socket.on("room:create", ({ name, devMode } = {}, cb) => {
+    detachFromRoom(io, socket, store, { left: true }); // never hold two rooms at once
     const code = store.makeCode();
     const room = new GameRoom(code, Boolean(devMode));
     const player = room.addPlayer({ id: socket.id, name });
@@ -49,6 +80,7 @@ export function registerLobby(io, socket, store) {
     if (room.isFull()) return cb?.({ ok: false, error: "Room is full." });
     if (room.status !== "lobby") return cb?.({ ok: false, error: "Game already started." });
 
+    detachFromRoom(io, socket, store, { left: true }); // never hold two rooms at once
     const player = room.addPlayer({ id: socket.id, name });
     socket.join(room.code);
     socket.data.roomCode = room.code;
@@ -65,6 +97,15 @@ export function registerLobby(io, socket, store) {
       console.log(`[lobby] room ${room.code} started`);
     }
     cb?.({ ok: true, code: room.code, token: player.token, view: room.viewFor(socket.id) });
+  });
+
+  // Explicit exit: Exit Game / Play Again / Main Menu. The client used to just
+  // reset its own state, which left the GameRoom running — its soft cap would
+  // later fire and push a `game:reveal` at a player sitting in the lobby (or in
+  // a NEW room), and the opponent was never told their rival had walked away.
+  socket.on("room:leave", (_payload, cb) => {
+    detachFromRoom(io, socket, store, { left: true });
+    cb?.({ ok: true });
   });
 
   // Lightweight re-sync request (client can ask for its current view any time).
@@ -86,11 +127,7 @@ export function handleDisconnect(io, socket, store) {
 
   const t = setTimeout(() => {
     room.removePlayer(socket.id);
-    if (room.players.length === 0) {
-      room.clearTimers();
-      store.rooms.delete(room.code);
-      console.log(`[lobby] room ${room.code} closed (empty)`);
-    }
+    store.reapIfEmpty(room);
     store.disconnectTimers.delete(socket.id);
   }, RECONNECT_WINDOW_MS);
   store.disconnectTimers.set(socket.id, t);

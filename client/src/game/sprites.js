@@ -1,15 +1,19 @@
 // Loads sprite frames from public/assets via the generated manifest and keeps
 // decoded <img> elements in a cache so the render loop can draw them cheaply.
 
-let manifest = null;
+// Cache the PROMISE, not the resolved value: concurrent callers (menuScene loads
+// holmes + watson through Promise.all) would otherwise all see `manifest === null`
+// and each kick off their own fetch before the first one resolved.
+let manifestPromise = null;
 const cache = new Map(); // path -> HTMLImageElement
 
-async function getManifest() {
-  if (!manifest) {
-    const res = await fetch("/assets/sprites.json");
-    manifest = await res.json();
+function getManifest() {
+  if (!manifestPromise) {
+    manifestPromise = fetch("/assets/sprites.json")
+      .then((res) => res.json())
+      .catch((e) => { manifestPromise = null; throw e; });   // let a failed load retry
   }
-  return manifest;
+  return manifestPromise;
 }
 
 function preload(path) {

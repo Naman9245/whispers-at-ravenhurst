@@ -1,8 +1,9 @@
 import { useRef, useEffect } from "react";
-import { drawBoard, drawHotspots, drawSearching } from "./drawBoard.js";
+import { drawBoard, drawHotspots, drawSearching, drawOccluders } from "./drawBoard.js";
 import { BOARD_W, BOARD_H, ROOM_IDS, roomRect } from "./boardData.js";
 import { ROOM_HOTSPOTS } from "@shared/roomHotspots.js";
 import { objectsIn, distanceToRect } from "@shared/roomObjects.js";
+import { preloadObjectSprites } from "./objectSprites.js";
 import { EXAMINE_RADIUS } from "@shared/constants.js";
 import { loadSprites } from "./sprites.js";
 import { Character } from "./Character.js";
@@ -55,6 +56,10 @@ export default function BoardCanvas({
   onExamineRef.current = onExamine;
   searchingIdRef.current = searchingId;
   searchStartRef.current = searchingStart;
+
+  // Furniture art, if any is declared. No-ops entirely while roomObjects.js
+  // declares zero sprite paths, which is the shipping state today.
+  useEffect(() => { preloadObjectSprites(); }, []);
 
   // Load (or swap) sprites for the controlled character.
   useEffect(() => {
@@ -178,7 +183,13 @@ export default function BoardCanvas({
       if (ch && !ch.inCorridor) {
         drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current);
       }
-      if (ch) ch.draw(ctx);
+      if (ch) {
+        ch.draw(ctx);
+        // Tall furniture the detective is standing behind is re-blitted over
+        // them, so they can walk behind a bookshelf or hearth instead of
+        // floating in front of everything.
+        if (!ch.inCorridor) drawOccluders(ctx, ch.anchorRoom, ch.x, ch.y, true);
+      }
       // Searching overlay (drawn over the character so the bubble reads clearly).
       const sid = searchingIdRef.current;
       if (ch && sid && !ch.inCorridor) {

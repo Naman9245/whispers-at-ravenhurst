@@ -17,7 +17,7 @@
 //    radius is 10px — the max per-frame step is 8px (160px/s × 50ms dt clamp),
 //    so anything smaller can overshoot every frame and oscillate.
 //  • prefers-reduced-motion renders a single static frame and schedules nothing.
-import { drawBoard } from "./drawBoard.js";
+import { drawBoard, drawOccluders } from "./drawBoard.js";
 import { Character } from "./Character.js";
 import { loadSprites } from "./sprites.js";
 import { BOARD_W, BOARD_H, ROOM_IDS, roomRect, pathBetween, isWalkable, PALETTE } from "./boardData.js";
@@ -190,6 +190,9 @@ export function startMenuScene(canvas, { reducedMotion = false } = {}) {
       ctx.globalAlpha = GHOST_ALPHA;
       g.ch.draw(ctx);
       ctx.globalAlpha = 1;
+      // Occlude at FULL alpha over the translucent ghost — the furniture in
+      // front of them is solid even when they are not.
+      if (!g.ch.inCorridor) drawOccluders(ctx, g.ch.anchorRoom, g.ch.x, g.ch.y);
     }
 
     // Lightning: brief white flicker across the whole scene (visual only —

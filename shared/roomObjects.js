@@ -40,7 +40,20 @@
 // the floor plane, so they are examinable without ever being an obstacle.
 
 // Room-relative furniture. `kind` selects the renderer; `solid` blocks feet;
-// `searchable` promotes the object to an examinable hotspot (needs `name`).
+// `searchable` promotes the object to an examinable hotspot (needs `name`);
+// `tall` means the piece is high enough to stand BEHIND — drawBoard's
+// drawOccluders() re-blits it over the detective when they are further back than
+// its front face. Explicit rather than inferred from `kind`, so layout stays a
+// deliberate choice.
+//
+// OPTIONAL ART (all unset today — the mansion is fully procedural):
+//   sprite:        "assets/rooms/library/bookshelf.png"   // no leading slash
+//   spriteOffsetX / spriteOffsetY                          // default 0; use a
+//     negative Y so tall art overhangs its floor footprint
+//   spriteW / spriteH                                      // default = w,h
+// The rect above stays the COLLISION box no matter what the sprite does.
+// ⚠️ Do not commit a `sprite:` value before the PNG exists in client/public/ —
+// a 404 logs a console error and every e2e suite asserts there are none.
 export const ROOM_OBJECTS = {
   // ---- STUDY — migrated: rendered from this table, collision live ----------
   study: [
@@ -50,10 +63,10 @@ export const ROOM_OBJECTS = {
     // dead-centre, which spawned the detective inside it and walled the exit off —
     // pieces hug the walls and corners instead, leaving an open centre aisle.
     { id: "study_rug", kind: "rug", x: 120, y: 120, w: 160, h: 100, solid: false, searchable: false },
-    { id: "study_bookshelf", name: "The Bookshelf", kind: "bookshelf", x: 10, y: 8, w: 192, h: 40, solid: true, searchable: true },
+    { id: "study_bookshelf", name: "The Bookshelf", kind: "bookshelf", x: 10, y: 8, w: 192, h: 40, solid: true, tall: true, searchable: true },
     { id: "study_desk", name: "The Desk", kind: "desk", x: 240, y: 60, w: 110, h: 52, solid: true, searchable: true },
     { id: "study_armchair", name: "The Armchair", kind: "armchair", x: 70, y: 150, w: 34, h: 32, solid: true, searchable: true },
-    { id: "study_fireplace", name: "The Fireplace", kind: "fireplace", x: 288, y: 150, w: 80, h: 52, solid: true, searchable: true },
+    { id: "study_fireplace", name: "The Fireplace", kind: "fireplace", x: 288, y: 150, w: 80, h: 52, solid: true, tall: true, searchable: true },
     { id: "study_lamp", kind: "lamp", x: 36, y: 200, w: 16, h: 16, solid: false, searchable: false },
     { id: "study_painting_a", kind: "painting", x: 232, y: 12, w: 44, h: 32, solid: false, searchable: false },
     { id: "study_painting_b", kind: "painting", x: 300, y: 14, w: 34, h: 26, solid: false, searchable: false },
@@ -69,17 +82,17 @@ export const ROOM_OBJECTS = {
     { id: "dining_chair_d", kind: "chair", x: 42, y: 156, w: 20, h: 16, solid: true, searchable: false },
     { id: "dining_chair_e", kind: "chair", x: 76, y: 156, w: 20, h: 16, solid: true, searchable: false },
     { id: "dining_chair_f", kind: "chair", x: 110, y: 156, w: 20, h: 16, solid: true, searchable: false },
-    { id: "dining_sideboard", name: "The Sideboard", kind: "bookshelf", x: 28, y: 12, w: 92, h: 34, solid: true, searchable: true },
+    { id: "dining_sideboard", name: "The Sideboard", kind: "bookshelf", x: 28, y: 12, w: 92, h: 34, solid: true, tall: true, searchable: true },
     // Overhead — hangs above head height, so it is examinable but never blocks.
     { id: "dining_chandelier", name: "The Chandelier", kind: "lamp", x: 174, y: 26, w: 36, h: 36, solid: false, searchable: true },
-    { id: "dining_wine_cabinet", name: "The Wine Cabinet", kind: "bookshelf", x: 276, y: 56, w: 74, h: 42, solid: true, searchable: true },
+    { id: "dining_wine_cabinet", name: "The Wine Cabinet", kind: "bookshelf", x: 276, y: 56, w: 74, h: 42, solid: true, tall: true, searchable: true },
     { id: "dining_lamp_l", kind: "lamp", x: 286, y: 186, w: 16, h: 16, solid: false, searchable: false },
   ],
 
   // ---- LOUNGE — row 0, door at the BOTTOM ----------------------------------
   lounge: [
     { id: "lounge_rug", kind: "rug", x: 30, y: 86, w: 120, h: 112, solid: false, searchable: false, color: "#4a2c34" },
-    { id: "lounge_fireplace", name: "The Fireplace", kind: "fireplace", x: 150, y: 10, w: 84, h: 46, solid: true, searchable: true },
+    { id: "lounge_fireplace", name: "The Fireplace", kind: "fireplace", x: 150, y: 10, w: 84, h: 46, solid: true, tall: true, searchable: true },
     { id: "lounge_sofa", name: "The Sofa", kind: "sofa", x: 36, y: 152, w: 104, h: 40, solid: true, searchable: true },
     { id: "lounge_coffee_table", name: "The Coffee Table", kind: "desk", x: 44, y: 96, w: 72, h: 34, solid: true, searchable: true },
     // Wall-hung: on the wall, not on the floor — decoration, never an obstacle.
@@ -91,10 +104,10 @@ export const ROOM_OBJECTS = {
   // ---- LIBRARY — row 1, door at the TOP (aisle x148..236, y0..126) ---------
   library: [
     { id: "library_rug", kind: "rug", x: 118, y: 108, w: 150, h: 104, solid: false, searchable: false, color: "#4a2c34" },
-    { id: "library_bookshelves", name: "The Tall Bookshelves", kind: "bookshelf", x: 10, y: 44, w: 124, h: 44, solid: true, searchable: true },
-    { id: "library_shelf_b", kind: "bookshelf", x: 10, y: 100, w: 96, h: 40, solid: true, searchable: false },
+    { id: "library_bookshelves", name: "The Tall Bookshelves", kind: "bookshelf", x: 10, y: 44, w: 124, h: 44, solid: true, tall: true, searchable: true },
+    { id: "library_shelf_b", kind: "bookshelf", x: 10, y: 100, w: 96, h: 40, solid: true, tall: true, searchable: false },
     { id: "library_writing_desk", name: "The Writing Desk", kind: "desk", x: 256, y: 44, w: 100, h: 46, solid: true, searchable: true },
-    { id: "library_fireplace", name: "The Fireplace", kind: "fireplace", x: 152, y: 178, w: 84, h: 48, solid: true, searchable: true },
+    { id: "library_fireplace", name: "The Fireplace", kind: "fireplace", x: 152, y: 178, w: 84, h: 48, solid: true, tall: true, searchable: true },
     { id: "library_reading_chair", name: "The Reading Chair", kind: "armchair", x: 56, y: 172, w: 38, h: 36, solid: true, searchable: true },
     { id: "library_lamp", kind: "lamp", x: 292, y: 190, w: 16, h: 16, solid: false, searchable: false },
   ],
@@ -106,15 +119,15 @@ export const ROOM_OBJECTS = {
     { id: "kitchen_knife_rack", name: "The Knife Rack", kind: "painting", x: 166, y: 28, w: 54, h: 22, solid: false, searchable: true },
     { id: "kitchen_stove", name: "The Stove", kind: "stove", x: 36, y: 148, w: 72, h: 52, solid: true, searchable: true },
     { id: "kitchen_sink", name: "The Sink", kind: "counter", x: 36, y: 62, w: 72, h: 44, solid: true, searchable: true },
-    { id: "kitchen_pantry", name: "The Pantry", kind: "fridge", x: 288, y: 136, w: 46, h: 72, solid: true, searchable: true },
+    { id: "kitchen_pantry", name: "The Pantry", kind: "fridge", x: 288, y: 136, w: 46, h: 72, solid: true, tall: true, searchable: true },
     { id: "kitchen_counter", kind: "counter", x: 262, y: 44, w: 84, h: 38, solid: true, searchable: false },
   ],
 
   // ---- CONSERVATORY — row 1, door at the TOP -------------------------------
   conservatory: [
     // Glazing is split either side of the door column so the entrance stays clear.
-    { id: "conservatory_glass_l", kind: "window", x: 12, y: 12, w: 116, h: 36, solid: false, searchable: false },
-    { id: "conservatory_windows", name: "The Glass Windows", kind: "window", x: 244, y: 12, w: 112, h: 36, solid: false, searchable: true },
+    { id: "conservatory_glass_l", kind: "window", x: 12, y: 12, w: 116, h: 36, solid: false, tall: true, searchable: false },
+    { id: "conservatory_windows", name: "The Glass Windows", kind: "window", x: 244, y: 12, w: 112, h: 36, solid: false, tall: true, searchable: true },
     { id: "conservatory_bench", name: "The Garden Bench", kind: "bench", x: 54, y: 150, w: 84, h: 28, solid: true, searchable: true },
     { id: "conservatory_plants", name: "The Plant Pots", kind: "plant", x: 34, y: 196, w: 32, h: 32, solid: true, searchable: true },
     { id: "conservatory_fountain", name: "The Fountain", kind: "plant", x: 282, y: 176, w: 44, h: 44, solid: true, searchable: true },

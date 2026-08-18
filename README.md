@@ -94,7 +94,7 @@ whispers-at-ravenhurst/
 │   ├── mapData.js           # rooms, connection graph, walkable geometry
 │   ├── roomHotspots.js      # the 4 searchable hotspots per room (24 total)
 │   ├── constants.js         # timers, clue counts, question cap, move speed
-│   ├── questions.js         # the 10-question suspect pool
+│   ├── suspectQuestions.js  # 102 questions: 12 core + 15 per suspect
 │   └── caseSchema.js        # case JSON shape + solvability + hotspot validator
 ├── server/              # Node + Express + Socket.io (authoritative game state)
 │   ├── index.js             # bootstrap + per-connection handler wiring

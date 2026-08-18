@@ -242,7 +242,9 @@ export const CLUE_DISTRIBUTION = { shared: 3, privatePerPlayer: 4, redHerringPer
 export const PROGRESS_TOTAL = 7;          // 3 shared + 4 private (identical for both)
 ```
 
-- **`questions.js`** — the flat 10-question `QUESTION_POOL` (each with a stable `id`)
+- **`suspectQuestions.js`** — `CORE_QUESTIONS` (12, every suspect answers) plus
+  `SUSPECT_QUESTIONS` (15 each, written to that character). 102 total; 30 carry
+  `requiresClue` and are unlocked — and free to ask — once that clue is found
   the client renders and the server validates against.
 - **`roomHotspots.js`** — the 4 searchable hotspots per room (24 total: `ROOM_HOTSPOTS`
   + `HOTSPOT_BY_ID`) with normalized `(x,y)` positions. Imported by the client (draw

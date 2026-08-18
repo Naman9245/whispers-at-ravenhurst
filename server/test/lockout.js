@@ -2,7 +2,7 @@
 // who has already locked in. Needs the server running (WHISPERS_FAST_TIMERS=demo
 // gives an open accuse gate). Run: node test/lockout.js
 import { io } from "socket.io-client";
-import { QUESTION_IDS } from "../../shared/questions.js";
+import { CORE_QUESTION_IDS as QUESTION_IDS } from "../../shared/suspectQuestions.js";
 const URL = "http://localhost:3001";
 const ask = (s, ev, p) => new Promise((r) => s.emit(ev, p, r));
 const wait = (s, ev) => new Promise((r) => s.once(ev, r));

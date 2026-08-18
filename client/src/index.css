@@ -829,3 +829,18 @@ body {
   font-size: 12px; font-weight: 700; letter-spacing: 4px;
   color: var(--gold); text-shadow: none; margin-bottom: 2px;
 }
+
+/* ===== Interrogation: per-suspect, categorised question list (Phase A) ===== */
+.ql-group { margin-bottom: 10px; }
+.ql-cat {
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--gold); opacity: 0.75; margin: 8px 0 4px; padding-left: 2px;
+}
+.ql-spent { color: var(--amber); font-weight: 400; text-transform: none; letter-spacing: 0; }
+/* Evidence-unlocked questions read as earned: gold key, warmer border. */
+.ql-btn.free { border-color: rgba(201,162,63,0.55); background: rgba(201,162,63,0.08); }
+.ql-key { margin-right: 6px; }
+.ql-btn.asked { opacity: 0.45; }
+.ql-done { float: right; color: #6ed68a; }
+.ql-btn:disabled { cursor: default; }
+.ql-again { color: var(--amber); font-style: italic; }

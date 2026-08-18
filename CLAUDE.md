@@ -243,6 +243,19 @@ per-item breakdown.
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
 - **Hotspot→clue mapping is never sent** to a client until that exact spot is examined.
+- **Interrogation is PER-SUSPECT** (`shared/suspectQuestions.js`): 12 core questions
+  everyone answers + 15 written for each character = 102, and `validateCase()` now
+  requires each suspect to answer only ITS OWN set (the old cross-product rule
+  would have demanded ~600 answers for a pool this size). Question TEXT is shared
+  because the client renders it; ANSWERS stay in the case JSON and arrive one
+  branch at a time. **`QUESTION_CAP` (4) applies to core questions only —
+  clue-unlocked ones are FREE**, so investigating buys interrogation leverage.
+  A `requiresClue` question is filtered client-side AND **re-checked in `tryAsk`**;
+  the client list is advisory and must never be trustable. Suspects can **lie**:
+  an answer may be `{base, afterConfront, brokenBy}` (a plain string is still
+  valid), and once the player confronts them with `brokenBy` the question becomes
+  re-askable exactly once, for free — otherwise anyone who asked before finding
+  the evidence could never hear the story collapse.
 - **Furniture has ONE source of truth: `shared/roomObjects.js`.** Each object is
   `{id, name?, kind, x, y, w, h, solid, searchable}` in room-relative px, driving
   all three consumers — collision (`isWalkable` subtracts `solid` rects), hotspots
@@ -283,7 +296,7 @@ shared/                 # SINGLE SOURCE OF TRUTH (imported by client AND server)
   constants.js          # timers, clue distribution, question cap, move speed
   caseSchema.js         # case JSON shape + solvability + hotspot validator
   roomHotspots.js       # the 4 hotspots per room (24 total) — positions + ids
-  questions.js          # the 10-question suspect pool
+  suspectQuestions.js   # 102 questions: 12 core + 15 per suspect, some clue-gated
 server/
   index.js              # Express + Socket.io bootstrap; wires handlers per socket
   rooms.js              # RoomStore + lobby (create/join) + disconnect handling

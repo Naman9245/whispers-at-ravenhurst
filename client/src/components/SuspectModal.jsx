@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { QUESTION_POOL } from "@shared/questions.js";
+import { questionsFor, isFreeQuestion, CATEGORY_LABEL, QUESTION_CATEGORIES } from "@shared/suspectQuestions.js";
 import { QUESTION_CAP } from "@shared/constants.js";
 
 // Global suspect-questioning modal. Opened from the QUESTION SUSPECT action; the
@@ -16,10 +16,29 @@ export default function SuspectModal({ caseInfo, foundClues = [], questioning = 
 
   const selected = suspects.find((s) => s.id === selectedId);
   const selectedIdx = suspects.findIndex((s) => s.id === selectedId);
-  const qState = (selectedId && questioning[selectedId]) || { asked: 0, confronted: [] };
+  const qState = (selectedId && questioning[selectedId]) || { asked: 0, askedIds: [], reAskable: [], confronted: [] };
   const log = (selectedId && dialogues[selectedId]) || [];
   const outOfQuestions = qState.asked >= QUESTION_CAP;
   const unusedClues = foundClues.filter((c) => !qState.confronted.includes(c.id));
+
+  // Questions available to THIS suspect: the shared core plus their own set.
+  // A clue-gated question is HIDDEN until its clue is found — showing it greyed
+  // would leak the clue's contents, since the question text quotes the evidence.
+  const foundIds = new Set(foundClues.map((c) => c.id));
+  const askedIds = new Set(qState.askedIds || []);
+  // A question whose story has collapsed since you asked it can be put again,
+  // once, for free — otherwise a player who asked before finding the
+  // contradicting evidence could never hear the suspect change their answer.
+  const reAskable = new Set(qState.reAskable || []);
+  const available = selectedId
+    ? questionsFor(selectedId).filter((q) => !q.requiresClue || foundIds.has(q.requiresClue))
+    : [];
+  // Core questions spend the budget; clue-unlocked ones are free, so they stay
+  // askable even once the budget is gone.
+  const askable = (q) => reAskable.has(q.id) || (!askedIds.has(q.id) && (isFreeQuestion(q) || !outOfQuestions));
+  const grouped = QUESTION_CATEGORIES
+    .map((cat) => ({ cat, items: available.filter((q) => q.category === cat) }))
+    .filter((g) => g.items.length > 0);
 
 
   // Drop focus from whatever opened this modal (the ACCUSE / QUESTION pill keeps
@@ -86,18 +105,36 @@ export default function SuspectModal({ caseInfo, foundClues = [], questioning = 
               ))}
             </div>
 
-            {outOfQuestions ? (
-              <div className="no-more-questions">NO MORE QUESTIONS</div>
-            ) : (
-              <div className="question-list">
-                <div className="ql-head">Ask ({qState.asked}/{QUESTION_CAP})</div>
-                {QUESTION_POOL.map((q) => (
-                  <button key={q.id} className="ql-btn" onClick={() => onAsk(selected.id, q.id, q.text)}>
-                    {q.text}
-                  </button>
-                ))}
+            <div className="question-list">
+              <div className="ql-head">
+                Ask ({qState.asked}/{QUESTION_CAP})
+                {outOfQuestions && <span className="ql-spent"> — find evidence to press further</span>}
               </div>
-            )}
+              {grouped.map(({ cat, items }) => (
+                <div key={cat} className="ql-group">
+                  <div className="ql-cat">{CATEGORY_LABEL[cat] || cat}</div>
+                  {items.map((q) => {
+                    const again = reAskable.has(q.id);
+                    const done = askedIds.has(q.id) && !again;
+                    const free = isFreeQuestion(q) || again;
+                    return (
+                      <button
+                        key={q.id}
+                        className={`ql-btn ${done ? "asked" : ""} ${free ? "free" : ""}`}
+                        disabled={!askable(q)}
+                        title={again ? "Their story has changed — put it to them again" : free ? "Unlocked by evidence you found — free to ask" : undefined}
+                        onClick={() => onAsk(selected.id, q.id, q.text)}
+                      >
+                        {free && <span className="ql-key">🔑</span>}
+                        {q.text}
+                        {again && <span className="ql-again"> — press them again</span>}
+                        {done && <span className="ql-done">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
 
             <div className="confront-section">
               <button className="confront-toggle" disabled={unusedClues.length === 0} onClick={() => setConfrontOpen((v) => !v)}>

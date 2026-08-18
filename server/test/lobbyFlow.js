@@ -2,7 +2,7 @@
 // deliverables end-to-end: create/join, auto-start, server-authoritative
 // movement (valid + rejected), and the privacy boundary (no opponent position).
 import { io } from "socket.io-client";
-import { QUESTION_IDS } from "../../shared/questions.js";
+import { CORE_QUESTION_IDS as QUESTION_IDS, SUSPECT_QUESTIONS } from "../../shared/suspectQuestions.js";
 
 const URL = "http://localhost:3001";
 const log = (...a) => console.log(...a);
@@ -153,11 +153,23 @@ B.on("chat", (line) => {
 
 const qa1 = await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[0] });
 check("A asks s1 a question → ok + answer", qa1.ok === true && typeof qa1.answer === "string" && qa1.answer.length > 0);
-check("budget reads 1/3", qa1.asked === 1 && qa1.cap === 3);
+check("budget reads 1/4", qa1.asked === 1 && qa1.cap === 4);
 await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[1] });
 await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[2] });
-const qa4 = await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[3] });
-check("4th question on s1 REJECTED (3-cap)", qa4.ok === false && qa4.capped === true);
+await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[3] });
+const qa5 = await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[4] });
+check("5th CORE question on s1 REJECTED (4-cap)", qa5.ok === false && qa5.capped === true);
+// Re-asking something already put to them is refused regardless of budget.
+const qaDup = await ask(A, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[0] });
+check("re-asking the same question REJECTED", qaDup.ok === false);
+// Questions belong to ONE suspect: s2's own set must not be askable of s1.
+const qaWrong = await ask(A, "suspect:ask", { suspectId: "s1", questionId: SUSPECT_QUESTIONS.s2[0].id });
+check("another suspect's question REJECTED on s1", qaWrong.ok === false);
+// ANTI-CHEAT: a clue-gated question is refused server-side when unearned, even
+// though the client would never have offered it.
+const gated = SUSPECT_QUESTIONS.s1.find((q) => q.requiresClue);
+const qaGated = await ask(A, "suspect:ask", { suspectId: "s1", questionId: gated.id });
+check("clue-gated question REJECTED without the clue", qaGated.ok === false && qaGated.locked === true);
 
 const qaB = await ask(B, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[0] });
 check("budgets are per-player (B can still ask s1)", qaB.ok === true && qaB.asked === 1);
@@ -178,7 +190,9 @@ const qblob = JSON.stringify(stA3.view).toLowerCase();
 check("no 'dialogue_tree' in view", !qblob.includes("dialogue_tree"));
 check("no 'evidence_responses' in view", !qblob.includes("evidence_responses"));
 check("no answer prose in view (e.g. 'mourning a marriage')", !qblob.includes("mourning a marriage"));
-check("own questioning state present (s1 asked 3)", stA3.view.you.questioning?.s1?.asked === 3);
+check("own questioning state present (s1 asked 4)", stA3.view.you.questioning?.s1?.asked === 4);
+check("view exposes askedIds so the UI can grey out used questions",
+  Array.isArray(stA3.view.you.questioning?.s1?.askedIds) && stA3.view.you.questioning.s1.askedIds.length === 4);
 check("own confronted list records shared-2 on s3", stA3.view.you.questioning?.s3?.confronted.includes("shared-2"));
 
 await sleep(150);

@@ -26,8 +26,10 @@ export const EXAMINE_RADIUS = 26;
 // modal opens. Shared so the canvas bubble's puff-out lands exactly on the commit.
 export const SEARCH_MS = 2500;
 
-// Suspect questioning budget (per suspect, per player).
-export const QUESTION_CAP = 3;
+// Suspect questioning budget (per suspect, per player) — CORE questions only.
+// Questions unlocked by a clue you found are FREE, so investigating buys
+// interrogation leverage instead of competing with it for the same budget.
+export const QUESTION_CAP = 4;
 
 // Fixed clue distribution for Phase 1 (deterministic for testing/validation).
 //   3 shared + 4 private = 7 counted toward progress; 1 red herring is extra noise.

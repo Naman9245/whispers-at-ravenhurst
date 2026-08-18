@@ -19,7 +19,7 @@
 //     validation:{...} }
 import { CLUE_DISTRIBUTION, SUSPECT_COUNT, WEAPON_COUNT } from "./constants.js";
 import { ROOM_IDS } from "./mapData.js";
-import { QUESTION_IDS } from "./questions.js";
+import { questionIdsFor, findQuestion } from "./suspectQuestions.js";
 import { HOTSPOT_BY_ID } from "./roomHotspots.js";
 
 // Union of eliminated ids in one category across a list of clues.
@@ -150,9 +150,27 @@ export function validateCase(caseData) {
   for (const sid of suspectIds) {
     const tree = trees[sid];
     if (!tree) { fail(`suspect "${sid}" has no dialogue tree`); continue; }
-    for (const qid of QUESTION_IDS) {
+    // CONTRACT CHANGE: a suspect must answer ITS OWN set (the shared core plus
+    // its own questions), not the union of everybody's. The old rule demanded
+    // the full cross product, which made ~100 questions mean ~600 answers.
+    for (const qid of questionIdsFor(sid)) {
       const ans = tree.questions?.[qid];
-      if (typeof ans !== "string" || ans.length === 0) fail(`suspect "${sid}" has no answer for question "${qid}"`);
+      // Two accepted shapes: a plain string, or {base, afterConfront, brokenBy}
+      // for a suspect who lies until confronted with the contradicting clue.
+      if (typeof ans === "string") {
+        if (ans.length === 0) fail(`suspect "${sid}" has an empty answer for question "${qid}"`);
+      } else if (ans && typeof ans === "object") {
+        if (typeof ans.base !== "string" || !ans.base) fail(`suspect "${sid}" question "${qid}" has no base answer`);
+        if (typeof ans.afterConfront !== "string" || !ans.afterConfront) fail(`suspect "${sid}" question "${qid}" has no afterConfront answer`);
+        if (!allClueIds.has(ans.brokenBy)) fail(`suspect "${sid}" question "${qid}" brokenBy "${ans.brokenBy}" is not a real clue`);
+      } else {
+        fail(`suspect "${sid}" has no answer for question "${qid}"`);
+      }
+      // A clue-gated question must name a clue that actually exists.
+      const q = findQuestion(sid, qid);
+      if (q?.requiresClue && !allClueIds.has(q.requiresClue)) {
+        fail(`question "${qid}" requiresClue "${q.requiresClue}", which is not a clue in this case`);
+      }
     }
     const responses = tree.evidence_responses || {};
     const responseKeys = Object.keys(responses);

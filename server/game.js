@@ -4,7 +4,7 @@
 // serialized to a client except through buildView(), which filters per player.
 import { ROOM_IDS, ROOMS } from "../shared/mapData.js";
 import { CHARACTERS, PROGRESS_TOTAL, TIMER_PRESETS, QUESTION_CAP } from "../shared/constants.js";
-import { QUESTION_IDS } from "../shared/questions.js";
+import { findQuestion, isFreeQuestion } from "../shared/suspectQuestions.js";
 import { HOTSPOT_BY_ID } from "../shared/roomHotspots.js";
 import { buildView } from "./views.js";
 import { generateCase } from "./ai/generateCase.js";
@@ -50,7 +50,8 @@ export class GameRoom {
       inCorridor: false,               // true when standing in the corridor
       clues: [],                       // ids the player has found (private)
       examinedHotspots: [],            // hotspot ids this player has examined (private)
-      questionsUsed: {},               // suspectId -> count of generic questions asked
+      questionsUsed: {},               // suspectId -> [questionIds asked] (ids, not a count,
+                                       //   so the UI can grey out what's been used)
       confronted: {},                  // suspectId -> [clueIds already used as evidence]
       lockedIn: false,                 // has submitted accusation (step 10)
       accusation: null,                // payload (private until reveal)
@@ -154,18 +155,59 @@ export class GameRoom {
     if (p.accusation) return { ok: false, locked: true, error: "You've locked in — questioning is closed." };
     const tree = this._dialogueFor(suspectId);
     if (!tree) return { ok: false, error: "No such suspect." };
-    if (!QUESTION_IDS.includes(questionId)) return { ok: false, error: "No such question." };
+    // The question must belong to THIS suspect's set (core + their own).
+    const q = findQuestion(suspectId, questionId);
+    if (!q) return { ok: false, error: "No such question." };
 
-    const used = p.questionsUsed[suspectId] || 0;
-    if (used >= QUESTION_CAP) return { ok: false, capped: true, error: "No more questions for this suspect." };
-    p.questionsUsed[suspectId] = used + 1;
+    // ANTI-CHEAT: a clue-gated question is re-checked here. The client filters
+    // its own list, but that list is advisory — a crafted socket message must
+    // not be able to ask a question the player has not earned.
+    if (q.requiresClue && !p.clues.includes(q.requiresClue)) {
+      return { ok: false, locked: true, error: "You have no evidence to put to them on that." };
+    }
+
+    const asked = p.questionsUsed[suspectId] || (p.questionsUsed[suspectId] = []);
+    const entry0 = tree.questions?.[questionId];
+    const isLie = Boolean(entry0 && typeof entry0 === "object");
+    const nowBroken = isLie && (p.confronted[suspectId] || []).includes(entry0.brokenBy);
+    // A question can normally only be put once. The exception is a LIE whose
+    // story has since collapsed: without this, a player who asked before finding
+    // the contradicting evidence could never hear the suspect change their
+    // answer — the whole point of the mechanic. Re-asking a broken lie is free
+    // and allowed exactly once, tracked with a "!"-suffixed marker.
+    const reAskKey = questionId + "!";
+    const canReAsk = nowBroken && asked.includes(questionId) && !asked.includes(reAskKey);
+    if (asked.includes(questionId) && !canReAsk) {
+      return { ok: false, error: "You have already asked them that." };
+    }
+
+    // Core questions spend the budget; clue-unlocked ones are FREE — the player
+    // already paid for them by finding the evidence.
+    const free = isFreeQuestion(q) || canReAsk;
+    const spent = asked.filter((qid) => !qid.endsWith("!") && !isFreeQuestion(findQuestion(suspectId, qid))).length;
+    if (!free && spent >= QUESTION_CAP) {
+      return { ok: false, capped: true, error: "No more questions for this suspect — find evidence to press them further." };
+    }
+    asked.push(canReAsk ? reAskKey : questionId);
+
+    // A suspect who lies until confronted: the object form carries both answers
+    // and the clue that breaks the story. Plain strings stay valid.
+    let answer, broke = false;
+    if (isLie) {
+      broke = nowBroken;
+      answer = broke ? entry0.afterConfront : entry0.base;
+    } else {
+      answer = entry0 ?? "They offer no answer to that.";
+    }
 
     return {
       ok: true,
       suspectId,
       questionId,
-      answer: tree.questions?.[questionId] ?? "They offer no answer to that.",
-      asked: p.questionsUsed[suspectId],
+      answer,
+      broke,                                   // true when the lie has collapsed
+      free,
+      asked: spent + (free ? 0 : 1),
       cap: QUESTION_CAP,
     };
   }
@@ -198,9 +240,26 @@ export class GameRoom {
   questioningStateFor(player) {
     const out = {};
     for (const s of this.caseData?.suspects || []) {
+      const askedIds = player.questionsUsed[s.id] || [];
+      // Questions whose LIE has collapsed since the player asked them, and which
+      // they have not yet re-put. Ids only — this reveals nothing about which
+      // answers are lies until the player has already earned the confrontation.
+      const tree = this._dialogueFor(s.id);
+      const confrontedHere = player.confronted[s.id] || [];
+      const reAskable = askedIds.filter((qid) => {
+        if (qid.endsWith("!")) return false;
+        const e = tree?.questions?.[qid];
+        return e && typeof e === "object"
+          && confrontedHere.includes(e.brokenBy)
+          && !askedIds.includes(qid + "!");
+      });
       out[s.id] = {
-        asked: player.questionsUsed[s.id] || 0,
-        confronted: player.confronted[s.id] || [],
+        // `asked` stays a number for existing consumers; askedIds lets the UI
+        // grey out questions already put to this suspect.
+        asked: askedIds.filter((qid) => !qid.endsWith("!") && !isFreeQuestion(findQuestion(s.id, qid))).length,
+        askedIds,
+        reAskable,
+        confronted: confrontedHere,
       };
     }
     return out;

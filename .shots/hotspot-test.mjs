@@ -12,25 +12,68 @@ const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c
 const clickByText = async (p, t) => { for (const h of await p.$$("button")) if ((await h.evaluate(b => b.textContent.trim())) === t) { await h.click(); return true; } return false; };
 const pos = (p) => p.evaluate(() => ({ x: window.__wrChar.x, y: window.__wrChar.y, room: window.__wrChar.anchorRoom }));
 
-// Study hotspot pixel positions (roomRect study = x44 y120 w384 h252).
+// STANDING positions beside each Study hotspot (roomRect study = x44 y120).
+//
+// These used to be the hotspot CENTRES. The Study now sources its furniture from
+// shared/roomObjects.js with `solid: true`, so those centres sit inside collision
+// boxes and are no longer stand-on-able — walking "to" a desk means walking UP TO
+// it. Reach is measured to the nearest point of the rect (EXAMINE_RADIUS = 26),
+// so standing flush against a piece is in range.
+// Absolute rects: bookshelf x54-246 y128-168 · desk x284-394 y180-232 ·
+//                 armchair x114-148 y270-302 · fireplace x332-412 y270-322.
 const SPOT = {
-  study_desk:      [44 + 0.50 * 384, 120 + 0.50 * 252],
-  study_bookshelf: [44 + 0.20 * 384, 120 + 0.20 * 252],
-  study_fireplace: [44 + 0.82 * 384, 120 + 0.80 * 252],
-  study_armchair:  [44 + 0.50 * 384, 120 + 0.74 * 252],
+  study_desk:      [278, 206],   // just west of the desk
+  study_bookshelf: [150, 176],   // just below the shelves
+  study_armchair:  [154, 286],   // just east of the armchair
+  study_fireplace: [326, 296],   // just west of the hearth
 };
 
-async function moveTo(page, tx, ty, tol = 10, max = 200) {
-  let stuck = 0, prev = null;
+// Where the magnifier ICON is drawn = the object's CENTRE (abs board px). With
+// solid furniture the player stands beside a piece while its icon sits on top of
+// it, so the click target and the standing spot are no longer the same point.
+const ICON = {
+  study_fireplace: [44 + 288 + 40, 120 + 150 + 26],   // = (372, 296)
+};
+
+// Greedy walker with an obstacle sidestep.
+//
+// The plain "push toward the target" version was fine when rooms were empty
+// boxes, but the Study's furniture is now SOLID (shared/roomObjects.js), and a
+// diagonal greedy walker pins itself against a desk edge forever. On detecting
+// no progress it now sidesteps perpendicular to the blocked axis for a few
+// beats -- enough to clear a rectangular obstacle -- then resumes, alternating
+// the sidestep direction so it can escape either side.
+async function moveTo(page, tx, ty, tol = 10, max = 320) {
+  let stuck = 0, prev = null, flip = 1;
+  const press = async (keys, ms = 60) => {
+    for (const k of keys) await page.keyboard.down(k);
+    await sleep(ms);
+    for (const k of keys) await page.keyboard.up(k);
+    await sleep(15);
+  };
   for (let i = 0; i < max; i++) {
-    const p = await pos(page); const dx = tx - p.x, dy = ty - p.y;
+    const p = await pos(page);
+    const dx = tx - p.x, dy = ty - p.y;
     if (Math.hypot(dx, dy) < tol) return true;
-    if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 1.2) { if (++stuck > 8) return false; } else stuck = 0; prev = p;
-    const keys = []; if (Math.abs(dx) > tol) keys.push(dx > 0 ? "d" : "a"); if (Math.abs(dy) > tol) keys.push(dy > 0 ? "s" : "w");
-    for (const k of keys) await page.keyboard.down(k); await sleep(60); for (const k of keys) await page.keyboard.up(k); await sleep(15);
+    if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 1.2) stuck++; else stuck = 0;
+    prev = p;
+    if (stuck > 3) {
+      // Blocked: slide along the axis we are NOT trying to close, to get around.
+      const side = Math.abs(dx) > Math.abs(dy)
+        ? (flip > 0 ? "s" : "w")     // pushing horizontally -> sidestep vertically
+        : (flip > 0 ? "d" : "a");    // pushing vertically   -> sidestep horizontally
+      await press([side], 220);
+      flip = -flip; stuck = 0;
+      continue;
+    }
+    const keys = [];
+    if (Math.abs(dx) > tol) keys.push(dx > 0 ? "d" : "a");
+    if (Math.abs(dy) > tol) keys.push(dy > 0 ? "s" : "w");
+    await press(keys);
   }
   return false;
 }
+
 const pressE = async (page) => { await page.keyboard.down("e"); await sleep(130); await page.keyboard.up("e"); await sleep(250); };
 const modalText = (page) => page.evaluate(() => {
   const m = document.querySelector(".examine-modal"); if (!m) return null;
@@ -97,8 +140,8 @@ try {
   await moveTo(holmes, ...SPOT.study_fireplace);
   await sleep(150);
   const rect = await holmes.evaluate(() => { const c = document.querySelector(".board-canvas"); const r = c.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height }; });
-  const sx = rect.left + SPOT.study_fireplace[0] * (rect.w / BOARD_W);
-  const sy = rect.top + SPOT.study_fireplace[1] * (rect.h / BOARD_H);
+  const sx = rect.left + ICON.study_fireplace[0] * (rect.w / BOARD_W);
+  const sy = rect.top + ICON.study_fireplace[1] * (rect.h / BOARD_H);
   await holmes.mouse.click(sx, sy);
   await sleep(300);
   const m4 = await modalText(holmes);

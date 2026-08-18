@@ -2,11 +2,24 @@ import { useRef, useEffect } from "react";
 import { drawBoard, drawHotspots, drawSearching } from "./drawBoard.js";
 import { BOARD_W, BOARD_H, ROOM_IDS, roomRect } from "./boardData.js";
 import { ROOM_HOTSPOTS } from "@shared/roomHotspots.js";
+import { objectsIn, distanceToRect } from "@shared/roomObjects.js";
+import { EXAMINE_RADIUS } from "@shared/constants.js";
 import { loadSprites } from "./sprites.js";
 import { Character } from "./Character.js";
 import { playFootstepsWalk, playFootstepsSprint, stopFootsteps } from "./sound.js";
 
-const HOTSPOT_RADIUS = 26; // how close the feet must be to examine a hotspot (almost touching)
+// Reach is measured to the nearest point of the furniture's rect, so "in range"
+// means standing beside the piece — which is the only way a SOLID object could
+// ever be examined (its centre is unreachable by definition).
+const HOTSPOT_RADIUS = EXAMINE_RADIUS;
+
+// Feet -> nearest point of object `id` in `room`, or Infinity if it has no rect.
+function reachOf(room, id, feetX, feetY) {
+  const o = objectsIn(room).find((x) => x.id === id);
+  if (!o) return Infinity;
+  const r = roomRect(room);
+  return distanceToRect(feetX - r.x, feetY - r.y, o);
+}
 
 /**
  * Renders the mansion and THIS client's own character (privacy: never the
@@ -101,9 +114,15 @@ export default function BoardCanvas({
       const h = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === id);
       if (!h) return;
       const hx = rr.x + h.x * rr.w, hy = rr.y + h.y * rr.h;
-      if (Math.hypot(hx - ix, hy - iy) <= 26) { ch.faceToward(hx, hy); onExamineRef.current?.(id); }
+      // The click must land on the icon AND the detective must be within reach
+      // (activeId already guarantees reach, so this only gates the pointer).
+      if (Math.hypot(hx - ix, hy - iy) <= HOTSPOT_RADIUS) { ch.faceToward(hx, hy); onExamineRef.current?.(id); }
     };
     canvas.addEventListener("click", onClick);
+
+    // Firelight flicker is the only animated lighting; honour reduced motion.
+    // Read once — the static light pools stay either way, only the wobble stops.
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
 
     let raf, last = performance.now();
     const loop = (t) => {
@@ -136,7 +155,7 @@ export default function BoardCanvas({
           let best = HOTSPOT_RADIUS;
           for (const h of ROOM_HOTSPOTS[room] || []) {
             if (examinedRef.current.has(h.id)) continue;
-            const d = Math.hypot(rr.x + h.x * rr.w - ch.x, rr.y + h.y * rr.h - ch.y);
+            const d = reachOf(room, h.id, ch.x, ch.y);
             if (d < best) { best = d; activeId = h.id; }
           }
         }
@@ -155,7 +174,7 @@ export default function BoardCanvas({
 
       const current = ch?.anchorRoom;
       const reachable = showReachableRef.current ? ROOM_IDS.filter((id) => id !== current) : [];
-      drawBoard(ctx, { current: ch?.inCorridor ? null : current, reachable });
+      drawBoard(ctx, { current: ch?.inCorridor ? null : current, reachable, flicker: !reducedMotion });
       if (ch && !ch.inCorridor) {
         drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current);
       }

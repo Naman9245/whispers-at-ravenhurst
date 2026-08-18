@@ -601,12 +601,31 @@ export function drawHotspots(c, roomId, hotspots, examined, activeId) {
     const pulse = 0.55 + 0.22 * Math.sin(Date.now() / 320);
     magnifier(c, px, py, active ? 1.25 : 1, active ? 0.95 : pulse);
     if (active) {
-      c.font = "700 15px 'Courier New', monospace";
-      const label = `Press E — ${h.name}`;
+      // 22px to match the room-label tags. The board is drawn at 1472x860 and
+      // then CSS-scaled DOWN to fit the viewport, so on a typical 1600x900
+      // screen the old 15px landed at roughly 12px on-screen — legible in a
+      // screenshot, a squint in motion.
+      c.font = "700 22px 'Courier New', monospace";
+      // The key cap is drawn as its own boxed glyph, and the separator is a
+      // plain ASCII dot: an em dash (—) is NOT in Courier New's canvas glyph
+      // set here and rendered as a blank gap, so the prompt read "Press E   The
+      // Wine Cabinet" with a hole in the middle.
+      const key = "E";
+      const label = `${h.name}`;
+      const gap = 10, keyW = 26, keyH = 26;
       const tw = c.measureText(label).width;
-      const lx = px - tw / 2, ly = py - 20;
-      rect(c, lx - 9, ly - 17, tw + 18, 24, "rgba(20,14,26,0.96)", P.amberLt, 1);
-      c.fillStyle = P.cream; c.fillText(label, lx, ly);
+      const total = keyW + gap + tw;
+      const lx = px - total / 2, ly = py - 26;
+      // Backing plate
+      rect(c, lx - 12, ly - 22, total + 24, 34, "rgba(16,11,22,0.97)", P.amberLt, 2);
+      // Key cap
+      rect(c, lx, ly - 19, keyW, keyH, "rgba(240,184,92,0.20)", P.amberLt, 2);
+      c.fillStyle = P.amberLt;
+      const kw = c.measureText(key).width;
+      c.fillText(key, lx + (keyW - kw) / 2, ly);
+      // Label
+      c.fillStyle = P.cream;
+      c.fillText(label, lx + keyW + gap, ly);
     }
   }
 }

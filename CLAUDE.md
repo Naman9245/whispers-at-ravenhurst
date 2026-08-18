@@ -370,13 +370,13 @@ Source CC0 from freesound.org / pixabay / mixkit. All sounds live in
 
 ### Pass 2 — Ambient + UI + dramatic (2.4b) ✅ DONE
 **Ambient**
-- ✅ Rain bed loop (`ambient/rain_loop.mp3`, vol 0.12) — `playRainLoop` / `stopRainLoop`
+- ✅ Rain bed loop (`ambient/rain_loop.mp3`, vol **0.04**) — `playRainLoop` / `stopRainLoop`
 - ✅ Random door creak (`ambient/door_creak.mp3`) — `playDoorCreak` (30–90s scheduler)
 - ✅ Random floor creak (`ambient/floor_creak.mp3`) — `playFloorCreak` (30–90s scheduler)
 
 **UI**
 - ✅ Button click (`ui/button_click.mp3`) — `playButtonClick` (primary action pills)
-- ✅ Notebook open (`ui/notebook_open.mp3`) — `playNotebookOpen` (open-only)
+- ✅ Notebook swish (`ui/notebook_open.mp3`) — `playNotebookOpen` (open, each tab switch, and close)
 
 **Dramatic**
 - ✅ Accusation lock-in sting (`dramatic/accusation_lockin.mp3`) — `playAccusationLockIn`

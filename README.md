@@ -4,8 +4,11 @@
 
 > **Last updated:** 2026-06-21
 
-<!-- TODO: add hero screenshot / GIF -->
-<!-- Suggested: a 1600×900 capture of the in-game board, or a short GIF of an investigation → accusation flow. -->
+> 📸 **Screenshots:** [`docs/screenshot.png`](docs/screenshot.png) and
+> [`docs/screenshot-active.png`](docs/screenshot-active.png). Note these were
+> captured before the hotspot-exploration pass (2.2) and the slide-in panel
+> restructure, so they show an older HUD — a fresh hero capture / GIF of the
+> current build is a pre-launch task.
 
 ---
 
@@ -127,4 +130,4 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the technical deep-dive, **[DEVLO
 
 ## License
 
-MIT — see `LICENSE`. <!-- TODO: add LICENSE file -->
+MIT — see [LICENSE](LICENSE).

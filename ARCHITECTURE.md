@@ -14,7 +14,7 @@ the codebase as written.
 ```
 ┌──────────────────────────┐        WebSocket (Socket.io)         ┌──────────────────────────┐
 │        CLIENT A           │  ── intents ──▶                       │         SERVER            │
-│  React + Canvas (Holmes)  │   region:enter / investigate /        │  Node + Express +         │
+│  React + Canvas (Holmes)  │   region:enter / hotspot:examine /    │  Node + Express +         │
 │  renders ONLY its own     │   suspect:ask / accuse:lock           │  Socket.io                │
 │  detective + its own view │  ◀── filtered view ──                 │                           │
 └──────────────────────────┘   game:start / state:update /         │  RoomStore → GameRoom     │
@@ -196,8 +196,9 @@ a promise:
 export const net = {
   createRoom: (name, devMode) => ask("room:create", { name, devMode }),
   joinRoom:   (code, name)    => ask("room:join", { code, name }),
+  leaveRoom:  ()              => ask("room:leave", {}),
   enterRegion:(room, inCorridor) => ask("region:enter", { room, inCorridor }),
-  investigate:()              => ask("investigate", {}),
+  examine:    (hotspotId)     => ask("hotspot:examine", { hotspotId }),
   askSuspect: (suspectId, questionId) => ask("suspect:ask", { suspectId, questionId }),
   confrontSuspect:(suspectId, clueId) => ask("suspect:confront", { suspectId, clueId }),
   accuse:     (payload)       => ask("accuse:lock", payload),

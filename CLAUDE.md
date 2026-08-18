@@ -243,6 +243,37 @@ per-item breakdown.
 - **Action lockout after lock-in:** once a player locks in their accusation, the
   server rejects further move/examine/question and the client disables all actions.
 - **Hotspot→clue mapping is never sent** to a client until that exact spot is examined.
+- **Furniture has ONE source of truth: `shared/roomObjects.js`.** Each object is
+  `{id, name?, kind, x, y, w, h, solid, searchable}` in room-relative px, driving
+  all three consumers — collision (`isWalkable` subtracts `solid` rects), hotspots
+  (`roomHotspots.js` DERIVES `ROOM_HOTSPOTS` from `searchable`), and rendering
+  (`drawBoard`'s `drawFromObjects`). The rect that is drawn IS the rect that
+  blocks. These used to be two hand-synced lists that had already drifted (the
+  Study advertised a fireplace hotspot where a floor lamp was drawn). **The 24
+  searchable ids and their rooms are load-bearing** — `fallbackCase.json` places
+  clues by hotspot id and `validateCase()` cross-checks id→room. Positions may
+  change freely; ids and rooms may not.
+- **ROOM LAYOUT RULE (a first pass got this wrong and trapped the player inside a
+  desk):** keep the room **centre** (192,126 room-relative) clear — that is the
+  spawn point — and keep the **door column** (x 148..236) clear from the centre
+  out to the door edge: the BOTTOM wall for row-0 rooms (study/dining/lounge),
+  the TOP wall for row-1 (library/kitchen/conservatory). Pieces hanging on a wall
+  or ceiling (paintings, knife rack, chandelier, glazing) are `solid: false` —
+  above/behind the floor plane, so examinable but never an obstacle.
+  `server/test/movement.js` **[5] reachability · [6] doorway · [7] spawn ·
+  [8] flood-fill connectivity · [9] centre-walkable** enforce all of it. [8]
+  matters most: furniture can carve an isolated island of floor that passes both
+  [5] and [6] while stranding a clue.
+- **The static board is baked once** (`client/src/game/boardLayers.js`). Backdrop,
+  corridor, brick, floors, furniture, doors, lighting, vignette and labels paint
+  into an offscreen canvas and are blitted; only firelight flicker and the
+  player-specific room highlights are per-frame. **Never invalidate from the game
+  loop** — `window.__wrBoard.bakes` must stay at 1. This is what makes the detail
+  affordable (the old renderer redrew ~168 strokes and allocated 5 gradients every
+  frame). Lighting is DERIVED from `ROOM_OBJECTS` kinds (`lamp`/`fireplace`/
+  `stove`/`window`) and **clipped per room** — unclipped, glow punched through
+  walls onto the backdrop. The wall band is **cosmetic overdraw only**; making it
+  solid would desync the art from `roomInterior()`.
 
 ## File Structure Quick Reference
 
@@ -347,7 +378,9 @@ When the user starts a new session:
   **Accusation-timing suite (all against a normal Dev-Mode `npm run dev`):**
   `.shots/timer-expiry-test.mjs` (S1: nobody accuses → soft-cap double forfeit) and
   `.shots/accuse-timing-e2e.mjs` (S8: window auto-forfeit · S9: both accuse → immediate
-  reveal). **Room lifecycle + modal keys:** `.shots/room-lifecycle-test.mjs`
+  reveal). **Furniture collision:** `.shots/study-collision-test.mjs` (solid desk
+  blocks · lounge sofa blocks · a solid piece is still examinable from beside it ·
+  saves a full-board shot). **Room lifecycle + modal keys:** `.shots/room-lifecycle-test.mjs`
   (Exit Game detaches server-side · no stale-reveal hijack · opponent notified ·
   rooms reaped · forfeit ≠ win · Esc/Enter modal contract).
 - **Dev Mode:** lobby checkbox → short timers (60s / 20s / 30s) for fast testing.

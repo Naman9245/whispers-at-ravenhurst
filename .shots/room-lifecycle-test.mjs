@@ -67,7 +67,10 @@ try {
   ok("Enter closes the suspect modal", !(await h.$(".suspect-modal")));
 
   console.log("\n[2] EXAMINE MODAL: really auto-closes after 5s (App re-renders every 1s).");
-  await h.evaluate(() => { const r = { x: 44, y: 120, w: 384, h: 252 }; window.__wrChar.x = r.x + 0.5 * r.w; window.__wrChar.y = r.y + 0.5 * r.h; });
+  // Stand just WEST of the Study desk. The desk is solid furniture now
+  // (shared/roomObjects.js, abs rect x284-394 y180-232), so the room centre is
+  // no longer within examine reach of anything — you walk UP TO a piece.
+  await h.evaluate(() => { window.__wrChar.x = 278; window.__wrChar.y = 206; });
   await sleep(400);
   await h.keyboard.down("e"); await sleep(150); await h.keyboard.up("e");
   await h.waitForSelector(".examine-modal", { timeout: 8000 });

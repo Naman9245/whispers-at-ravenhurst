@@ -1,9 +1,11 @@
 // Pure drawing functions for the mansion board. No React, no state — give it a
 // 2D context and it paints the board at internal resolution (BOARD_W x BOARD_H).
 import {
-  PALETTE as P, GEO, COLS, ROWS, ROOMS, CONNECTIONS, roomRect, DOOR_HALF,
+  PALETTE as P, GEO, COLS, ROWS, ROOMS, CONNECTIONS, roomRect, DOOR_HALF, BOARD_W, BOARD_H,
 } from "./boardData.js";
+import { getBoardLayers } from "./boardLayers.js";
 import { SEARCH_MS } from "@shared/constants.js";
+import { objectsIn } from "@shared/roomObjects.js";
 
 // ---- low-level helpers -------------------------------------------------
 const rect = (c, x, y, w, h, fill, stroke, sw = 1) => {
@@ -39,7 +41,6 @@ function table(c, x, y, w, h) {
   rect(c, x + 4, y + 4, w - 8, h - 8, P.woodLt);
   rect(c, x + 4, y + 4, w - 8, 4, "#a06e46");
 }
-const chair = (c, x, y, s = 18) => rect(c, x, y, s, s, P.woodDk, "#32200f", 1);
 function rug(c, x, y, w, h, col) {
   rect(c, x, y, w, h, col);
   c.strokeStyle = "rgba(255,255,255,0.12)"; c.lineWidth = 2;
@@ -75,60 +76,98 @@ function stove(c, x, y, w, h) {
 }
 
 // ---- per-room interiors ------------------------------------------------
-function decorate(c, id, x, y, w, h) {
-  const cx = x + w / 2, cy = y + h / 2;
-  switch (id) {
-    case "study":
-      rug(c, x + w * 0.18, y + h * 0.30, w * 0.64, h * 0.55, P.floorDk);
-      bookshelf(c, x + 10, y + 8, w * 0.5, 40);
-      table(c, cx - 55, cy - 18, 110, 56);
-      chair(c, cx - 9, cy + 44);
-      lamp(c, x + w - 36, y + h - 36);
-      break;
-    case "dining":
-      rug(c, x + w * 0.12, y + h * 0.28, w * 0.76, h * 0.6, P.rug);
-      table(c, x + w * 0.18, cy - 30, w * 0.64, 60);
-      for (let i = 0; i < 4; i++) {
-        chair(c, x + w * 0.2 + i * (w * 0.16), cy - 58);
-        chair(c, x + w * 0.2 + i * (w * 0.16), cy + 34);
-      }
-      lamp(c, x + 30, y + 26); lamp(c, x + w - 30, y + 26);
-      break;
-    case "lounge":
-      rug(c, x + w * 0.15, y + h * 0.35, w * 0.7, h * 0.5, P.rug);
-      fireplace(c, cx - 45, y + 14, 90, 56);
-      rect(c, x + w * 0.2, y + h * 0.62, w * 0.6, 34, "#783c3c", "#502828", 2);
-      lamp(c, x + w - 34, y + h - 34); plant(c, x + 16, y + h - 48);
-      break;
-    case "library":
-      rug(c, x + w * 0.16, y + h * 0.34, w * 0.68, h * 0.52, P.rug);
-      bookshelf(c, x + 8, y + 8, w * 0.42, 44);
-      bookshelf(c, x + w - 8 - w * 0.42, y + 8, w * 0.42, 44);
-      fireplace(c, cx - 40, cy - 6, 80, 50);
-      rect(c, x + w * 0.22, y + h * 0.72, w * 0.3, 30, "#783c3c", "#502828", 2);
-      lamp(c, x + 30, y + h - 32);
-      break;
-    case "kitchen":
-      rug(c, x + w * 0.1, y + h * 0.3, w * 0.8, h * 0.6, P.floorDk);
-      stove(c, cx - 20, cy - 10, 70, 50);
-      fridge(c, x + w - 70, cy - 14, 44, 70);
-      rect(c, x + 16, cy - 6, w * 0.34, 44, "#96785a", "#645040", 2);
-      for (let i = 0; i < 3; i++) {
-        c.strokeStyle = "#969aa0"; c.lineWidth = 2;
-        c.beginPath(); c.arc(cx - 22 + i * 22, y + 24, 8, 0, Math.PI * 2); c.stroke();
-      }
-      break;
-    case "conservatory":
-      rect(c, x + 8, y + 8, w - 16, h * 0.4, P.glass, "#5a8c96", 2);
-      c.strokeStyle = "#6ea0aa"; c.lineWidth = 1;
-      for (let gx = x + 48; gx < x + w - 16; gx += 40) {
-        c.beginPath(); c.moveTo(gx, y + 8); c.lineTo(gx, y + 8 + h * 0.4); c.stroke();
-      }
-      rect(c, x + w * 0.3, y + h * 0.55, w * 0.4, 26, "#785a3c", "#503c28", 2);
-      [x + 24, x + w * 0.32, x + w * 0.6, x + w - 50].forEach((px) =>
-        plant(c, px, y + h - 50, 30));
-      break;
-    default: break;
+// Every room now paints from shared/roomObjects.js — the rect that is drawn IS
+// the rect that blocks, so art and collision can never disagree. The old
+// hardcoded per-room switch (with its own literal coordinates, kept in visual
+// sync by hand) is gone.
+function decorate(c, id, x, y) {
+  drawFromObjects(c, id, x, y);
+}
+
+// ---- object-table renderer (migrated rooms) ----------------------------
+// Paints a room's furniture straight from shared/roomObjects.js. `kind` picks
+// the primitive; the rect IS the collision box, so what you see is what blocks.
+function shadowFor(c, ax, ay, aw, ah) {
+  c.save();
+  // Directional cast — light comes from the top-left in every room, and keeping
+  // that consistent across the board is most of what sells volume.
+  c.fillStyle = "rgba(0,0,0,0.30)";
+  c.fillRect(ax + 5, ay + 5, aw, ah);
+  // Contact shadow: radial falloff, densest where the piece meets the floor.
+  const cx = ax + aw / 2, cy = ay + ah + 1, rx = aw * 0.60, ry = 8;
+  const g = c.createRadialGradient(cx, cy, 1, cx, cy, Math.max(rx, ry));
+  g.addColorStop(0, "rgba(0,0,0,0.40)");
+  g.addColorStop(1, "rgba(0,0,0,0)");
+  c.fillStyle = g;
+  c.save();
+  c.translate(cx, cy); c.scale(1, ry / Math.max(rx, ry)); c.translate(-cx, -cy);
+  c.beginPath(); c.arc(cx, cy, Math.max(rx, ry), 0, Math.PI * 2); c.fill();
+  c.restore();
+  c.restore();
+}
+function painting(c, ax, ay, aw, ah) {
+  rect(c, ax, ay, aw, ah, "#2e2440", P.wood, 2);
+  rect(c, ax + 4, ay + 4, aw - 8, ah - 8, "#4a3a5c");
+  ellipse(c, ax + aw / 2, ay + ah * 0.42, aw * 0.16, ah * 0.2, "#8c7a9e");
+}
+function armchair(c, ax, ay, aw, ah) {
+  rect(c, ax, ay, aw, ah, "#783c3c", "#502828", 2);
+  rect(c, ax + 3, ay + 3, aw - 6, ah * 0.42, "#96504e");   // back cushion
+  rect(c, ax + 2, ay + ah * 0.5, aw - 4, ah * 0.42, "#8a4646"); // seat
+}
+// A long low bench: slatted seat + two legs. Reads as garden furniture.
+function bench(c, ax, ay, aw, ah) {
+  rect(c, ax, ay, aw, ah, "#785a3c", "#503c28", 2);
+  for (let i = 1; i < 3; i++) {
+    const sy = ay + (ah / 3) * i;
+    c.strokeStyle = "rgba(0,0,0,0.28)"; c.lineWidth = 1;
+    c.beginPath(); c.moveTo(ax + 3, sy); c.lineTo(ax + aw - 3, sy); c.stroke();
+  }
+  rect(c, ax + 5, ay + ah - 3, 6, 5, "#503c28");
+  rect(c, ax + aw - 11, ay + ah - 3, 6, 5, "#503c28");
+}
+// Glazing: pale panes behind dark mullions, with a cool sky wash.
+function windowPane(c, ax, ay, aw, ah) {
+  rect(c, ax, ay, aw, ah, P.glass, "#5a8c96", 2);
+  const g = c.createLinearGradient(ax, ay, ax, ay + ah);
+  g.addColorStop(0, "rgba(255,255,255,0.22)");
+  g.addColorStop(1, "rgba(140,196,214,0)");
+  c.fillStyle = g; c.fillRect(ax + 2, ay + 2, aw - 4, ah - 4);
+  c.strokeStyle = "#6ea0aa"; c.lineWidth = 1;
+  for (let gx = ax + 26; gx < ax + aw - 6; gx += 26) {
+    c.beginPath(); c.moveTo(gx, ay + 2); c.lineTo(gx, ay + ah - 2); c.stroke();
+  }
+}
+// Dining chair seen from above: seat square with a back rail on one edge.
+function diningChair(c, ax, ay, aw, ah) {
+  rect(c, ax, ay, aw, ah, P.woodDk, "#32200f", 1);
+  rect(c, ax + 2, ay + 2, aw - 4, Math.max(3, ah * 0.28), "#7a5230");
+}
+function drawFromObjects(c, roomId, ox, oy) {
+  for (const o of objectsIn(roomId)) {
+    const ax = ox + o.x, ay = oy + o.y;
+    if (o.solid) shadowFor(c, ax, ay, o.w, o.h);
+    switch (o.kind) {
+      // `rug` honours the object's own colour so the maroon P.rug the legacy
+      // rooms used is reachable from the migrated path (it was hardcoded to
+      // P.floorDk, which silently flattened every migrated rug to floor colour).
+      case "rug":        rug(c, ax, ay, o.w, o.h, o.color || P.rug); break;
+      case "bookshelf":  bookshelf(c, ax, ay, o.w, o.h); break;
+      case "desk":       table(c, ax, ay, o.w, o.h); break;
+      case "counter":    rect(c, ax, ay, o.w, o.h, "#96785a", "#645040", 2); break;
+      case "armchair":   armchair(c, ax, ay, o.w, o.h); break;
+      case "sofa":       armchair(c, ax, ay, o.w, o.h); break;
+      case "chair":      diningChair(c, ax, ay, o.w, o.h); break;
+      case "bench":      bench(c, ax, ay, o.w, o.h); break;
+      case "window":     windowPane(c, ax, ay, o.w, o.h); break;
+      case "fireplace":  fireplace(c, ax, ay, o.w, o.h); break;
+      case "painting":   painting(c, ax, ay, o.w, o.h); break;
+      case "lamp":       lamp(c, ax + o.w / 2, ay + o.h / 2); break;
+      case "plant":      plant(c, ax, ay, Math.max(o.w, o.h)); break;
+      case "stove":      stove(c, ax, ay, o.w, o.h); break;
+      case "fridge":     fridge(c, ax, ay, o.w, o.h); break;
+      default:           rect(c, ax, ay, o.w, o.h, P.wood, P.woodDk, 2); break;
+    }
   }
 }
 
@@ -150,60 +189,244 @@ function drawDoors(c) {
   }
 }
 
-// ---- public: paint the whole board ------------------------------------
-export function drawBoard(c, { current = null, reachable = [] } = {}) {
-  // backdrop
-  rect(c, 0, 0, c.canvas.width, c.canvas.height, P.bg);
+// ---- per-room identity --------------------------------------------------
+// Each room gets its own floor material, back-wall colour and mood tint. This is
+// what stops six identical green boxes reading as one undifferentiated map.
+const ROOM_STYLE = {
+  study:        { floor: "plank",   wall: "#4a3646", tint: "rgba(150,100,50,0.10)" },
+  dining:       { floor: "parquet", wall: "#523a44", tint: "rgba(160,105,55,0.10)" },
+  lounge:       { floor: "parquet", wall: "#4e3442", tint: "rgba(170,80,65,0.11)" },
+  library:      { floor: "plank",   wall: "#46323c", tint: "rgba(150,80,45,0.12)" },
+  kitchen:      { floor: "tile",    wall: "#3e4450", tint: "rgba(80,120,145,0.10)" },
+  conservatory: { floor: "stone",   wall: "#3a4a4a", tint: "rgba(90,140,130,0.10)" },
+};
+const styleOf = (id) => ROOM_STYLE[id] || ROOM_STYLE.study;
 
-  // central horizontal corridor (the spine every room connects to)
-  const corrY0 = ROWS[0] + GEO.roomH;        // 372
-  const corrH = GEO.hall;                     // 116
+// ---- material tiles -----------------------------------------------------
+// Small canvases turned into repeating patterns. Built once, used inside the
+// static bake — so a whole floor costs ONE fillRect instead of a stroke loop.
+const tileCache = new Map();
+function tileCanvas(kind) {
+  if (tileCache.has(kind)) return tileCache.get(kind);
+  const t = document.createElement("canvas");
+  t.width = t.height = 32;
+  const g = t.getContext("2d");
+  if (kind === "tile") {
+    g.fillStyle = "#33474b"; g.fillRect(0, 0, 32, 32);
+    g.fillStyle = "#2b3c40"; g.fillRect(0, 0, 16, 16); g.fillRect(16, 16, 16, 16);
+    g.strokeStyle = "rgba(0,0,0,0.18)"; g.lineWidth = 1;
+    g.strokeRect(0.5, 0.5, 31, 31);
+  } else if (kind === "stone") {
+    g.fillStyle = "#3b4a44"; g.fillRect(0, 0, 32, 32);
+    g.strokeStyle = "rgba(0,0,0,0.22)"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, 16); g.lineTo(32, 16); g.stroke();
+    g.beginPath(); g.moveTo(16, 0); g.lineTo(16, 16); g.stroke();
+    g.beginPath(); g.moveTo(6, 16); g.lineTo(6, 32); g.stroke();
+    g.fillStyle = "rgba(255,255,255,0.03)"; g.fillRect(1, 1, 14, 14);
+  } else if (kind === "parquet") {
+    g.fillStyle = "#33463f"; g.fillRect(0, 0, 32, 32);
+    g.fillStyle = "#2d3f39";
+    for (let i = 0; i < 4; i++) g.fillRect(0, i * 8, 16, 6);
+    for (let i = 0; i < 4; i++) g.fillRect(16 + 0, i * 8 + 4, 16, 6);
+    g.strokeStyle = "rgba(0,0,0,0.16)"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(16, 0); g.lineTo(16, 32); g.stroke();
+  } else {   // plank
+    g.fillStyle = "#2e4a44"; g.fillRect(0, 0, 32, 32);
+    g.strokeStyle = "rgba(0,0,0,0.20)"; g.lineWidth = 1;
+    for (let yy = 8; yy < 32; yy += 8) { g.beginPath(); g.moveTo(0, yy); g.lineTo(32, yy); g.stroke(); }
+    g.fillStyle = "rgba(255,255,255,0.030)"; g.fillRect(0, 1, 32, 2);
+    g.fillStyle = "rgba(0,0,0,0.10)"; g.fillRect(11, 0, 1, 8); g.fillRect(24, 8, 1, 8);
+  }
+  tileCache.set(kind, t);
+  return t;
+}
+function brickTile() {
+  if (tileCache.has("brick")) return tileCache.get("brick");
+  const t = document.createElement("canvas");
+  t.width = 32; t.height = 16;
+  const g = t.getContext("2d");
+  g.fillStyle = P.wall; g.fillRect(0, 0, 32, 16);
+  g.strokeStyle = "rgba(92,62,56,0.55)"; g.lineWidth = 1;
+  g.beginPath(); g.moveTo(0, 8.5); g.lineTo(32, 8.5); g.stroke();
+  g.beginPath(); g.moveTo(8.5, 0); g.lineTo(8.5, 8); g.stroke();
+  g.beginPath(); g.moveTo(24.5, 8); g.lineTo(24.5, 16); g.stroke();
+  g.fillStyle = "rgba(255,255,255,0.025)"; g.fillRect(0, 0, 32, 1);
+  tileCache.set("brick", t);
+  return t;
+}
+const fillWith = (c, canvas, x, y, w, h) => {
+  c.save();
+  const pat = c.createPattern(canvas, "repeat");
+  c.translate(x, y);
+  c.fillStyle = pat;
+  c.fillRect(0, 0, w, h);
+  c.restore();
+};
+
+// ---- the back wall ------------------------------------------------------
+// A short papered band across the TOP of each room: wallpaper, a wainscot line
+// and a skirting strip. This is the single biggest "flat floor-plan -> actual
+// room" change, because it gives the box a visible far wall to hang art on.
+//
+// ⚠️ COSMETIC ONLY — it must never become solid. The walkable interior is
+// roomInterior() (inset WALL_INSET=16); thickening the drawn wall past that
+// would put the art and the collision box back out of sync, which is the exact
+// class of bug shared/roomObjects.js exists to prevent. The feet can stand on
+// the band's lower pixels; that is the normal top-down concession.
+const WALL_BAND_H = 22;
+function wallBand(c, id, x, y, w) {
+  const st = styleOf(id);
+  const isBottomRow = ROOMS[id].row === 1;
+  const cx = x + w / 2;
+  // Row-1 rooms have their doorway in this very wall — leave an arch-sized gap.
+  const gapL = isBottomRow ? cx - DOOR_HALF : null;
+  const gapR = isBottomRow ? cx + DOOR_HALF : null;
+  const segments = isBottomRow ? [[x, gapL], [gapR, x + w]] : [[x, x + w]];
+  for (const [sx, ex] of segments) {
+    const sw = ex - sx;
+    if (sw <= 0) continue;
+    rect(c, sx, y, sw, WALL_BAND_H, st.wall);
+    // vertical shading so the wall doesn't read as a flat stripe
+    const g = c.createLinearGradient(0, y, 0, y + WALL_BAND_H);
+    g.addColorStop(0, "rgba(0,0,0,0.30)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = g; c.fillRect(sx, y, sw, WALL_BAND_H);
+    rect(c, sx, y + WALL_BAND_H - 5, sw, 5, "rgba(0,0,0,0.28)");     // skirting
+    c.strokeStyle = "rgba(255,255,255,0.10)"; c.lineWidth = 1;        // wainscot
+    c.beginPath(); c.moveTo(sx, y + WALL_BAND_H - 5.5); c.lineTo(ex, y + WALL_BAND_H - 5.5); c.stroke();
+  }
+}
+
+// ---- lighting -----------------------------------------------------------
+// The light list is DERIVED from the furniture table, so migrating a room lights
+// it automatically and a lamp can never drift away from its glow.
+const LIGHT_KINDS = {
+  lamp:       { r: 150, rgb: "255,214,120", a: 1.00 },
+  fireplace:  { r: 165, rgb: "255,150,72",  a: 1.00 },
+  stove:      { r: 90,  rgb: "255,182,120", a: 0.55 },
+  window:     { r: 175, rgb: "176,216,240", a: 0.85 },   // cool daylight, not amber
+};
+// Lights are grouped BY ROOM so the glow can be clipped to the room that owns
+// it. Unclipped, a lamp near a wall erased darkness straight through the brick
+// and out onto the backdrop — rooms bled haloes into the void around them.
+export function boardLights() {
+  const byRoom = [];
+  for (const id of Object.keys(ROOMS)) {
+    const r = roomRect(id);
+    const lights = [];
+    for (const o of objectsIn(id)) {
+      const L = LIGHT_KINDS[o.kind];
+      if (!L) continue;
+      lights.push({ x: r.x + o.x + o.w / 2, y: r.y + o.y + o.h / 2, ...L, kind: o.kind });
+    }
+    if (lights.length) byRoom.push({ id, rect: r, lights });
+  }
+  return byRoom;
+}
+export const flatLights = () => boardLights().flatMap((g) => g.lights.map((L) => ({ ...L, room: g.rect })));
+
+// Ambient darkness with light punched OUT of it, then warm colour added back.
+// `destination-out` is what makes the pools soft with zero per-pixel JS.
+function applyLighting(c, groups) {
+  const mask = document.createElement("canvas");
+  mask.width = BOARD_W; mask.height = BOARD_H;
+  const m = mask.getContext("2d");
+  // Ambient dim. Kept LIGHT on purpose: this is a game where the player has to
+  // read furniture, hotspot magnifiers and their own detective. A heavier wash
+  // looked moodier in a screenshot and was genuinely unplayable in motion.
+  m.fillStyle = "rgba(8,5,14,0.30)";
+  m.fillRect(0, 0, BOARD_W, BOARD_H);
+  // The corridor sits a touch darker so the lit rooms read as the stage.
+  m.fillStyle = "rgba(8,5,14,0.16)";
+  m.fillRect(GEO.margin, ROWS[0] + GEO.roomH, BOARD_W - GEO.margin * 2, GEO.hall);
+
+  m.globalCompositeOperation = "destination-out";
+  for (const grp of groups) {
+    m.save();
+    // Clip to the room (plus its brick frame) so light never crosses a wall.
+    m.beginPath();
+    m.rect(grp.rect.x - 6, grp.rect.y - 6, grp.rect.w + 12, grp.rect.h + 12);
+    m.clip();
+    for (const L of grp.lights) {
+      const g = m.createRadialGradient(L.x, L.y, 2, L.x, L.y, L.r);
+      g.addColorStop(0, `rgba(0,0,0,${L.a})`);
+      g.addColorStop(0.5, `rgba(0,0,0,${L.a * 0.55})`);
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      m.fillStyle = g;
+      m.fillRect(L.x - L.r, L.y - L.r, L.r * 2, L.r * 2);
+    }
+    m.restore();
+  }
+  m.globalCompositeOperation = "source-over";
+  c.drawImage(mask, 0, 0);
+
+  // Add the warm colour the mask could only subtract — same clip.
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  for (const grp of groups) {
+    c.save();
+    c.beginPath();
+    c.rect(grp.rect.x, grp.rect.y, grp.rect.w, grp.rect.h);
+    c.clip();
+    for (const L of grp.lights) {
+      const rr = L.r * 0.85;
+      const g = c.createRadialGradient(L.x, L.y, 2, L.x, L.y, rr);
+      g.addColorStop(0, `rgba(${L.rgb},0.16)`);
+      g.addColorStop(1, `rgba(${L.rgb},0)`);
+      c.fillStyle = g;
+      c.fillRect(L.x - rr, L.y - rr, rr * 2, rr * 2);
+    }
+    c.restore();
+  }
+  c.restore();
+}
+
+// ---- STATIC bake --------------------------------------------------------
+// Everything here is identical on every frame for every player, so it is painted
+// ONCE into an offscreen canvas (see boardLayers.js) and blitted thereafter.
+// That is what makes the detail above affordable: before this, the board redrew
+// ~168 stroked lines and allocated 5 radial gradients 60 times a second.
+export function paintStatic(c) {
+  rect(c, 0, 0, BOARD_W, BOARD_H, P.bg);
+
+  const corrY0 = ROWS[0] + GEO.roomH;
+  const corrH = GEO.hall;
   const corrX = GEO.margin;
-  const corrW = c.canvas.width - GEO.margin * 2;
+  const corrW = BOARD_W - GEO.margin * 2;
   rect(c, corrX, corrY0, corrW, corrH, P.hall);
-  // corridor runner + edge lines
   rect(c, corrX, corrY0 + corrH / 2 - 18, corrW, 36, "rgba(92,60,102,0.5)");
   c.strokeStyle = P.hallEdge; c.lineWidth = 2;
   c.beginPath(); c.moveTo(corrX, corrY0); c.lineTo(corrX + corrW, corrY0); c.stroke();
   c.beginPath(); c.moveTo(corrX, corrY0 + corrH); c.lineTo(corrX + corrW, corrY0 + corrH); c.stroke();
 
-  // rooms
   for (const id of Object.keys(ROOMS)) {
     const { x, y, w, h } = roomRect(id);
-    rect(c, x - 6, y - 6, w + 12, h + 12, P.wall);             // brick frame
-    c.strokeStyle = "rgba(92,62,56,0.4)"; c.lineWidth = 1;
-    for (let by = y - 6; by < y + h + 6; by += 14) {
-      c.beginPath(); c.moveTo(x - 6, by); c.lineTo(x + w + 6, by); c.stroke();
-    }
-    rect(c, x, y, w, h, P.floor);                              // floor
-    c.strokeStyle = "rgba(38,62,57,0.5)"; c.lineWidth = 1;
-    for (let ty = y; ty < y + h; ty += 28) {
-      c.beginPath(); c.moveTo(x, ty); c.lineTo(x + w, ty); c.stroke();
-    }
-    decorate(c, id, x, y, w, h);
-
-    if (id === current) {                                     // current room: teal fill + glow
-      c.save();
-      c.fillStyle = "rgba(111,214,196,0.14)";
-      c.fillRect(x, y, w, h);
-      c.strokeStyle = P.tealTxt; c.lineWidth = 4;
-      c.shadowColor = P.tealTxt; c.shadowBlur = 12;
-      c.strokeRect(x - 2, y - 2, w + 4, h + 4);
-      c.restore();
-    } else if (reachable.includes(id)) {                      // reachable rooms: amber dashes
-      c.save();
-      c.strokeStyle = P.amberLt; c.lineWidth = 3;
-      c.setLineDash([10, 8]); c.lineDashOffset = -(Date.now() / 40) % 18;
-      c.strokeRect(x - 4, y - 4, w + 8, h + 8);
-      c.restore();
-    }
-
-    rect(c, x, y, w, h, null, P.floorDk, 3);                   // floor border on top
+    const st = styleOf(id);
+    fillWith(c, brickTile(), x - 6, y - 6, w + 12, h + 12);   // brick frame
+    fillWith(c, tileCanvas(st.floor), x, y, w, h);            // floor material
+    wallBand(c, id, x, y, w);
+    decorate(c, id, x, y);
+    // per-room mood tint
+    c.save();
+    c.globalCompositeOperation = "multiply";
+    c.fillStyle = st.tint; c.fillRect(x, y, w, h);
+    c.restore();
+    rect(c, x, y, w, h, null, P.floorDk, 3);
   }
 
   drawDoors(c);
+  applyLighting(c, boardLights());
 
-  // room label tags
+  // Board-wide vignette — same two-layer recipe as the menu's .mm-scrim.
+  c.save();
+  const vg = c.createRadialGradient(BOARD_W / 2, BOARD_H * 0.42, BOARD_H * 0.28,
+                                    BOARD_W / 2, BOARD_H * 0.42, BOARD_W * 0.62);
+  vg.addColorStop(0, "rgba(21,14,30,0)");
+  vg.addColorStop(1, "rgba(21,14,30,0.30)");
+  c.fillStyle = vg; c.fillRect(0, 0, BOARD_W, BOARD_H);
+  c.restore();
+
+  // Labels last so nothing dims them.
   c.font = "700 22px 'Courier New', monospace";
   c.textBaseline = "alphabetic";
   for (const id of Object.keys(ROOMS)) {
@@ -213,6 +436,81 @@ export function drawBoard(c, { current = null, reachable = [] } = {}) {
     const lx = x + w / 2 - tw / 2, ly = y + h - 22;
     rect(c, lx - 12, ly - 22, tw + 24, 30, "rgba(20,14,26,0.92)", "#000", 2);
     c.fillStyle = P.cream; c.fillText(label, lx, ly);
+  }
+}
+
+// ---- per-frame flicker --------------------------------------------------
+// ONE prerendered glow sprite, blitted additively per light. Replaces the 5
+// createRadialGradient allocations the old renderer did every single frame,
+// while adding live fire flicker on top.
+let glowSprite = null;
+function getGlow() {
+  if (glowSprite) return glowSprite;
+  const s = document.createElement("canvas");
+  s.width = s.height = 128;
+  const g = s.getContext("2d");
+  const rg = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+  rg.addColorStop(0, "rgba(255,255,255,0.9)");
+  rg.addColorStop(0.5, "rgba(255,255,255,0.28)");
+  rg.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = rg; g.fillRect(0, 0, 128, 128);
+  glowSprite = s;
+  return s;
+}
+function drawFlicker(c, groups, t) {
+  const glow = getGlow();
+  c.save();
+  c.globalCompositeOperation = "lighter";
+  let i = 0;
+  for (const grp of groups) {
+    c.save();
+    c.beginPath();
+    c.rect(grp.rect.x, grp.rect.y, grp.rect.w, grp.rect.h);
+    c.clip();
+    for (const L of grp.lights) {
+      i++;
+      if (L.kind === "window") continue;               // daylight doesn't flicker
+      const wob = L.kind === "fireplace"
+        ? 0.10 + 0.055 * Math.sin(t / 130 + i) + 0.03 * Math.sin(t / 47 + i * 2)
+        : 0.05 + 0.015 * Math.sin(t / 900 + i);
+      const r = L.r * 0.55;
+      c.globalAlpha = Math.max(0, wob);
+      c.drawImage(glow, L.x - r, L.y - r, r * 2, r * 2);
+    }
+    c.restore();
+  }
+  c.restore();
+}
+
+// ---- public: paint the whole board ------------------------------------
+// Blits the cached static layer, then paints only what genuinely changes:
+// firelight flicker and the player-specific room highlights.
+export function drawBoard(c, { current = null, reachable = [], flicker = true } = {}) {
+  const { bg } = getBoardLayers(paintStatic);
+  c.save();
+  c.imageSmoothingEnabled = false;
+  c.drawImage(bg, 0, 0);
+  c.restore();
+
+  if (flicker) drawFlicker(c, boardLights(), Date.now());
+
+  for (const id of Object.keys(ROOMS)) {
+    const { x, y, w, h } = roomRect(id);
+    if (id === current) {
+      c.save();
+      c.fillStyle = "rgba(111,214,196,0.14)";
+      c.fillRect(x, y, w, h);
+      c.strokeStyle = P.tealTxt; c.lineWidth = 4;
+      c.shadowColor = P.tealTxt; c.shadowBlur = 12;
+      c.strokeRect(x - 2, y - 2, w + 4, h + 4);
+      c.restore();
+    } else if (reachable.includes(id)) {
+      c.save();
+      c.strokeStyle = P.amberLt; c.lineWidth = 3;
+      c.setLineDash([10, 8]); c.lineDashOffset = -(Date.now() / 40) % 18;
+      c.strokeRect(x - 4, y - 4, w + 8, h + 8);
+      c.restore();
+    }
   }
 }
 

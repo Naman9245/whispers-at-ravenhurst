@@ -1,6 +1,11 @@
 // SINGLE SOURCE OF TRUTH for the mansion, imported by BOTH the client (to draw
 // and animate) and the server (to validate movement). Keeping the connection
 // graph in one module makes it impossible for client and server to disagree.
+//
+// Import direction is one-way: mapData -> roomObjects. roomObjects holds only
+// room-RELATIVE rects and pure helpers precisely so it never has to import back
+// here for geometry, which would make the cycle mapData <-> roomObjects.
+import { inSolidObject } from "./roomObjects.js";
 
 export const MAP_ID = "ravenhurst_manor";
 
@@ -79,7 +84,21 @@ export const CORRIDOR_Y = (ROWS[0] + GEO.roomH + ROWS[1]) / 2;
 // sat 24px from the inner wall, which made rooms feel one-directional.)
 export function roomStanding(id) {
   const r = roomRect(id);
-  return { x: r.x + r.w / 2, y: r.y + r.h / 2 };
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  // The centre is the IDEAL spot, but solid furniture can now occupy it — a desk
+  // sitting mid-room would otherwise spawn the detective INSIDE its collision box,
+  // where every direction is blocked and the player is stuck for the whole game.
+  // Spiral outward to the nearest walkable point. Deterministic, so client, server
+  // and the menu ghosts all agree on where a room "puts you".
+  if (isWalkable(cx, cy, ROOM_IDS)) return { x: cx, y: cy };
+  for (let rad = 8; rad <= Math.max(r.w, r.h); rad += 8) {
+    for (let a = 0; a < 16; a++) {
+      const t = (a / 16) * Math.PI * 2;
+      const x = cx + Math.cos(t) * rad, y = cy + Math.sin(t) * rad;
+      if (isWalkable(x, y, ROOM_IDS)) return { x, y };
+    }
+  }
+  return { x: cx, y: cy };   // pathological: room fully blocked (a test catches this)
 }
 function roomDoor(id) {
   const { col, row } = ROOMS[id];
@@ -145,9 +164,22 @@ const inRect = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y +
 export function isWalkable(x, y, openRoomIds) {
   if (inRect(x, y, CORRIDOR_INTERIOR)) return true;
   for (const id of openRoomIds) {
-    if (inRect(x, y, roomInterior(id)) || inRect(x, y, doorwayRect(id))) return true;
+    // Doorways stay clear unconditionally — furniture must never seal a room.
+    if (inRect(x, y, doorwayRect(id))) return true;
+    if (inRect(x, y, roomInterior(id))) {
+      // Inside the room: solid furniture carves holes out of the floor. Convert
+      // to room-relative coords, which is the space roomObjects works in.
+      const r = roomRect(id);
+      return !inSolidObject(x - r.x, y - r.y, id);
+    }
   }
   return false;
+}
+
+// Absolute board rect for one room-relative furniture rect.
+export function objectRectAbs(roomId, o) {
+  const r = roomRect(roomId);
+  return { x: r.x + o.x, y: r.y + o.y, w: o.w, h: o.h };
 }
 
 // Which room interior contains (x, y)? null means the corridor / a doorway.

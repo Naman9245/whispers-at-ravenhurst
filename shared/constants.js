@@ -16,6 +16,12 @@ export const TIMER_PRESETS = {
   dev:        { softTimer: 60,   accuseGate: 20,  opponentWindow: 30 },  // short, for testing
 };
 
+// How close the player's FEET must get to a piece of furniture to examine it.
+// Measured to the NEAREST POINT of the object's rect (not its centre), so solid
+// furniture is examinable by standing flush against it. Shared so the client's
+// proximity check and the reachability test can never drift apart.
+export const EXAMINE_RADIUS = 26;
+
 // Hotspot examination: how long the "searching" animation runs before the result
 // modal opens. Shared so the canvas bubble's puff-out lands exactly on the commit.
 export const SEARCH_MS = 2500;

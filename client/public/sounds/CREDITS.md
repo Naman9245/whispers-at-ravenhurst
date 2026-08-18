@@ -1,36 +1,39 @@
 # Sound Credits — Whispers at Ravenhurst
 
-All audio is sourced from **CC0 / royalty-free** libraries (freesound.org, Pixabay,
+All audio was taken from **CC0 / royalty-free** libraries (freesound.org, Pixabay,
 Mixkit). CC0 requires no attribution, but every asset is logged here for provenance
 and portfolio transparency.
 
-> ⚠️ **Maintainer note:** the exact per-file source URLs below are placeholders —
-> fill in the page you downloaded each clip from. If any clip turns out to be
-> **CC-BY** (attribution required) rather than CC0, record the author + link in the
-> License column before shipping.
+> ⚠️ **Maintainer note — PRE-LAUNCH BLOCKER.** The per-file source URLs were never
+> recorded, so the `CC0` license column below is **an unverified assumption, not a
+> confirmed fact**. Before any public release: re-locate the page each clip was
+> downloaded from, paste the URL into the Source column, and confirm the licence. If
+> a clip turns out to be **CC-BY** (attribution required) rather than CC0, record the
+> author + link in the License column. Any clip whose provenance cannot be
+> re-established should be replaced with one that has a documented source.
 
 ## Phase 2.4a — Critical sounds (integrated)
 
 | File | Used for | Source | License |
 |------|----------|--------|---------|
-| `examination/searching.mp3` | Looping rustle during the 2.5s hotspot search | _TODO: source URL_ | CC0 |
-| `examination/clue_found.mp3` | Ding when an examined hotspot yields a clue | _TODO: source URL_ | CC0 |
-| `examination/nothing_found.mp3` | Soft whoosh when a hotspot is empty | _TODO: source URL_ | CC0 |
-| `movement/footsteps_walk.mp3` | Looping footsteps while walking | _TODO: source URL_ | CC0 |
-| `movement/footsteps_sprint.mp3` | Looping footsteps while sprinting (Shift) | _TODO: source URL_ | CC0 |
-| `timer/tick_burst.mp3` | One-shot ~3s clock tick burst at the 1:00 mark | _TODO: source URL_ | CC0 |
+| `examination/searching.mp3` | Looping rustle during the 2.5s hotspot search | ⚠️ pending verification | CC0 (unverified) |
+| `examination/clue_found.mp3` | Ding when an examined hotspot yields a clue | ⚠️ pending verification | CC0 (unverified) |
+| `examination/nothing_found.mp3` | Soft whoosh when a hotspot is empty | ⚠️ pending verification | CC0 (unverified) |
+| `movement/footsteps_walk.mp3` | Looping footsteps while walking | ⚠️ pending verification | CC0 (unverified) |
+| `movement/footsteps_sprint.mp3` | Looping footsteps while sprinting (Shift) | ⚠️ pending verification | CC0 (unverified) |
+| `timer/tick_burst.mp3` | One-shot ~3s clock tick burst at the 1:00 mark | ⚠️ pending verification | CC0 (unverified) |
 
 ## Phase 2.4b — Ambient + UI + dramatic (integrated)
 
 | File | Used for | Source | License |
 |------|----------|--------|---------|
-| `ambient/rain_loop.mp3` | Near-subliminal looping rain bed under the whole game (vol 0.04) | _TODO: source URL_ | CC0 |
-| `ambient/door_creak.mp3` | Random atmospheric creak (30–90s scheduler) | _TODO: source URL_ | CC0 |
-| `ambient/floor_creak.mp3` | Random atmospheric creak (30–90s scheduler) | _TODO: source URL_ | CC0 |
-| `ui/button_click.mp3` | Soft click on EVERY button (delegated capture-phase listener, vol 0.35) | _TODO: source URL_ | CC0 |
-| `ui/notebook_open.mp3` | Swish on every Notebook interaction — open, tab switch, close (vol 0.40) | _TODO: source URL_ | CC0 |
-| `dramatic/accusation_lockin.mp3` | Sting on the "LOCKED IN — awaiting opponent" moment | _TODO: source URL_ | CC0 |
-| `dramatic/reveal.mp3` | Sting the instant the reveal screen unveils the truth | _TODO: source URL_ | CC0 |
+| `ambient/rain_loop.mp3` | Near-subliminal looping rain bed under the whole game (vol 0.04) | ⚠️ pending verification | CC0 (unverified) |
+| `ambient/door_creak.mp3` | Random atmospheric creak (30–90s scheduler) | ⚠️ pending verification | CC0 (unverified) |
+| `ambient/floor_creak.mp3` | Random atmospheric creak (30–90s scheduler) | ⚠️ pending verification | CC0 (unverified) |
+| `ui/button_click.mp3` | Soft click on EVERY button (delegated capture-phase listener, vol 0.35) | ⚠️ pending verification | CC0 (unverified) |
+| `ui/notebook_open.mp3` | Swish on every Notebook interaction — open, tab switch, close (vol 0.40) | ⚠️ pending verification | CC0 (unverified) |
+| `dramatic/accusation_lockin.mp3` | Sting on the "LOCKED IN — awaiting opponent" moment | ⚠️ pending verification | CC0 (unverified) |
+| `dramatic/reveal.mp3` | Sting the instant the reveal screen unveils the truth | ⚠️ pending verification | CC0 (unverified) |
 
 > ⚠️ `ambient/rain_loop.mp3` is ~19 MB — it's preloaded, so it dominates first-load
 > bandwidth. Consider re-encoding to a lower bitrate / shorter seamless loop before launch.

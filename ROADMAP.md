@@ -40,7 +40,7 @@ context lives in **[CLAUDE.md](CLAUDE.md)**.
 
 ---
 
-## Phase 2 — Polish & Immersion · **MOSTLY COMPLETE** 🟡
+## Phase 2 — Polish & Immersion · **COMPLETE** ✅
 
 ### 2.0 — Minimalist fullscreen UI restructure ✅
 Slim ~68px HUD (player · timer · clue bars · 📜/📓/☰ tools), compact pill actions,
@@ -127,7 +127,7 @@ with 2.4a + server suites still green.
 (the storm bed is **rain-only** for now), distant footsteps, whispers, and the modal
 open/close pair. Tracked in **[CLAUDE.md](CLAUDE.md) → Sound Assets TODO**.
 
-### 2.5 — Speech bubbles + idle animations 🔜
+### 2.5 — Speech bubbles + idle animations ✅ *(shipped inside 2.8)*
 Contextual bubbles above the character (`...` investigating, `!`/"Aha!" on a clue, `?`
 questioning; auto-dismiss). Idle loops while standing still (Holmes: pipe/deerstalker;
 Watson: pocket-watch/bowler).
@@ -180,7 +180,7 @@ removed (creaks are strictly the random in-game scheduler now); (4) ghost separa
 detectives never overlap; (5) tagline overlap fixed with a text-anchored pill backdrop.
 `menu-test.mjs` → **47 checks**; 2.4a/2.4b audio suites still green.
 
-### 2.8 — Game Modes, Camera & the New Layout 📐 *(planned — see [docs/PHASE-2.8-PLAN.md](docs/PHASE-2.8-PLAN.md))*
+### 2.8 — Game Modes, Camera & the New Layout ✅ *(see [docs/PHASE-2.8-PLAN.md](docs/PHASE-2.8-PLAN.md))*
 The next structural pass. Full breakdown, risks and file lists live in the plan doc;
 summary only here.
 

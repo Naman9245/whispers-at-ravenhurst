@@ -27,7 +27,10 @@ const SOUNDS = {
   clueFound:        { src: "/sounds/examination/clue_found.mp3",      loop: false, volume: 0.50 },
   nothingFound:     { src: "/sounds/examination/nothing_found.mp3",   loop: false, volume: 0.30 },
   footstepsWalk:    { src: "/sounds/movement/footsteps_walk.mp3",     loop: true,  volume: 0.20 },
-  footstepsSprint:  { src: "/sounds/movement/footsteps_sprint.mp3",   loop: true,  volume: 0.25 },
+  // Louder than the walk loop on purpose. A sprint inside a furnished room only
+  // sustains ~800ms before the feet meet furniture, so this fires as a short
+  // burst rather than a steady bed — at 0.25 it was easy to miss entirely.
+  footstepsSprint:  { src: "/sounds/movement/footsteps_sprint.mp3",   loop: true,  volume: 0.42 },
   tickBurst:        { src: "/sounds/timer/tick_burst.mp3",            loop: false, volume: 0.60 },
   // --- 2.4b: ambient bed + random atmospheric creaks ---
   // Rain is deliberately near-subliminal (0.04) — a faint "weather outside" bed,

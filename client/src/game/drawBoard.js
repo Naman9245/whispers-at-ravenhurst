@@ -505,17 +505,14 @@ export function drawBoard(c, { current = null, reachable = [], flicker = true } 
 
   if (flicker) drawFlicker(c, boardLights(), Date.now());
 
+  // NOTE: the room you are standing in is deliberately NOT highlighted. It used
+  // to get a teal wash plus a glowing border, which fought the per-room lighting
+  // and tinted every piece of furniture in the room — and it was redundant, since
+  // the HUD already reads "YOU: Holmes · DINING HALL". Keeping the board clean
+  // lets the lamps and hearths do the work of telling you where you are.
   for (const id of Object.keys(ROOMS)) {
     const { x, y, w, h } = roomRect(id);
-    if (id === current) {
-      c.save();
-      c.fillStyle = "rgba(111,214,196,0.14)";
-      c.fillRect(x, y, w, h);
-      c.strokeStyle = P.tealTxt; c.lineWidth = 4;
-      c.shadowColor = P.tealTxt; c.shadowBlur = 12;
-      c.strokeRect(x - 2, y - 2, w + 4, h + 4);
-      c.restore();
-    } else if (reachable.includes(id)) {
+    if (id !== current && reachable.includes(id)) {
       c.save();
       c.strokeStyle = P.amberLt; c.lineWidth = 3;
       c.setLineDash([10, 8]); c.lineDashOffset = -(Date.now() / 40) % 18;
@@ -561,7 +558,7 @@ function checkMark(c, px, py, alpha) {
 // intersect the sprite.
 const CH_HALF_W = 50, CH_TOP = 76, CH_BOT = 24;   // sprite box around the FEET
 
-export function drawOccluders(c, roomId, feetX, feetY, isCurrentRoom = false) {
+export function drawOccluders(c, roomId, feetX, feetY) {
   if (!roomId) return;
   const { bg } = getBoardLayers(paintStatic);
   const r = roomRect(roomId);
@@ -574,15 +571,8 @@ export function drawOccluders(c, roomId, feetX, feetY, isCurrentRoom = false) {
     // is standing further back than the object's front face.
     if (bottom <= feetY) continue;
     if (ax > cr || ax + o.w < cl || ay > cb || bottom < ct) continue;   // no overlap
+    // Straight from the baked layer, so the patch keeps its lighting and tint.
     c.drawImage(bg, ax, ay, o.w, o.h, ax, ay, o.w, o.h);
-    // Re-apply the current-room wash, painted per-frame over bg and therefore
-    // missing from the freshly re-blitted patch.
-    if (isCurrentRoom) {
-      c.save();
-      c.fillStyle = "rgba(111,214,196,0.14)";
-      c.fillRect(ax, ay, o.w, o.h);
-      c.restore();
-    }
   }
 }
 

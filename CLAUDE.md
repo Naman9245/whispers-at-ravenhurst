@@ -12,16 +12,46 @@ cheat-proof; built as a portfolio piece.
 
 ## Current Phase
 
-**Phase 2 (Polish & Immersion) — mostly done.** Phase 1 (vertical slice) is fully
-complete. Audio **2.4a + 2.4b are done**, and the **Cinematic Main Menu (2.7) is
-done** — the app now opens on an animated title screen (idle mansion + wandering
-ghost detectives) before the lobby. A few ambient/UI clips remain deferred (wind +
-thunder, distant footsteps, whispers, modal open/close). The next item is **Phase 2.5
-(speech bubbles + idle animations)**. See [ROADMAP.md](ROADMAP.md) for the full
-per-item breakdown.
+**Phase 2 (Polish & Immersion) — DONE, including 2.8.** Phase 1 (vertical slice) is
+fully complete. Audio **2.4a + 2.4b**, the **Cinematic Main Menu (2.7)**, **Phase 2.5**
+(speech bubbles + procedural idle) and **Phase 2.8** (host-chosen room settings, the
+zoom-and-follow camera + manor map, the new stage layout, the case briefing and the
+suspect rail) all ship. A few ambient/UI clips remain deferred (wind + thunder,
+distant footsteps, whispers, modal open/close). Next up is **Phase 3** — live case
+generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
+[docs/PHASE-2.8-PLAN.md](docs/PHASE-2.8-PLAN.md) for the per-item breakdown.
 
 ## Recent Work (Last Session)
 
+- **Phase 2.8 — game modes, camera, the new layout, and Phase 2.5.** Six passes on
+  branch `phase-2.8`, each committed and verified separately.
+  **(A) Host-chosen room settings** — the lobby's create form now dials the game in
+  Among Us style (time limit **Off/15/20/30/45**, accuse gate, rival window, hotspot
+  markers, sprint, rival-progress visibility). Shape + whitelist in
+  `shared/constants.js`; `room:create` had NO validation, so settings go through
+  `sanitizeSettings`. ⚠️ **Two null traps**, both of which silently invert Timer:Off
+  because `null * 1000 === 0`: `scheduleForceResolve()` fired on the next tick, and
+  `softMs` froze the client clock at 0:00. Guarded with `== null`;
+  `server/test/timerOff.js` is the regression.
+  **(B) Walk while you wait** — one `setRegion` guard deleted, so a locked-in
+  detective can pace the manor. Examine/question/confront stay shut.
+  **(C) Zoom-and-follow camera + hidden map** (`client/src/game/camera.js`,
+  `MapOverlay.jsx`). The bake moved to **2×** via a pre-scaled bake context, so
+  `paintStatic` is untouched and `__wrBoard.bakes` stays **1**. `drawOccluders` reads
+  a SOURCE rect out of the bitmap and writes a DEST rect in world units — only the
+  source takes the scale, and getting it wrong is silent. The frame is now three
+  bands: explicit clear → world under the transform → screen-space UI.
+  **(C2) Phase 2.5** — `drawSearching`'s cloud generalised into `drawBubble`, plus
+  `bubbles.js` (timestamp-scheduled, zero timers) and procedural idle in `Character`.
+  **(D/E/F) The new stage** — race-scoreboard top bar (you | clock | rival, with the
+  rival's `LOCKED IN` finally visible), board as hero with the action pills floating
+  inside it, a Scenario/Questions/Log strip beneath, and a suspect rail of flip cards.
+  The **case briefing** screen finally renders `narrative.opening` + `victim_backstory`,
+  which had been reaching the client and rendering nowhere since the first build.
+  Verified: new `settings`/`timerOff` server tests + `camera-test.mjs` (24) and
+  `layout-test.mjs` (30), with camera/hotspot/searching/overhaul all green.
+  **Several pre-existing test failures were found and fixed along the way** — see
+  "Testing gotchas" below.
 - **Title/tagline overlap — guaranteed fix (retry).** The earlier tagline-pill fix
   only touched the main menu's `.mm-tagline`; the reported overlap was actually the
   **lobby's** `.lobby-tagline` ("A two-detective race to the truth." over DINING HALL),
@@ -308,6 +338,36 @@ per-item breakdown.
   `stove`/`window`) and **clipped per room** — unclipped, glow punched through
   walls onto the backdrop. The wall band is **cosmetic overdraw only**; making it
   solid would desync the art from `roomInterior()`.
+
+## Testing Gotchas (learned the hard way)
+
+- **Always restart the server after touching `server/` or the case JSON.** Node does
+  not hot-reload. A stale process cost two "failing" test runs during 2.8 — the same
+  zombie-server trap that once faked a 0:00 bug. `npm run dev` frees the ports first;
+  a hand-started `node index.js` does not.
+- **`overhaul-test.mjs` must NOT use Dev Mode.** It walks six rooms, waits 6s on the
+  notebook, injects 100 messages and runs a full accusation — well past Dev Mode's 60s
+  soft cap, at which point the game force-resolved and the reveal replaced the HUD, so
+  every later section was querying an empty document with no visible cause. It now
+  creates a **Timer: Off** room via the settings panel.
+- **Hotspot centres are inside solid furniture and are unreachable by definition.**
+  Reach is measured to the NEAREST POINT of the object's rect, so e2e must walk to a
+  STANDING SPOT beside the piece. `searching-test.mjs` used room-centre fractions from
+  before furniture was solid — 50px from the nearest hotspot against a 26px radius —
+  and failed on a stale coordinate rather than on anything it tested.
+- **Use the sidestepping walker.** The plain greedy `moveTo` pins itself on a desk
+  corner forever; `hotspot-test.mjs` has the version that slides along the axis it is
+  not trying to close.
+- **`contain: size` sizes an element as if it were empty.** Fine for the fixed-height
+  activity panel, wrong for anything content-sized (it collapsed `.ts-panel` to 25px
+  of padding). Use `contain: layout` + `max-height` there.
+- **Stale assertions found in 2.8:** `.act-btn === 4` (there are 3, and there has
+  never been an EXAMINE pill — which also meant overhaul-test's "gather 2 clues" step
+  gathered none), `menu-help === 4` (5 since 2.3a), and `nb.tabs === 3` (2 since the
+  rail took the suspects). Confirm a suite is green BEFORE using it as a baseline.
+- **Still broken from before 2.8, untouched:** `e2e.mjs` + `urgency-shot.mjs` query
+  `.window-banner` (removed), `accuse-devmode.mjs` queries `.dev-badge` (removed), and
+  `e2e.mjs` + `move-test.mjs` query `.hud-room-text` (never existed — it is `.hp-room`).
 
 ## File Structure Quick Reference
 

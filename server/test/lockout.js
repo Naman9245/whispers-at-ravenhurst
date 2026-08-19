@@ -1,6 +1,11 @@
-// Verifies the server REJECTS move/investigate/question/confront from a player
-// who has already locked in. Needs the server running (WHISPERS_FAST_TIMERS=demo
-// gives an open accuse gate). Run: node test/lockout.js
+// Verifies the server REJECTS investigate/question/confront from a player who has
+// already locked in -- but still lets them WALK. Needs the server running
+// (WHISPERS_FAST_TIMERS=demo gives an open accuse gate). Run: node test/lockout.js
+//
+// Movement was deliberately un-gated in Phase 2.8: sitting frozen for the rest of
+// the game was the worst part of locking in early, and roaming leaks nothing
+// (room/inCorridor are private, and the chat line is vague on purpose). The three
+// checks below are the real lockout now.
 import { io } from "socket.io-client";
 import { CORE_QUESTION_IDS as QUESTION_IDS } from "../../shared/suspectQuestions.js";
 const URL = "http://localhost:3001";
@@ -26,9 +31,11 @@ const clueIds = [e1.clue.id, e2.clue.id];
 const lock = await ask(h, "accuse:lock", { culpritId: "s3", weaponId: "w5", roomId: "library", clueIds });
 ok("Holmes locks in", lock.ok === true);
 
-// Now every action must be rejected with locked:true.
+// Movement stays open -- the locked-in detective can pace the manor while waiting.
 const mv = await ask(h, "region:enter", { room: "dining" });
-ok("region:enter rejected after lock-in", mv.ok === false && mv.locked === true);
+ok("region:enter STILL ALLOWED after lock-in", mv.ok === true && mv.room === "dining");
+
+// Every genuine ACTION must still be rejected with locked:true.
 const iv = await ask(h, "hotspot:examine", { hotspotId: "study_bookshelf" });
 ok("hotspot:examine rejected after lock-in", iv.ok === false && iv.locked === true);
 const qa = await ask(h, "suspect:ask", { suspectId: "s1", questionId: QUESTION_IDS[0] });

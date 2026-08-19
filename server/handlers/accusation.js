@@ -22,7 +22,16 @@ export function resolveGame(io, room) {
 }
 
 // Soft cap: if nobody has locked in by softTimer, force resolution (forfeits).
+//
+// ⚠️ The null guard is load-bearing, not defensive. With Timer: Off the host has
+// chosen `softTimer: null`, and `null * 1000` is 0 — so without this the max()
+// yields 0 and setTimeout fires on the next tick, revealing the solution the
+// instant the second player joins. The exact inverse of the setting.
+//
+// Timer: Off still terminates: the first lock-in arms _windowTimer below, so the
+// game simply has no wall clock until somebody accuses.
 export function scheduleForceResolve(io, room) {
+  if (room.timers.softTimer == null) return;   // Timer: Off — never force-resolve
   const ms = Math.max(0, room.timers.softTimer * 1000 - (Date.now() - room.startedAt));
   room._softTimer = setTimeout(() => resolveGame(io, room), ms);
 }

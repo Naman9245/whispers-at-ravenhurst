@@ -60,10 +60,11 @@ export function detachFromRoom(io, socket, store, { left = false } = {}) {
 
 export function registerLobby(io, socket, store) {
   // Create a room; creator becomes Holmes (player 1).
-  socket.on("room:create", ({ name, devMode } = {}, cb) => {
+  socket.on("room:create", ({ name, devMode, settings } = {}, cb) => {
     detachFromRoom(io, socket, store, { left: true }); // never hold two rooms at once
     const code = store.makeCode();
-    const room = new GameRoom(code, Boolean(devMode));
+    // `settings` is untrusted; GameRoom runs it through sanitizeSettings().
+    const room = new GameRoom(code, Boolean(devMode), settings);
     const player = room.addPlayer({ id: socket.id, name });
     store.rooms.set(code, room);
     socket.join(code);

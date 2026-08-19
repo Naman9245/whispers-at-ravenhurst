@@ -79,7 +79,8 @@ try {
   console.log("   tools:", JSON.stringify(L.tools));
   ok("HUD bar ~70px tall", L.hudH >= 60 && L.hudH <= 80);
   ok("board is the hero (>=78% of viewport height)", L.boardH / L.vh >= 0.78);
-  ok("4 action pills present", L.pills === 4);
+  // MOVE / QUESTION / ACCUSE -- ActionBar has only ever rendered three.
+  ok("3 action pills present", L.pills === 3);
   ok("chat log NOT in permanent view", L.chatGone);
   ok("notebook NOT in permanent view", L.notebookHidden);
   await holmes.screenshot({ path: "ov-1-layout.png" });
@@ -189,11 +190,12 @@ try {
   ok("HUD shows LOCKED IN ✓ badge", locked.badge);
   ok("ACCUSE shows LOCKED IN ✓", /LOCKED IN/.test(locked.accuse || ""));
   ok("ALL action buttons disabled after lock-in", locked.allDisabled);
-  // movement frozen
+  // Movement stays live -- a locked-in detective can pace the manor while their
+  // rival finishes (Phase 2.8). The disabled action pills above are the lockout.
   const before = await pos(holmes);
   await holmes.keyboard.down("d"); await sleep(500); await holmes.keyboard.up("d"); await sleep(150);
   const after = await pos(holmes);
-  ok("WASD movement frozen after lock-in", Math.hypot(after.x - before.x, after.y - before.y) < 2);
+  ok("WASD still moves after lock-in (waiting roam)", Math.hypot(after.x - before.x, after.y - before.y) > 5);
   await holmes.screenshot({ path: "ov-6-lockedin.png" });
 
   console.log("\n[console errors]:", errors.length ? errors.slice(0, 6).join(" | ") : "none");

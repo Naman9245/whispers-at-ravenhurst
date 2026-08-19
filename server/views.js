@@ -30,6 +30,15 @@ export function buildView(room, playerId) {
     devMode: room.devMode,
     map: MAP_ID,
     timers: room.timers,
+    // Host-chosen settings the client needs to render correctly. The gameplay
+    // toggles are advisory for the UI only — `rivalProgress` is enforced below,
+    // at the boundary, not by asking the client to look away.
+    settings: {
+      softTimer: room.settings.softTimer,
+      hotspotMarkers: room.settings.hotspotMarkers,
+      sprint: room.settings.sprint,
+      rivalProgress: room.settings.rivalProgress,
+    },
     playersOnline: room.players.length,
     progressTotal: room.progressTotal(),
     caseInfo: publicCase(room.caseData),
@@ -40,7 +49,10 @@ export function buildView(room, playerId) {
       now: Date.now(),                       // server clock, for countdown sync
       startedAt: room.startedAt,
       opensAt: room.startedAt ? room.accuseOpensAt() : null,
-      softMs: room.timers.softTimer * 1000,
+      // null (not 0) when the host chose Timer: Off. 0 would read as "the game
+      // ended the moment it started" — the client derives its end time from
+      // startedAt + softMs, so a zero here freezes the ACCUSE pill at 0:00.
+      softMs: room.timers.softTimer == null ? null : room.timers.softTimer * 1000,
       windowMs: room.timers.opponentWindow * 1000,
       finalDeadline: room.finalDeadline,     // set once someone locks in
       youLocked: Boolean(me?.accusation),
@@ -68,7 +80,10 @@ export function buildView(room, playerId) {
       ? {
           name: opp.name,
           character: opp.character,
-          clueCount: room.progressCount(opp),
+          // "Rival progress: Hidden" is withheld HERE rather than hidden in the
+          // client. Shipping the number and styling it away would be a two-click
+          // devtools cheat, and this file is the one privacy boundary.
+          clueCount: room.settings.rivalProgress ? room.progressCount(opp) : null,
           lockedIn: opp.lockedIn,
           connected: opp.connected,
         }

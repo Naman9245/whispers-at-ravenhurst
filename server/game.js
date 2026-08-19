@@ -3,7 +3,10 @@
 // locks, and (later) the full case incl. solution all live here and are NEVER
 // serialized to a client except through buildView(), which filters per player.
 import { ROOM_IDS, ROOMS } from "../shared/mapData.js";
-import { CHARACTERS, PROGRESS_TOTAL, TIMER_PRESETS, QUESTION_CAP } from "../shared/constants.js";
+import {
+  CHARACTERS, PROGRESS_TOTAL, QUESTION_CAP,
+  DEFAULT_SETTINGS, DEV_SETTINGS, sanitizeSettings,
+} from "../shared/constants.js";
 import { findQuestion, isFreeQuestion } from "../shared/suspectQuestions.js";
 import { HOTSPOT_BY_ID } from "../shared/roomHotspots.js";
 import { buildView } from "./views.js";
@@ -12,21 +15,32 @@ import { generateCase } from "./ai/generateCase.js";
 const START_ROOM = "study";
 
 export class GameRoom {
-  constructor(code, devMode = false) {
+  constructor(code, devMode = false, settings = null) {
     this.code = code;
     this.devMode = devMode;
     this.status = "lobby";            // "lobby" | "playing" | "ended"
     this.players = [];                // see addPlayer()
     this.caseData = null;             // set at start (incl. solution — server only)
-    // WHISPERS_FAST_TIMERS collapses the clock for automated runs only:
+    // Room settings, chosen by whoever created the room. `settings` is untrusted
+    // wire data, so it only ever arrives through sanitizeSettings().
+    // WHISPERS_FAST_TIMERS collapses the clock for automated runs and still wins
+    // over everything, because the whole test suite depends on that precedence:
     //   "demo" → gate open, long soft cap (manual browser walkthroughs)
     //   any other truthy → tiny timers (fast automated tests)
-    this.timers = (() => {
+    this.settings = (() => {
       const fast = process.env.WHISPERS_FAST_TIMERS;
-      if (fast === "demo") return { softTimer: 900, accuseGate: 0, opponentWindow: 120 };
-      if (fast) return { softTimer: 8, accuseGate: 0, opponentWindow: 2 };
-      return devMode ? TIMER_PRESETS.dev : TIMER_PRESETS.production;
+      if (fast === "demo") return { ...DEFAULT_SETTINGS, softTimer: 900, accuseGate: 0, opponentWindow: 120 };
+      if (fast) return { ...DEFAULT_SETTINGS, softTimer: 8, accuseGate: 0, opponentWindow: 2 };
+      const base = devMode ? DEV_SETTINGS : DEFAULT_SETTINGS;
+      return settings ? sanitizeSettings(settings, base) : base;
     })();
+    // The same three keys buildView() has always shipped, derived rather than
+    // duplicated so the wire shape is unchanged.
+    this.timers = {
+      softTimer: this.settings.softTimer,          // null = no time limit at all
+      accuseGate: this.settings.accuseGate,
+      opponentWindow: this.settings.opponentWindow,
+    };
     this.createdAt = Date.now();
     this.startedAt = null;            // epoch ms when play began (timer origin)
     this.finalDeadline = null;        // epoch ms the final accusation window closes
@@ -84,7 +98,11 @@ export class GameRoom {
     if (this.status !== "playing") return { ok: false, error: "Game is not active." };
     const p = this.player(id);
     if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — no further moves." };
+    // Deliberately NOT gated on p.accusation. A locked-in detective may keep
+    // pacing the manor while their rival finishes — sitting frozen for the rest
+    // of the game was the worst part of locking in early. It leaks nothing:
+    // room/inCorridor are private to this player, and the chat line movement.js
+    // emits is already vague on purpose. Investigation and questioning stay shut.
 
     let changedRoom = false;
     if (room && room !== p.room) {
@@ -152,7 +170,7 @@ export class GameRoom {
     if (this.status !== "playing") return { ok: false, error: "Game is not active." };
     const p = this.player(id);
     if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — questioning is closed." };
+    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
     const tree = this._dialogueFor(suspectId);
     if (!tree) return { ok: false, error: "No such suspect." };
     // The question must belong to THIS suspect's set (core + their own).
@@ -219,7 +237,7 @@ export class GameRoom {
     if (this.status !== "playing") return { ok: false, error: "Game is not active." };
     const p = this.player(id);
     if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — questioning is closed." };
+    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
     const tree = this._dialogueFor(suspectId);
     if (!tree) return { ok: false, error: "No such suspect." };
     if (!p.clues.includes(clueId)) return { ok: false, error: "You have not found that evidence." };
@@ -274,7 +292,7 @@ export class GameRoom {
     if (this.status !== "playing") return { ok: false, error: "Game is not active." };
     const p = this.player(id);
     if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — investigation is closed." };
+    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
     const spot = HOTSPOT_BY_ID[hotspotId];
     if (!spot) return { ok: false, error: "No such hotspot." };
     if (p.inCorridor || spot.room !== p.room) return { ok: false, error: "You must stand in that room to examine it." };

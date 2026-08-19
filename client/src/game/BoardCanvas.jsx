@@ -180,15 +180,20 @@ export default function BoardCanvas({
       const current = ch?.anchorRoom;
       const reachable = showReachableRef.current ? ROOM_IDS.filter((id) => id !== current) : [];
       drawBoard(ctx, { current: ch?.inCorridor ? null : current, reachable, flicker: !reducedMotion });
-      if (ch && !ch.inCorridor) {
-        drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current);
-      }
       if (ch) {
         ch.draw(ctx);
         // Tall furniture the detective is standing behind is re-blitted over
         // them, so they can walk behind a bookshelf or hearth instead of
         // floating in front of everything.
-        if (!ch.inCorridor) drawOccluders(ctx, ch.anchorRoom, ch.x, ch.y, true);
+        if (!ch.inCorridor) drawOccluders(ctx, ch.anchorRoom, ch.x, ch.y);
+      }
+      // Hotspot markers go on top of EVERYTHING, including the occluders.
+      // They were previously drawn before the character, so the occluder blit
+      // painted over them: walking behind the sideboard made its own magnifier
+      // vanish, which read as the hotspot disappearing. They are UI affordances,
+      // not part of the scene, so nothing in the room should ever hide them.
+      if (ch && !ch.inCorridor) {
+        drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current);
       }
       // Searching overlay (drawn over the character so the bubble reads clearly).
       const sid = searchingIdRef.current;

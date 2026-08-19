@@ -339,9 +339,14 @@ export const flatLights = () => boardLights().flatMap((g) => g.lights.map((L) =>
 // Ambient darkness with light punched OUT of it, then warm colour added back.
 // `destination-out` is what makes the pools soft with zero per-pixel JS.
 function applyLighting(c, groups) {
+  // Read the scale off the context rather than importing BAKE_SCALE: this runs
+  // inside the bake, where the context is pre-scaled, and a half-resolution mask
+  // would show up as soft-edged light pools against otherwise crisp art.
+  const s = c.getTransform?.().a || 1;
   const mask = document.createElement("canvas");
-  mask.width = BOARD_W; mask.height = BOARD_H;
+  mask.width = BOARD_W * s; mask.height = BOARD_H * s;
   const m = mask.getContext("2d");
+  m.setTransform(s, 0, 0, s, 0, 0);   // the rest of this function stays in world units
   // Ambient dim. Kept LIGHT on purpose: this is a game where the player has to
   // read furniture, hotspot magnifiers and their own detective. A heavier wash
   // looked moodier in a screenshot and was genuinely unplayable in motion.
@@ -369,7 +374,7 @@ function applyLighting(c, groups) {
     m.restore();
   }
   m.globalCompositeOperation = "source-over";
-  c.drawImage(mask, 0, 0);
+  c.drawImage(mask, 0, 0, BOARD_W, BOARD_H);
 
   // Add the warm colour the mask could only subtract — same clip.
   c.save();
@@ -438,15 +443,23 @@ export function paintStatic(c) {
   c.restore();
 
   // Labels last so nothing dims them.
-  c.font = "700 22px 'Courier New', monospace";
+  //
+  // 13px, not the 22px these used to be. That size was chosen when the whole
+  // 1472x860 board was CSS-scaled DOWN to fit the viewport; the gameplay camera
+  // now magnifies the board instead, so at 22px the plates shouted over the
+  // furniture and read as UI stuck to the floor. Sized so the on-screen result
+  // is roughly what it always was, and dimmed to match: the HUD already says
+  // which room you are in, so these only need to orient you toward the ones you
+  // can see across the corridor.
+  c.font = "700 13px 'Courier New', monospace";
   c.textBaseline = "alphabetic";
   for (const id of Object.keys(ROOMS)) {
     const { x, y, w, h } = roomRect(id);
     const label = ROOMS[id].label;
     const tw = c.measureText(label).width;
-    const lx = x + w / 2 - tw / 2, ly = y + h - 22;
-    rect(c, lx - 12, ly - 22, tw + 24, 30, "rgba(20,14,26,0.92)", "#000", 2);
-    c.fillStyle = P.cream; c.fillText(label, lx, ly);
+    const lx = x + w / 2 - tw / 2, ly = y + h - 16;
+    rect(c, lx - 8, ly - 13, tw + 16, 19, "rgba(20,14,26,0.72)", "#000", 1);
+    c.fillStyle = "rgba(240,230,210,0.72)"; c.fillText(label, lx, ly);
   }
 }
 
@@ -499,8 +512,13 @@ function drawFlicker(c, groups, t) {
 export function drawBoard(c, { current = null, reachable = [], flicker = true } = {}) {
   const { bg } = getBoardLayers(paintStatic);
   c.save();
-  c.imageSmoothingEnabled = false;
-  c.drawImage(bg, 0, 0);
+  // The bake is 2x board size, so this MINIFIES it. Nearest-neighbour aliases
+  // badly when minifying, hence smoothing on — the opposite of the old 1:1 blit.
+  // Set explicitly every frame because Character.draw() turns smoothing off and
+  // never restores it, so the flag's value here would otherwise depend on order.
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = "high";
+  c.drawImage(bg, 0, 0, BOARD_W, BOARD_H);
   c.restore();
 
   if (flicker) drawFlicker(c, boardLights(), Date.now());
@@ -560,7 +578,7 @@ const CH_HALF_W = 50, CH_TOP = 76, CH_BOT = 24;   // sprite box around the FEET
 
 export function drawOccluders(c, roomId, feetX, feetY) {
   if (!roomId) return;
-  const { bg } = getBoardLayers(paintStatic);
+  const { bg, scale: S } = getBoardLayers(paintStatic);
   const r = roomRect(roomId);
   const cl = feetX - CH_HALF_W, cr = feetX + CH_HALF_W;
   const ct = feetY - CH_TOP, cb = feetY + CH_BOT;
@@ -572,7 +590,10 @@ export function drawOccluders(c, roomId, feetX, feetY) {
     if (bottom <= feetY) continue;
     if (ax > cr || ax + o.w < cl || ay > cb || bottom < ct) continue;   // no overlap
     // Straight from the baked layer, so the patch keeps its lighting and tint.
-    c.drawImage(bg, ax, ay, o.w, o.h, ax, ay, o.w, o.h);
+    // The SOURCE rect is in bake pixels (2x) while the DEST stays in world units
+    // — forgetting the scale here doesn't throw, it just blits the wrong corner
+    // of the mansion over the detective whenever they stand behind a bookshelf.
+    c.drawImage(bg, ax * S, ay * S, o.w * S, o.h * S, ax, ay, o.w, o.h);
   }
 }
 
@@ -583,13 +604,23 @@ export function drawOccluders(c, roomId, feetX, feetY) {
 // magnifiers and checkmarks disappear, so the room stops advertising what is
 // searchable — but the in-reach "Press E" prompt STILL draws. Hiding that too
 // wouldn't make the game harder, it would make examining undiscoverable.
-export function drawHotspots(c, roomId, hotspots, examined, activeId, showMarkers = true) {
+// `project` maps world -> the space this is being drawn in. Under the gameplay
+// camera these markers are drawn AFTER the transform is reset, so they keep a
+// constant on-screen size instead of ballooning with the zoom; the default is
+// identity so any 1:1 caller is unaffected.
+export function drawHotspots(c, roomId, hotspots, examined, activeId, showMarkers = true,
+                             project = (x, y) => ({ x, y })) {
   if (!roomId || !hotspots) return;
   const r = roomRect(roomId);
+  // save/restore because this sets textBaseline and font. Harmless when it was
+  // the last thing drawn each frame; not harmless now that screen-space UI
+  // follows it.
+  c.save();
   c.textBaseline = "alphabetic";
   for (const h of hotspots) {
-    const px = r.x + h.x * r.w;
-    const py = r.y + h.y * r.h;
+    const { x: px, y: py } = project(r.x + h.x * r.w, r.y + h.y * r.h);
+    // Cheap cull: at zoom, most of the room's spots are off the view.
+    if (px < -60 || px > BOARD_W + 60 || py < -60 || py > BOARD_H + 60) continue;
     const active = h.id === activeId;
     if (examined.has(h.id)) {
       if (showMarkers) checkMark(c, px, py, 0.35);
@@ -627,6 +658,7 @@ export function drawHotspots(c, roomId, hotspots, examined, activeId, showMarker
       c.fillText(label, lx + keyW + gap, ly);
     }
   }
+  c.restore();
 }
 
 // ---- searching state (Phase 2.3b/c): the 2.5s "examining…" overlay -----------
@@ -655,46 +687,136 @@ function bubblePath(c, w, h, r) {
   c.closePath();
 }
 
-export function drawSearching(c, cx, cy, hx, hy, startTime) {
-  const now = Date.now();
-  const elapsed = startTime ? now - startTime : SEARCH_DUR / 2;
+// How far the puff-in / puff-out has progressed, given a search start time.
+// Split out so BoardCanvas can drive the bubble and the ring separately — the
+// ring is part of the scene (world space) while the bubble is UI (screen space).
+export function searchBubbleScale(startTime) {
+  const elapsed = startTime ? Date.now() - startTime : SEARCH_DUR / 2;
+  if (elapsed < 200) { const t = elapsed / 200; return 0.8 + 0.2 * (1 - (1 - t) * (1 - t)); }
+  if (elapsed > SEARCH_DUR - 200) return Math.max(0, 1 - (elapsed - (SEARCH_DUR - 200)) / 200);
+  return 1;
+}
 
-  // Puff entrance (0.8→1 over 200ms, ease-out) and exit (1→0 over the last 200ms).
-  let scale = 1;
-  if (elapsed < 200) { const t = elapsed / 200; scale = 0.8 + 0.2 * (1 - (1 - t) * (1 - t)); }
-  else if (elapsed > SEARCH_DUR - 200) { scale = Math.max(0, 1 - (elapsed - (SEARCH_DUR - 200)) / 200); }
-
-  // Glow ring on the hotspot being examined.
-  const pulse = 0.5 + 0.5 * Math.sin(now / 200);
+// The pulsing amber ring around the hotspot being examined. DIEGETIC — it marks
+// a piece of furniture, so it lives in world space and scales with the camera.
+export function drawExamineGlow(c, hx, hy) {
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
   c.save();
   c.globalAlpha = 0.4 + 0.35 * pulse;
   c.strokeStyle = P.amberLt; c.lineWidth = 3; c.shadowColor = P.amberLt; c.shadowBlur = 14;
   c.beginPath(); c.arc(hx, hy, 12 + 3 * pulse, 0, Math.PI * 2); c.stroke();
   c.restore();
+}
 
-  if (scale <= 0.02) return; // bubble fully puffed out
+/**
+ * The white comic speech-cloud, generalised from the searching animation so it
+ * can carry text too (Phase 2.5). Drawn in SCREEN space under the camera, so its
+ * shadow, border and radius keep a constant on-screen size at any zoom.
+ *
+ * (x, y) is the bubble's CENTRE. `dots` renders the three bouncing "thinking"
+ * dots; otherwise `text` is drawn, with the body widening to fit.
+ */
+export function drawBubble(c, x, y, { text = null, dots = false, scale = 1, maxW = 190 } = {}) {
+  if (scale <= 0.02) return;   // fully puffed out
+  const now = Date.now();
+  const bob = Math.sin(now / 239) * 3;   // gentle ~3px / 1.5s float
 
-  const bob = Math.sin(now / 239) * 3; // gentle ~3px / 1.5s float
   c.save();
-  c.translate(cx, cy - 90 + bob);
+  c.font = "700 20px 'Courier New', monospace";
+  // The tail in bubblePath is fixed at ±7px centre-bottom, which reads correctly
+  // for any body wider than ~30px — so only the width needs to vary.
+  const w = dots ? 62 : Math.min(maxW, Math.max(52, c.measureText(text || "").width + 28));
+  const h = 34;
+  c.translate(x, y + bob);
   c.scale(scale, scale);
 
   // white cloud body + tail: one path, soft drop shadow under the fill
   c.save();
   c.shadowColor = "rgba(0,0,0,0.3)"; c.shadowBlur = 6; c.shadowOffsetY = 2;
   c.fillStyle = "#faf8f3";
-  bubblePath(c, 62, 34, 13);
+  bubblePath(c, w, h, 13);
   c.fill();
   c.restore();
+  // Stroked on a second identical path so the fill's shadow doesn't smear it.
   c.strokeStyle = "#3a3548"; c.lineWidth = 1.5; // subtle navy border
-  bubblePath(c, 62, 34, 13);
+  bubblePath(c, w, h, 13);
   c.stroke();
 
-  // three charcoal dots bouncing left→middle→right (classic "thinking")
-  c.fillStyle = "#2a2540";
-  for (let i = 0; i < 3; i++) {
-    const dy = -Math.max(0, Math.sin(now / 170 - i * 0.7)) * 4;
-    c.beginPath(); c.arc(-14 + i * 14, dy, 3.2, 0, Math.PI * 2); c.fill();
+  if (dots) {
+    // three charcoal dots bouncing left→middle→right (classic "thinking")
+    c.fillStyle = "#2a2540";
+    for (let i = 0; i < 3; i++) {
+      const dy = -Math.max(0, Math.sin(now / 170 - i * 0.7)) * 4;
+      c.beginPath(); c.arc(-14 + i * 14, dy, 3.2, 0, Math.PI * 2); c.fill();
+    }
+  } else {
+    c.fillStyle = "#2a2540";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText(text || "", 0, 1);
+  }
+  c.restore();
+}
+
+// Kept as a 1:1 wrapper so anything drawing the search overlay without a camera
+// (and the screenshot suites) behaves exactly as before.
+export function drawSearching(c, cx, cy, hx, hy, startTime) {
+  drawExamineGlow(c, hx, hy);
+  drawBubble(c, cx, cy - 90, { dots: true, scale: searchBubbleScale(startTime) });
+}
+
+// ---- map overlay (Phase 2.8) ------------------------------------------------
+// The whole mansion, drawn small. The static bake is already a complete top-down
+// picture of the board, so this is one scaled drawImage rather than a second
+// renderer — nothing here can drift out of sync with the real board.
+//
+// PRIVACY: only the requesting player's own room is ever marked. The opponent's
+// position is not in buildView() and must never be added to it.
+export function drawMiniMap(c, w, h, currentRoom, { examined = new Set() } = {}) {
+  const { bg } = getBoardLayers(paintStatic);
+  const k = w / BOARD_W;
+
+  c.clearRect(0, 0, w, h);
+  c.save();
+  c.imageSmoothingEnabled = true;
+  c.imageSmoothingQuality = "high";
+  c.drawImage(bg, 0, 0, w, h);
+  // Dim the whole thing so the "you are here" highlight is the only bright mark.
+  c.fillStyle = "rgba(8,5,14,0.55)";
+  c.fillRect(0, 0, w, h);
+
+  c.textAlign = "center";
+  c.textBaseline = "middle";
+  for (const id of Object.keys(ROOMS)) {
+    const r = roomRect(id);
+    const x = r.x * k, y = r.y * k, rw = r.w * k, rh = r.h * k;
+    const here = id === currentRoom;
+
+    if (here) {
+      c.fillStyle = "rgba(240,184,92,0.22)";
+      c.fillRect(x, y, rw, rh);
+    }
+    c.strokeStyle = here ? P.amberLt : "rgba(240,230,210,0.28)";
+    c.lineWidth = here ? 2.5 : 1;
+    c.strokeRect(x, y, rw, rh);
+
+    // Searched-here ticks: a small dot per hotspot, filled once examined. Purely
+    // the player's own progress, so it leaks nothing.
+    const spots = objectsIn(id).filter((o) => o.searchable);
+    if (spots.length) {
+      const dotY = y + rh - 9;
+      const startX = x + rw / 2 - ((spots.length - 1) * 7) / 2;
+      spots.forEach((o, i) => {
+        c.beginPath();
+        c.arc(startX + i * 7, dotY, 2.2, 0, Math.PI * 2);
+        c.fillStyle = examined.has(o.id) ? P.amberLt : "rgba(240,230,210,0.30)";
+        c.fill();
+      });
+    }
+
+    c.font = `700 ${here ? 11 : 10}px 'Courier New', monospace`;
+    c.fillStyle = here ? P.amberLt : "rgba(240,230,210,0.62)";
+    c.fillText(ROOMS[id].label, x + rw / 2, y + rh / 2);
   }
   c.restore();
 }

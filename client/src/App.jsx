@@ -16,6 +16,7 @@ import SuspectModal from "./components/SuspectModal.jsx";
 import AccusationModal from "./components/AccusationModal.jsx";
 import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
+import MapOverlay from "./components/MapOverlay.jsx";
 import {
   unlockAudio, setMuted, playSearching, stopSearching, playClueFound, playNothingFound, playTickBurst,
   playRainLoop, stopRainLoop, playDoorCreak, playFloorCreak, playButtonClick, playNotebookOpen,
@@ -62,6 +63,7 @@ export default function App() {
   const [showActivity, setShowActivity] = useState(false);
   const [showNotebook, setShowNotebook] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showMap, setShowMap] = useState(false);   // manor map overlay (M)
   const [soundOn, setSoundOn] = useState(() => {
     try { return localStorage.getItem("wr.soundOn") !== "0"; } catch { return true; }
   });
@@ -71,6 +73,7 @@ export default function App() {
 
   const toastTimer = useRef(null);
   const inGameRef = useRef(false);              // "am I still in a live game?" — read by the reveal guard
+  const modalOpenRef = useRef(false);           // mirrored for the always-mounted map key handler
   const searchRef = useRef(null);              // active hotspot search: { timer, safety, stop }
   const clockOffset = useRef(0);                // serverNow - clientNow
   const accuseAnnounced = useRef(false);        // toasted when the window opened
@@ -131,6 +134,21 @@ export default function App() {
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
+  }, []);
+
+  // M toggles the manor map; Esc closes it. Lives here rather than in
+  // BoardCanvas because the overlay is React state, and it stays out of the way
+  // while a modal owns the screen. BoardCanvas's key map already records "m" but
+  // nothing reads it, so there is no double-handling.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.repeat) return;
+      const k = e.key?.toLowerCase();
+      if (k === "m" && !modalOpenRef.current) setShowMap((v) => !v);
+      else if (k === "escape") setShowMap(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, []);
 
   // Activity badge: count unread while the panel is closed; brief red ping on new.
@@ -440,6 +458,7 @@ export default function App() {
   const curRoom = region?.room ?? view.you.room;
   const inCorridor = region?.inCorridor ?? view.you.inCorridor ?? false;
   const modalOpen = showSuspects || showAccuse || Boolean(examineResult);
+  modalOpenRef.current = modalOpen;   // read by the always-mounted map key handler
   const unread = Math.max(0, chat.length - seen);
 
   return (
@@ -463,6 +482,9 @@ export default function App() {
           </button>
           <button className={`hud-tool ${showNotebook ? "on" : ""}`} data-sound="off" onClick={() => { playNotebookOpen(); setShowNotebook((v) => !v); setShowMenu(false); }} title="Notebook">
             📓 <span className="ht-label">Notebook</span>
+          </button>
+          <button className={`hud-tool ${showMap ? "on" : ""}`} onClick={() => setShowMap((v) => !v)} title="Manor map (M)">
+            🗺 <span className="ht-label">Map</span>
           </button>
           <button className={`hud-tool icon ${showMenu ? "on" : ""}`} onClick={() => { setShowMenu((v) => !v); }} title="Menu" aria-label="Menu">☰</button>
         </div>
@@ -518,6 +540,15 @@ export default function App() {
           />
         </aside>
       )}
+
+      <MapOverlay
+        open={showMap}
+        room={curRoom}
+        roomLabel={roomLabelOf(curRoom)}
+        inCorridor={inCorridor}
+        examined={view.you.examinedHotspots || []}
+        onClose={() => setShowMap(false)}
+      />
 
       <GameMenu
         open={showMenu}

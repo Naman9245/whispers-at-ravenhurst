@@ -35,9 +35,13 @@ try {
   await sleep(700); // mid-search, puff-in done, dots bouncing
   const rect = await h.evaluate(() => { const c = document.querySelector(".board-canvas"); const r = c.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height }; });
   const p = await pos(h);
-  const sx = rect.left + p.x * (rect.w / BOARD_W);
-  const sy = rect.top + p.y * (rect.h / BOARD_H);
-  const clip = { x: Math.max(0, sx - 170), y: Math.max(0, sy - 190), width: 340, height: 250 };
+  // Project through the camera first — the character is zoomed and panned now.
+  const v = await h.evaluate(([x, y]) => window.__wrCam.toView(x, y), [p.x, p.y]);
+  const sx = rect.left + v.x * (rect.w / BOARD_W);
+  const sy = rect.top + v.y * (rect.h / BOARD_H);
+  // Wider box than before: the character is drawn at zoom while the bubble is
+  // screen-space and fixed-size, so the pair no longer fits the old crop.
+  const clip = { x: Math.max(0, sx - 220), y: Math.max(0, sy - 260), width: 440, height: 340 };
   await h.screenshot({ path: "bubble-closeup.png", clip });
   console.log("saved bubble-closeup.png");
 } catch (e) { console.error("ERR", e.message); } finally { await browser.close(); }

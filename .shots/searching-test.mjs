@@ -9,19 +9,40 @@ const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c
 const clickByText = async (p, t) => { for (const h of await p.$$("button")) if ((await h.evaluate(b => b.textContent.trim())) === t) { await h.click(); return true; } return false; };
 const pos = (p) => p.evaluate(() => ({ x: window.__wrChar.x, y: window.__wrChar.y }));
 const hasModal = (p) => p.evaluate(() => !!document.querySelector(".examine-modal"));
+// STANDING spots beside each piece, in absolute board px. These used to be
+// fractions of the room rect that all resolved near the CENTRE -- fine when rooms
+// were empty boxes, but furniture is solid now and hotspots are derived from
+// roomObjects.js, so the centre is 50px from the nearest hotspot and reach is 26.
+// Nothing was examinable from there, and the whole suite failed on a stale
+// coordinate rather than on anything it was written to test.
 const SPOT = {
-  study_desk:      [44 + 0.50 * 384, 120 + 0.50 * 252],
-  study_armchair:  [44 + 0.50 * 384, 120 + 0.74 * 252],
-  study_bookshelf: [44 + 0.20 * 384, 120 + 0.20 * 252],
+  study_desk:      [278, 206],   // just west of the desk       (6px from its rect)
+  study_armchair:  [154, 286],   // just east of the armchair   (6px)
+  study_bookshelf: [150, 176],   // just below the shelves      (8px)
 };
-async function moveTo(page, tx, ty, tol = 10, max = 200) {
-  let stuck = 0, prev = null;
+// Greedy walker with an obstacle sidestep (same as hotspot-test.mjs). The plain
+// version pins itself on a desk corner now that furniture is solid.
+async function moveTo(page, tx, ty, tol = 10, max = 320) {
+  let stuck = 0, prev = null, flip = 1;
+  const press = async (keys, ms = 60) => {
+    for (const k of keys) await page.keyboard.down(k);
+    await sleep(ms);
+    for (const k of keys) await page.keyboard.up(k);
+    await sleep(15);
+  };
   for (let i = 0; i < max; i++) {
     const p = await pos(page); const dx = tx - p.x, dy = ty - p.y;
     if (Math.hypot(dx, dy) < tol) return true;
-    if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 1.2) { if (++stuck > 8) return false; } else stuck = 0; prev = p;
+    if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 1.2) stuck++; else stuck = 0;
+    prev = p;
+    if (stuck > 3) {
+      const side = Math.abs(dx) > Math.abs(dy) ? (flip > 0 ? "s" : "w") : (flip > 0 ? "d" : "a");
+      await press([side], 220);
+      flip = -flip; stuck = 0;
+      continue;
+    }
     const keys = []; if (Math.abs(dx) > tol) keys.push(dx > 0 ? "d" : "a"); if (Math.abs(dy) > tol) keys.push(dy > 0 ? "s" : "w");
-    for (const k of keys) await page.keyboard.down(k); await sleep(60); for (const k of keys) await page.keyboard.up(k); await sleep(15);
+    await press(keys);
   }
   return false;
 }

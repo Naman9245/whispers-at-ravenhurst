@@ -434,6 +434,26 @@ body {
 .set-opt.on { border-color: var(--amber); background: rgba(240,184,92,0.2); color: #fff; }
 .set-row.overridden { opacity: 0.45; }
 .set-opt:disabled { cursor: default; }
+
+/* Manor map overlay (2.8) — hidden until M / the top-bar button. Compact by
+   design: a small panel over the board, never a full-width permanent fixture. */
+.map-scrim {
+  position: fixed; inset: 0; z-index: 38;
+  background: rgba(10,6,16,0.72);
+  display: flex; align-items: center; justify-content: center;
+}
+.map-overlay {
+  width: 470px; max-width: 92vw;
+  background: var(--panel); border: 1px solid var(--gold); border-radius: 8px;
+  padding: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+}
+.map-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.map-title { font-size: 12px; letter-spacing: 2px; color: var(--amber); }
+.map-hint { font-size: 11px; color: rgba(240,230,210,0.45); }
+.map-canvas { display: block; width: 100%; height: auto; border-radius: 4px; }
+.map-foot { margin-top: 10px; font-size: 13px; color: var(--cream); display: flex; flex-direction: column; gap: 3px; }
+.map-foot b { color: var(--teal); }
+.map-legend { font-size: 11px; font-style: italic; color: rgba(240,230,210,0.42); }
 .lb-row { display: flex; gap: 10px; margin-top: 8px; }
 .lb-row .lb-btn { flex: 1; }
 .lb-btn {

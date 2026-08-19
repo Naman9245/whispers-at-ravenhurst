@@ -65,7 +65,21 @@ console.log("\n[3] Dev Mode still yields the short preset (regression).");
   check("no dev mode → production preset", prod.timers.softTimer === TIMER_PRESETS.production.softTimer);
 }
 
-console.log("\n[4] Explicit settings win over devMode, but only for listed values.");
+console.log("\n[4] Dev Mode survives a settings payload that omits the timers.");
+{
+  // This is exactly what the lobby sends while the Dev Mode box is ticked: the
+  // gameplay toggles only, with the three timer keys deliberately left out. If
+  // the panel sent its production timers instead they would be whitelisted, sail
+  // through the sanitizer and silently override Dev Mode — which would break the
+  // twelve e2e suites that tick that box to get short timers.
+  const room = new GameRoom("TDEV01", true, { hotspotMarkers: false, sprint: true, rivalProgress: true });
+  check("dev soft timer survives", room.timers.softTimer === TIMER_PRESETS.dev.softTimer);
+  check("dev gate survives", room.timers.accuseGate === TIMER_PRESETS.dev.accuseGate);
+  check("dev window survives", room.timers.opponentWindow === TIMER_PRESETS.dev.opponentWindow);
+  check("the sent toggle still applies", room.settings.hotspotMarkers === false);
+}
+
+console.log("\n[5] Explicit settings win over devMode, but only for listed values.");
 {
   const room = new GameRoom("TEST03", true, { softTimer: 2700, rivalProgress: false });
   check("explicit soft timer applied", room.timers.softTimer === 2700);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { SEARCH_MS } from "@shared/constants.js";
+import { SEARCH_MS, QUESTION_CAP } from "@shared/constants.js";
 import { net } from "./net/socket.js";
 import Lobby from "./components/Lobby.jsx";
 import MainMenu from "./components/MainMenu.jsx";
@@ -7,7 +7,6 @@ import MenuBackdrop from "./components/MenuBackdrop.jsx";
 import BoardCanvas from "./game/BoardCanvas.jsx";
 import PlayerHud from "./components/PlayerHud.jsx";
 import ActionBar from "./components/ActionBar.jsx";
-import ClueTracker from "./components/ClueTracker.jsx";
 import ActivityLog from "./components/ActivityLog.jsx";
 import GameMenu from "./components/GameMenu.jsx";
 import TimerBar from "./components/TimerBar.jsx";
@@ -16,6 +15,10 @@ import SuspectModal from "./components/SuspectModal.jsx";
 import AccusationModal from "./components/AccusationModal.jsx";
 import ExamineModal from "./components/ExamineModal.jsx";
 import RevealScreen from "./components/RevealScreen.jsx";
+import RivalHud from "./components/RivalHud.jsx";
+import TabStrip from "./components/TabStrip.jsx";
+import SuspectCard from "./components/SuspectCard.jsx";
+import CaseBriefing from "./components/CaseBriefing.jsx";
 import MapOverlay from "./components/MapOverlay.jsx";
 import {
   unlockAudio, setMuted, playSearching, stopSearching, playClueFound, playNothingFound, playTickBurst,
@@ -63,6 +66,20 @@ export default function App() {
   const [showActivity, setShowActivity] = useState(false);
   const [showNotebook, setShowNotebook] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [openTab, setOpenTab] = useState(null);      // Scenario/Questions/Log strip
+  // Suspect marks live HERE, not in the notebook, because two surfaces render
+  // them now: the right-hand rail and (for weapons/rooms) the notebook. Leaving
+  // them in the notebook's local state would have made the rail's marks vanish
+  // whenever the notebook unmounted.
+  const [marks, setMarks] = useState({});           // `${type}:${id}` -> status
+  // `?menu=skip` already means "skip the ceremony" for the e2e suites, so it
+  // skips the briefing too; `&briefing=1` opts back in.
+  const [briefed, setBriefed] = useState(() => {
+    try {
+      const q = new URLSearchParams(location.search);
+      return q.get("menu") === "skip" && q.get("briefing") !== "1";
+    } catch { return false; }
+  });
   const [showMap, setShowMap] = useState(false);   // manor map overlay (M)
   const [soundOn, setSoundOn] = useState(() => {
     try { return localStorage.getItem("wr.soundOn") !== "0"; } catch { return true; }
@@ -106,6 +123,13 @@ export default function App() {
       tickBurstFired.current = false;
       setExamineResult(null); setExamining(null);
       setShowActivity(false); setShowNotebook(false); setShowMenu(false);
+      setOpenTab(null); setMarks({});
+      setBriefed(() => {
+        try {
+          const q = new URLSearchParams(location.search);
+          return q.get("menu") === "skip" && q.get("briefing") !== "1";
+        } catch { return false; }
+      });
       setSeen(1); setPingDot(false);
       setChat([{ who: "System", color: "#9ad6a0", kind: "system", ts: Date.now(), text: "Both detectives have entered Ravenhurst." }]);
     });
@@ -449,10 +473,19 @@ export default function App() {
   }
 
   const me = view.you.character;
-  // Keyed by character id. Guarded: with no opponent present, spreading an
-  // undefined character would create a literal "undefined" key in the map.
-  const counts = { [me]: view.you.clueCount };
-  if (view.opponent?.character) counts[view.opponent.character] = view.opponent.clueCount || 0;
+
+  // The case file, once, before the board. It sits between the lobby branch above
+  // and the game tree below rather than becoming a fourth `phase` value, because
+  // "playing" has always been derived from the server view rather than stored.
+  if (view.status === "playing" && !briefed) {
+    return (
+      <CaseBriefing
+        caseInfo={view.caseInfo}
+        settings={view.settings}
+        onBegin={() => setBriefed(true)}
+      />
+    );
+  }
 
   // Current region: local movement is authoritative for UI; fall back to server.
   const curRoom = region?.room ?? view.you.room;
@@ -463,17 +496,24 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* ===== Cohesive top HUD bar (fixed height, never grows) ===== */}
+      {/* ===== The race scoreboard: you | the clock | your rival ===== */}
       <div className="hud-bar">
         <PlayerHud
           name={view.you.name}
+          character={me}
           color={COLOR[me]}
           roomLabel={roomLabelOf(curRoom)}
           inCorridor={inCorridor}
           lockedIn={youLocked}
+          clueCount={view.you.clueCount}
+          total={view.progressTotal}
         />
         <TimerBar accusation={acc} serverNow={serverNow} />
-        <ClueTracker total={view.progressTotal} counts={counts} me={me} />
+        <RivalHud
+          rival={view.opponent}
+          total={view.progressTotal}
+          hideProgress={view.settings?.rivalProgress === false}
+        />
 
         <div className="hud-tools">
           <button className={`hud-tool ${pingDot ? "ping" : ""}`} onClick={openActivity} title="Activity log">
@@ -490,39 +530,71 @@ export default function App() {
         </div>
       </div>
 
-      {/* ===== Compact action pills ===== */}
-      <ActionBar
-        showHints={showHints}
-        accuseLabel={accuseLabel}
-        canAccuse={canAccuse}
-        accuseUrgent={accuseUrgent}
-        locked={youLocked}
-        onToggleHints={() => setShowHints((s) => !s)}
-        onAction={handleAction}
-      />
+      {/* ===== Stage: the board is the hero, with the strip beneath it and the
+          suspect rail alongside. One grid, one 12px gutter — the rail's top edge
+          lines up with the board's because they share a grid row, not because
+          anything was measured. ===== */}
+      <div className="stage">
+        <main className="board-hero">
+          <BoardCanvas
+            me={me}
+            startRoom={view.you.room}
+            showReachable={showHints}
+            /* Movement stays live after lock-in — you can pace the manor while your
+               rival finishes. Every ACTION is still shut off (ActionBar `locked`
+               below, and the server refuses examine/question regardless). */
+            inputEnabled={!modalOpen && !examining}
+            sprintEnabled={view.settings?.sprint !== false}
+            showMarkers={view.settings?.hotspotMarkers !== false}
+            examined={view.you.examinedHotspots || []}
+            searchingId={examining?.hotspotId || null}
+            searchingStart={examining?.startTime || null}
+            onExamine={handleExamine}
+            onRegionChange={handleRegionChange}
+          />
 
-      {/* ===== Mansion board — the hero, fills the rest of the viewport ===== */}
-      <main className="board-hero">
-        <BoardCanvas
-          me={me}
-          startRoom={view.you.room}
-          showReachable={showHints}
-          /* Movement stays live after lock-in — you can pace the manor while your
-             rival finishes. Every ACTION is still shut off (ActionBar `locked`
-             below, and the server refuses examine/question regardless). */
-          inputEnabled={!modalOpen && !examining}
-          sprintEnabled={view.settings?.sprint !== false}
-          showMarkers={view.settings?.hotspotMarkers !== false}
-          examined={view.you.examinedHotspots || []}
-          searchingId={examining?.hotspotId || null}
-          searchingStart={examining?.startTime || null}
-          onExamine={handleExamine}
-          onRegionChange={handleRegionChange}
+          {/* The pills float INSIDE the board: they act on your detective, so they
+              belong where your detective is, and a separate band would make a
+              fourth horizontal stripe on an already busy page. */}
+          <ActionBar
+            showHints={showHints}
+            accuseLabel={accuseLabel}
+            canAccuse={canAccuse}
+            accuseUrgent={accuseUrgent}
+            locked={youLocked}
+            onToggleHints={() => setShowHints((s) => !s)}
+            onAction={handleAction}
+          />
+
+          {toast && <div className="toast">{toast}</div>}
+          {/* Final-minute urgency: subtle RED glow at the screen edges (not the centre) */}
+          {urgent && <div className="vignette-edges" aria-hidden="true" />}
+        </main>
+
+        <TabStrip
+          open={openTab}
+          onToggle={setOpenTab}
+          caseInfo={view.caseInfo}
+          settings={view.settings}
+          lines={chat}
+          askedCount={Object.values(view.you.questioning || {}).reduce((n, q) => n + (q?.asked || 0), 0)}
+          questionCap={QUESTION_CAP}
         />
-        {toast && <div className="toast">{toast}</div>}
-        {/* Final-minute urgency: subtle RED glow at the screen edges (not the centre) */}
-        {urgent && <div className="vignette-edges" aria-hidden="true" />}
-      </main>
+
+        <aside className="suspect-rail">
+          <div className="rail-head">SUSPECTS</div>
+          {(view.caseInfo?.suspects || []).map((sus, i) => (
+            <SuspectCard
+              key={sus.id}
+              suspect={sus}
+              index={i}
+              status={marks[`suspect:${sus.id}`] || "unknown"}
+              onCycle={(id, next) => setMarks((m) => ({ ...m, [`suspect:${id}`]: next }))}
+              onQuestion={() => handleAction("QUESTION SUSPECT")}
+            />
+          ))}
+        </aside>
+      </div>
 
       {/* ===== Slide-in panels (do not cover the board during normal play) ===== */}
       <ActivityLog open={showActivity} lines={chat} onClose={() => setShowActivity(false)} />
@@ -537,6 +609,8 @@ export default function App() {
             caseInfo={view.caseInfo}
             foundClues={view.you.foundClues}
             examinedHotspots={view.you.examinedHotspots || []}
+            marks={marks}
+            onMark={(key, next) => setMarks((m) => ({ ...m, [key]: next }))}
           />
         </aside>
       )}

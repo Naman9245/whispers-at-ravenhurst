@@ -17,37 +17,61 @@
       "id": "s1",
       "name": "Lady Vivienne Ashworth",
       "role": "The widow",
-      "blurb": "Composed, black-veiled, and freshly written out of the will."
+      "blurb": "Composed, black-veiled, and freshly written out of the will.",
+      "age": 41,
+      "height": "5'6\"",
+      "build": "Slight",
+      "occupation": "Lady of the house"
     },
     {
       "id": "s2",
       "name": "Dr. Aloysius Crane",
       "role": "The family physician",
-      "blurb": "Knew every ailment in the house — and every prescription."
+      "blurb": "Knew every ailment in the house — and every prescription.",
+      "age": 58,
+      "height": "5'10\"",
+      "build": "Stooped",
+      "occupation": "Physician"
     },
     {
       "id": "s3",
       "name": "Mr. Sebastian Vale",
       "role": "The business partner",
-      "blurb": "Edmund's partner in shipping, and lately the loud end of every argument."
+      "blurb": "Edmund's partner in shipping, and lately the loud end of every argument.",
+      "age": 46,
+      "height": "6'1\"",
+      "build": "Broad",
+      "occupation": "Shipping partner"
     },
     {
       "id": "s4",
       "name": "Miss Cordelia Frost",
       "role": "The governess",
-      "blurb": "Quiet, observant, and owed three months' wages."
+      "blurb": "Quiet, observant, and owed three months' wages.",
+      "age": 27,
+      "height": "5'4\"",
+      "build": "Slender",
+      "occupation": "Governess"
     },
     {
       "id": "s5",
       "name": "Capt. Reginald Hawk",
       "role": "The old friend",
-      "blurb": "A sea captain with a war wound and a gambling debt."
+      "blurb": "A sea captain with a war wound and a gambling debt.",
+      "age": 53,
+      "height": "5'11\"",
+      "build": "Weathered",
+      "occupation": "Sea captain (ret.)"
     },
     {
       "id": "s6",
       "name": "Mrs. Agnes Holloway",
       "role": "The housekeeper",
-      "blurb": "Has run Ravenhurst for thirty years and misses nothing."
+      "blurb": "Has run Ravenhurst for thirty years and misses nothing.",
+      "age": 61,
+      "height": "5'3\"",
+      "build": "Stout",
+      "occupation": "Housekeeper"
     }
   ],
   "weapons": [

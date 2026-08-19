@@ -210,7 +210,9 @@ try {
   console.log("   sidebar:", JSON.stringify(nb));
   ok("notebook sidebar opens from RIGHT", nb && nb.right <= 1);
   ok("notebook sidebar width ≤ 320px", nb && nb.w <= 320);
-  ok("notebook has its tabs", nb && nb.tabs === 3);
+  // Two, not three: suspects moved to the right-hand rail in 2.8 so they are
+  // not rendered on a fourth surface. Weapons and Rooms stay here.
+  ok("notebook has its tabs", nb && nb.tabs === 2);
   await sleep(6000); // must NOT auto-close
   ok("notebook does NOT auto-close after 6s", await holmes.evaluate(() => !!document.querySelector(".notebook-sidebar")));
   await holmes.screenshot({ path: "ov-3-notebook.png" });

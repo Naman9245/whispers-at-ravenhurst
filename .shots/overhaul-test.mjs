@@ -33,6 +33,72 @@ async function enter(page, room) {
   return (await page.evaluate(() => document.querySelector(".hp-room")?.textContent || "")).toUpperCase().includes(want);
 }
 
+// Two study hotspots that both hold a clue for Holmes (the same pair
+// server/test/lockout.js uses). These are STANDING spots beside each piece, not
+// the hotspot centres -- a centre sits inside solid furniture and is by
+// definition unreachable; reach is measured to the nearest point of the rect.
+const STUDY_STAND = [
+  [278, 206],   // just west of the desk
+  [154, 286],   // just east of the armchair
+];
+
+// The walker above is the plain greedy one, which was written when rooms were
+// empty boxes. The Study's furniture is solid now, and a diagonal greedy push
+// pins itself on a desk corner forever -- it parked at 249,306 and then 268,220,
+// close enough to look right and too far to examine. This is the sidestepping
+// walker from hotspot-test.mjs, which slides along the axis it is NOT trying to
+// close whenever it stops making progress.
+async function moveToSmart(page, tx, ty, tol = 10, max = 320) {
+  let stuck = 0, prev = null, flip = 1;
+  const press = async (keys, ms = 60) => {
+    for (const k of keys) await page.keyboard.down(k);
+    await sleep(ms);
+    for (const k of keys) await page.keyboard.up(k);
+    await sleep(15);
+  };
+  for (let i = 0; i < max; i++) {
+    const p = await pos(page);
+    const dx = tx - p.x, dy = ty - p.y;
+    if (Math.hypot(dx, dy) < tol) return true;
+    if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 1.2) stuck++; else stuck = 0;
+    prev = p;
+    if (stuck > 3) {
+      const side = Math.abs(dx) > Math.abs(dy) ? (flip > 0 ? "s" : "w") : (flip > 0 ? "d" : "a");
+      await press([side], 220);
+      flip = -flip; stuck = 0;
+      continue;
+    }
+    const keys = [];
+    if (Math.abs(dx) > tol) keys.push(dx > 0 ? "d" : "a");
+    if (Math.abs(dy) > tol) keys.push(dy > 0 ? "s" : "w");
+    await press(keys);
+  }
+  return false;
+}
+
+async function gatherStudyClues(page) {
+  let got = 0;
+  for (const [x, y] of STUDY_STAND) {
+    // Belt and braces: the questions section above closes the suspect modal, but
+    // if it ever fails to, input stays locked and every check below reports a
+    // frozen character with no visible cause.
+    await page.keyboard.press("Escape"); await sleep(200);
+    await moveToSmart(page, x, y, 12);
+    await page.keyboard.down("e"); await sleep(130); await page.keyboard.up("e");
+    await sleep(2900);                                 // 2.5s search, then the modal
+    const st = await page.evaluate(() => ({
+      at: window.__wrChar ? `${Math.round(window.__wrChar.x)},${Math.round(window.__wrChar.y)}` : "none",
+      title: document.querySelector(".examine-title")?.textContent || null,
+      clue: !!document.querySelector(".examine-clue-text"),
+    }));
+    console.log("   examine:", JSON.stringify(st));
+    if (st.clue) got++;
+    await page.evaluate(() => document.querySelector(".examine-ok")?.click());
+    await sleep(220);
+  }
+  return got;
+}
+
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: "new", protocolTimeout: 240000, defaultViewport: { width: VW, height: VH }, args: [`--window-size=${VW},${VH}`] });
 const errors = [];
 try {
@@ -43,7 +109,19 @@ try {
   await holmes.waitForSelector(".lobby");
   await clickByText(holmes, "Create Room");
   await holmes.waitForSelector(".lobby-form");
-  await holmes.click('.lb-check input[type="checkbox"]'); // DEV badge
+  // Deliberately NOT Dev Mode. This suite walks six rooms, waits 6s on the
+  // notebook, injects 100 messages and runs a full accusation -- comfortably
+  // longer than Dev Mode's 60s soft cap, which used to force-resolve the game
+  // mid-run and replace the HUD with the reveal screen. Everything after that
+  // point was then testing an empty document. Host settings (Phase 2.8) let us
+  // ask for a game with NO time limit and an open accuse gate instead.
+  await holmes.evaluate(() => {
+    const row = [...document.querySelectorAll(".set-row")].find(r => /Time limit/.test(r.textContent));
+    [...row.querySelectorAll(".set-opt")].find(b => b.textContent.trim() === "Off").click();
+    const gate = [...document.querySelectorAll(".set-row")].find(r => /Accuse opens/.test(r.textContent));
+    [...gate.querySelectorAll(".set-opt")].find(b => b.textContent.trim() === "Now").click();
+  });
+  await sleep(150);
   await clickByText(holmes, "Create");
   await holmes.waitForSelector(".lb-code-display");
   const code = await holmes.$eval(".lb-code-display", (el) => el.textContent.trim());
@@ -145,7 +223,9 @@ try {
   await sleep(300);
   const menu = await holmes.evaluate(() => { const e = document.querySelector(".game-menu"); return e ? { items: [...e.querySelectorAll(".menu-item")].map(b => b.textContent.replace(/\s+/g, " ").trim()), help: e.querySelectorAll(".menu-help li").length } : null; });
   console.log("   menu:", JSON.stringify(menu));
-  ok("menu has Sound toggle + Exit + 4-step help", menu && menu.items.some(t => /Sound/.test(t)) && menu.items.some(t => /Exit/.test(t)) && menu.help === 4);
+  // 5 steps, not 4: the Esc/Enter line joined the list when modal keys landed
+  // in 2.3a, and this assertion was never updated to match.
+  ok("menu has Sound toggle + Exit + 5-step help", menu && menu.items.some(t => /Sound/.test(t)) && menu.items.some(t => /Exit/.test(t)) && menu.help === 5);
   await holmes.screenshot({ path: "ov-4-menu.png" });
   await holmes.evaluate(() => document.querySelector(".panel-scrim")?.click());
   await sleep(300);
@@ -165,10 +245,13 @@ try {
 
   // ---- Lock-in lockout ----
   console.log("\n[lock-in lockout]");
-  // gather 2 clues: investigate study (we're here) then library
-  await holmes.evaluate(() => [...document.querySelectorAll(".act-btn")][1].click()); await sleep(700);
-  await enter(holmes, "library");
-  await holmes.evaluate(() => [...document.querySelectorAll(".act-btn")][1].click()); await sleep(700);
+  // Gather 2 clues the way the game actually works: walk onto a hotspot and press
+  // E. This used to click .act-btn[1] twice, which is the QUESTION pill -- there
+  // has never been an EXAMINE pill -- so it gathered nothing and the accusation
+  // modal below had an empty evidence list.
+  await enter(holmes, "study");
+  const clues = await gatherStudyClues(holmes);
+  ok("gathered 2 clues to cite in the accusation", clues === 2);
   // accuse
   await holmes.evaluate(() => [...document.querySelectorAll(".act-btn")].find(b => /^ACCUSE/.test(b.textContent)).click());
   await holmes.waitForSelector(".accuse-modal");

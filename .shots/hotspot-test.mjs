@@ -140,8 +140,12 @@ try {
   await moveTo(holmes, ...SPOT.study_fireplace);
   await sleep(150);
   const rect = await holmes.evaluate(() => { const c = document.querySelector(".board-canvas"); const r = c.getBoundingClientRect(); return { left: r.left, top: r.top, w: r.width, h: r.height }; });
-  const sx = rect.left + ICON.study_fireplace[0] * (rect.w / BOARD_W);
-  const sy = rect.top + ICON.study_fireplace[1] * (rect.h / BOARD_H);
+  // Board px are no longer canvas px: the camera zooms and pans, so the world
+  // position has to be projected into VIEW space first and only then scaled by
+  // the CSS letterboxing. Skipping toView() clicks empty floor.
+  const v = await holmes.evaluate(([x, y]) => window.__wrCam.toView(x, y), ICON.study_fireplace);
+  const sx = rect.left + v.x * (rect.w / BOARD_W);
+  const sy = rect.top + v.y * (rect.h / BOARD_H);
   await holmes.mouse.click(sx, sy);
   await sleep(300);
   const m4 = await modalText(holmes);

@@ -1,6 +1,9 @@
 import { useRef, useEffect } from "react";
-import { drawBoard, drawHotspots, drawSearching, drawOccluders } from "./drawBoard.js";
-import { BOARD_W, BOARD_H, ROOM_IDS, roomRect } from "./boardData.js";
+import {
+  drawBoard, drawHotspots, drawOccluders, drawExamineGlow, drawBubble, searchBubbleScale,
+} from "./drawBoard.js";
+import { BOARD_W, BOARD_H, PALETTE, ROOM_IDS, roomRect } from "./boardData.js";
+import { makeCamera, VIEW_W, VIEW_H, DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM } from "./camera.js";
 import { ROOM_HOTSPOTS } from "@shared/roomHotspots.js";
 import { objectsIn, distanceToRect } from "@shared/roomObjects.js";
 import { preloadObjectSprites } from "./objectSprites.js";
@@ -40,6 +43,7 @@ export default function BoardCanvas({
 }) {
   const canvasRef = useRef(null);
   const charRef = useRef(null);
+  const camRef = useRef(null);
   const keysRef = useRef({});
   const showReachableRef = useRef(showReachable);
   const inputEnabledRef = useRef(inputEnabled);
@@ -51,6 +55,7 @@ export default function BoardCanvas({
   const examinedRef = useRef(new Set());
   const onExamineRef = useRef(onExamine);
   const activeIdRef = useRef(null);
+  const activeXYRef = useRef(null);   // { id, x, y } in world px — dev handle only
   const ePrevRef = useRef(false);
   const searchingIdRef = useRef(null);
   const searchStartRef = useRef(null);
@@ -80,8 +85,18 @@ export default function BoardCanvas({
         const ch = new Character(me, startRoom, data);
         ch.onRegionChange = (room, inCorridor) => regionCbRef.current?.(room, inCorridor);
         charRef.current = ch;
-        // Dev-only handle for end-to-end movement tests (stripped from prod builds).
-        if (import.meta.env.DEV) window.__wrChar = ch;
+        const cam = makeCamera();
+        cam.snapTo(ch.x, ch.y);   // start framed on the detective, don't ease in from the centre
+        camRef.current = cam;
+        // Dev-only handles for e2e (stripped from prod builds). __wrCam turns
+        // world px into view px; __wrHotspot reports the in-reach hotspot's world
+        // position, so the suites can click one without hardcoding furniture
+        // geometry that a layout change would silently invalidate.
+        if (import.meta.env.DEV) {
+          window.__wrChar = ch;
+          window.__wrCam = cam;
+          window.__wrHotspot = () => activeXYRef.current;
+        }
       }
     });
     return () => { alive = false; };
@@ -92,6 +107,13 @@ export default function BoardCanvas({
     const down = (e) => {
       const k = e.key.toLowerCase();
       if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault();
+      // DEV-only zoom nudge. The right framing is a judgement call that has to be
+      // made with the game running, so [ and ] adjust it live rather than forcing
+      // a rebuild per guess. Never shipped: import.meta.env.DEV strips this.
+      if (import.meta.env.DEV && camRef.current && (k === "[" || k === "]")) {
+        camRef.current.setZoom(camRef.current.zoom + (k === "]" ? 0.05 : -0.05));
+        console.log("[camera] zoom", camRef.current.zoom.toFixed(2));
+      }
       keysRef.current[k] = true;
     };
     const up = (e) => { keysRef.current[e.key.toLowerCase()] = false; };
@@ -119,9 +141,14 @@ export default function BoardCanvas({
       if (!ch || !inputEnabledRef.current || ch.inCorridor) return;
       const id = activeIdRef.current;
       if (!id) return;
+      // CSS px -> canvas px -> WORLD px. This is the only canvas-to-board mapping
+      // in the client, so the camera has to be inverted here or clicking a
+      // hotspot silently starts missing once the view is zoomed.
       const r = canvas.getBoundingClientRect();
-      const ix = (e.clientX - r.left) * (BOARD_W / r.width);
-      const iy = (e.clientY - r.top) * (BOARD_H / r.height);
+      const vx = (e.clientX - r.left) * (VIEW_W / r.width);
+      const vy = (e.clientY - r.top) * (VIEW_H / r.height);
+      const cam = camRef.current;
+      const { x: ix, y: iy } = cam ? cam.toWorld(vx, vy) : { x: vx, y: vy };
       const rr = roomRect(ch.anchorRoom);
       const h = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === id);
       if (!h) return;
@@ -173,6 +200,15 @@ export default function BoardCanvas({
           }
         }
         activeIdRef.current = activeId;
+        if (import.meta.env.DEV) {
+          if (activeId && room) {
+            const rr = roomRect(room);
+            const hs = (ROOM_HOTSPOTS[room] || []).find((x) => x.id === activeId);
+            activeXYRef.current = hs
+              ? { id: activeId, x: rr.x + hs.x * rr.w, y: rr.y + hs.y * rr.h }
+              : null;
+          } else activeXYRef.current = null;
+        }
 
         // Edge-triggered E → turn to face the hotspot, then examine it (once per press).
         const ePressed = enabled && Boolean(keysRef.current.e);
@@ -185,8 +221,21 @@ export default function BoardCanvas({
         ePrevRef.current = ePressed;
       }
 
+      const cam = camRef.current;
       const current = ch?.anchorRoom;
       const reachable = showReachableRef.current ? ROOM_IDS.filter((id) => id !== current) : [];
+
+      // ---- 1. SCREEN space: clear -------------------------------------------
+      // There was no clearRect here before: the board blit covered the whole
+      // canvas and served as the implicit clear. Under a camera that stops being
+      // guaranteed, so wipe explicitly (menuScene.js does the same).
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = PALETTE.bg2;
+      ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+
+      // ---- 2. WORLD space: the scene ----------------------------------------
+      if (ch && cam) cam.update(dt, ch.x, ch.y);
+      if (cam) cam.applyTo(ctx);
       drawBoard(ctx, { current: ch?.inCorridor ? null : current, reachable, flicker: !reducedMotion });
       if (ch) {
         ch.draw(ctx);
@@ -195,24 +244,37 @@ export default function BoardCanvas({
         // floating in front of everything.
         if (!ch.inCorridor) drawOccluders(ctx, ch.anchorRoom, ch.x, ch.y);
       }
-      // Hotspot markers go on top of EVERYTHING, including the occluders.
-      // They were previously drawn before the character, so the occluder blit
-      // painted over them: walking behind the sideboard made its own magnifier
-      // vanish, which read as the hotspot disappearing. They are UI affordances,
-      // not part of the scene, so nothing in the room should ever hide them.
-      if (ch && !ch.inCorridor) {
-        drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current, showMarkersRef.current);
-      }
-      // Searching overlay (drawn over the character so the bubble reads clearly).
+
+      // The hotspot being searched glows in WORLD space — it marks a piece of
+      // furniture, so it belongs to the scene and should scale with the camera.
       const sid = searchingIdRef.current;
+      let searchHs = null;
       if (ch && sid && !ch.inCorridor) {
         const rr = roomRect(ch.anchorRoom);
         const hs = (ROOM_HOTSPOTS[ch.anchorRoom] || []).find((x) => x.id === sid);
         if (hs) {
-          const hx = rr.x + hs.x * rr.w, hy = rr.y + hs.y * rr.h;
-          ch.faceToward(hx, hy);   // hold the facing toward the hotspot for the whole search
-          drawSearching(ctx, ch.x, ch.y, hx, hy, searchStartRef.current);
+          searchHs = { x: rr.x + hs.x * rr.w, y: rr.y + hs.y * rr.h };
+          ch.faceToward(searchHs.x, searchHs.y);   // hold the facing for the whole search
+          drawExamineGlow(ctx, searchHs.x, searchHs.y);
         }
+      }
+
+      // ---- 3. SCREEN space: UI ----------------------------------------------
+      // Markers, prompts and bubbles are affordances, not scenery: drawn after
+      // the transform is reset they keep a constant on-screen size at any zoom.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const project = cam ? cam.toView : (x, y) => ({ x, y });
+      // Hotspot markers go on top of EVERYTHING, including the occluders.
+      // They were previously drawn before the character, so the occluder blit
+      // painted over them: walking behind the sideboard made its own magnifier
+      // vanish, which read as the hotspot disappearing.
+      if (ch && !ch.inCorridor) {
+        drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current,
+                     activeIdRef.current, showMarkersRef.current, project);
+      }
+      if (ch && searchHs) {
+        const p = project(ch.x, ch.y - 90);
+        drawBubble(ctx, p.x, p.y, { dots: true, scale: searchBubbleScale(searchStartRef.current) });
       }
       raf = requestAnimationFrame(loop);
     };

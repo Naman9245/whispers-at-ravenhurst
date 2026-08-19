@@ -21,6 +21,18 @@
 // compatibility surface to worry about.
 import { BOARD_W, BOARD_H } from "./boardData.js";
 
+// The bake is stored at BAKE_SCALE x board resolution. The gameplay camera zooms
+// IN on the board, and magnifying a 1:1 bitmap turns the mortar lines, book
+// spines and room labels to mush. Baking at 2x means the camera minifies a
+// larger source instead, which stays crisp. 2944x1720x4B is about 20 MB — fine;
+// 3x would be 45 MB, which is not.
+//
+// Callers get the scale back and MUST apply it to any SOURCE rectangle they read
+// out of the bitmap (see drawOccluders). Destination coordinates stay in board
+// units, because the bake context is pre-scaled: paintStatic and its ~600 lines
+// of helpers keep drawing in world units, unchanged.
+export const BAKE_SCALE = 2;
+
 let bg = null;
 let bakes = 0;
 
@@ -29,23 +41,26 @@ let bakes = 0;
  * @param {(ctx: CanvasRenderingContext2D) => void} paint - painter for the
  *   static content. Injected rather than imported so this module never has to
  *   import drawBoard.js, which imports this one (that would be a cycle).
+ * @returns {{ bg: HTMLCanvasElement, scale: number }}
  */
 export function getBoardLayers(paint) {
-  if (bg) return { bg };
+  if (bg) return { bg, scale: BAKE_SCALE };
   const canvas = document.createElement("canvas");
-  canvas.width = BOARD_W;
-  canvas.height = BOARD_H;
+  canvas.width = BOARD_W * BAKE_SCALE;
+  canvas.height = BOARD_H * BAKE_SCALE;
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
+  // Pre-scale so the painter never has to know the bake is oversized.
+  ctx.setTransform(BAKE_SCALE, 0, 0, BAKE_SCALE, 0, 0);
   paint(ctx);
   bg = canvas;
   bakes++;
   if (typeof window !== "undefined" && import.meta.env.DEV) {
     // Dev handle so a runaway invalidation shows up as a failing assertion
     // rather than as an unexplained framerate drop.
-    window.__wrBoard = { get bakes() { return bakes; } };
+    window.__wrBoard = { get bakes() { return bakes; }, scale: BAKE_SCALE };
   }
-  return { bg };
+  return { bg, scale: BAKE_SCALE };
 }
 
 // Drop the cache; the next getBoardLayers() rebuilds it. Rare by design — the

@@ -340,26 +340,39 @@ export default function App() {
   const youLocked = Boolean(acc?.youLocked);
   const gateMsLeft = acc?.opensAt ? acc.opensAt - serverNow : 0;
   const canAccuse = view?.status === "playing" && !youLocked && gateMsLeft <= 0;
+  // Timer: Off ships softMs as null. Everything downstream reads "no deadline",
+  // NOT "deadline of zero" — treating null as 0 would put gameEndAt at startedAt,
+  // freeze the pill at ACCUSE (0:00) and fire the urgency visuals immediately.
+  const noLimit = acc?.softMs == null && !acc?.finalDeadline;
   // Time left to actually ACT: the final window if open, else the soft game-end.
-  const gameEndAt = acc?.startedAt ? acc.finalDeadline || acc.startedAt + acc.softMs : 0;
+  const gameEndAt = acc?.startedAt
+    ? acc.finalDeadline || (acc.softMs == null ? 0 : acc.startedAt + acc.softMs)
+    : 0;
   const actMsLeft = gameEndAt ? Math.max(0, gameEndAt - serverNow) : 0;
   // ONE urgency state: the final minute. Calm green before, red visuals after —
   // no banners, no continuous sound (just a 3-second tick burst at the 1:00 mark).
-  const urgent = view?.status === "playing" && Boolean(acc?.startedAt) && actMsLeft > 0 && actMsLeft <= 60_000;
+  const urgent = view?.status === "playing" && Boolean(acc?.startedAt) && !noLimit
+    && actMsLeft > 0 && actMsLeft <= 60_000;
   const accuseUrgent = canAccuse && urgent;
   const accuseLabel = youLocked
     ? "LOCKED IN ✓"
     : gateMsLeft > 0
       ? `OPENS (${fmtMs(gateMsLeft)})`
-      : `ACCUSE (${fmtMs(actMsLeft)})`;
+      : noLimit
+        ? "ACCUSE"
+        : `ACCUSE (${fmtMs(actMsLeft)})`;
 
   // Toast (no sound) the moment the accusation window opens — informational only.
+  // Skipped when the host set the gate to 0, since "the window is now open" the
+  // instant the game begins is noise, not news.
   useEffect(() => {
     if (canAccuse && !accuseAnnounced.current) {
       accuseAnnounced.current = true;
-      flash("Accusation window open — you may now accuse.");
+      if (acc?.opensAt && acc.opensAt > acc.startedAt) {
+        flash("Accusation window open — you may now accuse.");
+      }
     }
-  }, [canAccuse, flash]);
+  }, [canAccuse, acc?.opensAt, acc?.startedAt, flash]);
 
   // Toast (no banner) the moment the rival locks in — replaces the old banner.
   useEffect(() => {
@@ -377,7 +390,7 @@ export default function App() {
   }, [urgent]);
 
   const handleAction = useCallback((key) => {
-    if (youLocked) return flash("You've locked in — awaiting your opponent.");
+    if (youLocked) return flash("You've locked in — you can walk, but not investigate.");
     if (examining) return flash("Searching…");
     if (key === "QUESTION SUSPECT") return setShowSuspects(true);
     if (key === "ACCUSE") {
@@ -472,7 +485,12 @@ export default function App() {
           me={me}
           startRoom={view.you.room}
           showReachable={showHints}
-          inputEnabled={!modalOpen && !youLocked && !examining}
+          /* Movement stays live after lock-in — you can pace the manor while your
+             rival finishes. Every ACTION is still shut off (ActionBar `locked`
+             below, and the server refuses examine/question regardless). */
+          inputEnabled={!modalOpen && !examining}
+          sprintEnabled={view.settings?.sprint !== false}
+          showMarkers={view.settings?.hotspotMarkers !== false}
           examined={view.you.examinedHotspots || []}
           searchingId={examining?.hotspotId || null}
           searchingStart={examining?.startTime || null}

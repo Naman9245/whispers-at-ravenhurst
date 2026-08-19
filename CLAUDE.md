@@ -168,9 +168,25 @@ per-item breakdown.
 - **Server-authoritative** state — clients send *intents*, the server validates &
   owns truth (anti-cheat). The solution never reaches a client until the reveal.
 - **Pre-generated dialogue trees** (baked case), NOT a live AI call per question.
-- **Dual-window accusation** — production: **20-min soft cap · 5-min accuse gate ·
+- **Dual-window accusation** — defaults: **20-min soft cap · 5-min accuse gate ·
   3-min final window** (Dev Mode: 60s / 20s / 30s). *(Note: earlier docs said 3-min
   gate / 2-min window — the real values in `shared/constants.js` are 5-min / 3-min.)*
+- **Room settings are HOST-CHOSEN (2.8).** The lobby's create form dials the game in
+  Among Us style: time limit **Off / 15 / 20 / 30 / 45 min**, accuse gate, rival
+  window, hotspot markers, sprint, rival-progress visibility. Shape + whitelist live
+  in `shared/constants.js` (`SETTING_OPTIONS` / `DEFAULT_SETTINGS` / `DEV_SETTINGS` /
+  `sanitizeSettings`); `room:create` had NO server-side validation, so untrusted
+  settings MUST go through `sanitizeSettings` — never trust the panel.
+  `WHISPERS_FAST_TIMERS` still overrides everything (the test suite depends on it),
+  and Dev Mode is now just the `DEV_SETTINGS` preset.
+  ⚠️ **`softTimer: null` (Timer: Off) is load-bearing in two places that silently
+  invert the feature if unguarded**, because `null * 1000 === 0`:
+  `scheduleForceResolve()` would fire on the next tick (revealing the solution the
+  moment the second player joins), and `buildView().accusation.softMs` would freeze
+  the client clock at 0:00. Both are guarded with `== null`; `server/test/timerOff.js`
+  is the regression. Timer: Off still ENDS — the first lock-in arms the rival window.
+- **"Rival progress: Hidden" is enforced in `views.js`**, not in CSS. Shipping the
+  number and styling it away would be a two-click devtools cheat.
 - **Fixed clue counts:** 3 shared + 4 private per player + 1 red herring per player.
 - **Suspects are GLOBAL** (questionable from anywhere; not room-bound).
 - **Movement = WASD / arrow keys only**, free-roam, with **Shift to sprint** (2×).
@@ -240,8 +256,13 @@ per-item breakdown.
   actually submitted an accusation, so a double forfeit yields `winners: []` and
   the reveal reads "No one cracked the case." (It used to take the max over
   everyone, so both forfeiters tied at 0 and it announced a draw.)
-- **Action lockout after lock-in:** once a player locks in their accusation, the
-  server rejects further move/examine/question and the client disables all actions.
+- **Action lockout after lock-in — but you can still WALK (2.8).** Once a player locks
+  in, the server rejects examine/question/confront and the client disables every
+  action pill — but movement stays live, so a locked-in detective can pace the manor
+  while their rival finishes instead of sitting frozen. `setRegion` is deliberately
+  NOT gated on `p.accusation`; roaming leaks nothing (room/inCorridor are private and
+  the movement chat line is vague on purpose). `server/test/lockout.js` asserts both
+  halves.
 - **Hotspot→clue mapping is never sent** to a client until that exact spot is examined.
 - **Interrogation is PER-SUSPECT** (`shared/suspectQuestions.js`): 12 core questions
   everyone answers + 15 written for each character = 102, and `validateCase()` now

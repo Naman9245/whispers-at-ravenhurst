@@ -46,7 +46,7 @@ function ask(event, payload) {
 
 export const net = {
   socket,
-  createRoom: (name, devMode) => ask("room:create", { name, devMode }),
+  createRoom: (name, devMode, settings) => ask("room:create", { name, devMode, settings }),
   joinRoom: (code, name) => ask("room:join", { code, name }),
   // Explicit "I'm done with this room" (Exit Game / Play Again / Main Menu). The
   // server drops us from the GameRoom so an abandoned game can't keep pushing

@@ -35,6 +35,7 @@ function reachOf(room, id, feetX, feetY) {
  */
 export default function BoardCanvas({
   me = "holmes", startRoom = "study", showReachable = false, inputEnabled = true,
+  sprintEnabled = true, showMarkers = true,
   examined = [], searchingId = null, searchingStart = null, onExamine, onRegionChange,
 }) {
   const canvasRef = useRef(null);
@@ -42,6 +43,10 @@ export default function BoardCanvas({
   const keysRef = useRef({});
   const showReachableRef = useRef(showReachable);
   const inputEnabledRef = useRef(inputEnabled);
+  // Host settings. The rAF effect below has an empty dep array and never re-runs,
+  // so anything the loop reads from props has to come through a ref.
+  const sprintEnabledRef = useRef(sprintEnabled);
+  const showMarkersRef = useRef(showMarkers);
   const regionCbRef = useRef(onRegionChange);
   const examinedRef = useRef(new Set());
   const onExamineRef = useRef(onExamine);
@@ -51,6 +56,8 @@ export default function BoardCanvas({
   const searchStartRef = useRef(null);
   showReachableRef.current = showReachable;
   inputEnabledRef.current = inputEnabled;
+  sprintEnabledRef.current = sprintEnabled;
+  showMarkersRef.current = showMarkers;
   regionCbRef.current = onRegionChange;
   examinedRef.current = new Set(examined);
   onExamineRef.current = onExamine;
@@ -140,7 +147,8 @@ export default function BoardCanvas({
         const dx = (k.d || k.arrowright ? 1 : 0) - (k.a || k.arrowleft ? 1 : 0);
         const dy = (k.s || k.arrowdown ? 1 : 0) - (k.w || k.arrowup ? 1 : 0);
         ch.setInput(dx, dy);
-        ch.sprint = enabled && Boolean(k.shift); // Shift → 2x; gated with input
+        // Shift → 2x, gated with input AND with the host's Sprint setting.
+        ch.sprint = enabled && sprintEnabledRef.current && Boolean(k.shift);
         ch.update(dt);
 
         // Footsteps follow the movement state. Character.update() now sets state
@@ -193,7 +201,7 @@ export default function BoardCanvas({
       // vanish, which read as the hotspot disappearing. They are UI affordances,
       // not part of the scene, so nothing in the room should ever hide them.
       if (ch && !ch.inCorridor) {
-        drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current);
+        drawHotspots(ctx, ch.anchorRoom, ROOM_HOTSPOTS[ch.anchorRoom] || [], examinedRef.current, activeIdRef.current, showMarkersRef.current);
       }
       // Searching overlay (drawn over the character so the bubble reads clearly).
       const sid = searchingIdRef.current;

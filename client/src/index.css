@@ -408,6 +408,30 @@ body {
 .lb-input.code { letter-spacing: 6px; text-transform: uppercase; font-weight: 700; text-align: center; }
 .lb-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--cream); cursor: pointer; }
 .lb-check em { color: rgba(240,230,210,0.55); font-style: italic; }
+
+/* Host-chosen room settings (Phase 2.8). Deliberately NOT .lb-check — that class
+   must stay unique to the Dev Mode checkbox, which twelve e2e suites click. The
+   segmented pills reuse .pick-chip's visual language from the accusation modal. */
+.lb-settings {
+  display: flex; flex-direction: column; gap: 8px;
+  border: 1px solid rgba(201,162,63,0.28); border-radius: 5px;
+  padding: 10px 12px; background: rgba(0,0,0,0.22);
+}
+.lb-settings-head {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--amber); opacity: 0.85;
+}
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.set-label { display: flex; flex-direction: column; font-size: 13px; color: var(--cream); }
+.set-hint { font-size: 11px; font-style: italic; color: rgba(240,230,210,0.45); }
+.set-opts { display: flex; gap: 4px; flex-shrink: 0; }
+.set-opt {
+  font-family: inherit; font-size: 12px; color: rgba(240,230,210,0.7);
+  background: rgba(0,0,0,0.3); border: 1px solid rgba(201,162,63,0.35);
+  border-radius: 3px; padding: 4px 8px; cursor: pointer; transition: background 0.12s;
+}
+.set-opt:hover { background: rgba(240,184,92,0.12); }
+.set-opt.on { border-color: var(--amber); background: rgba(240,184,92,0.2); color: #fff; }
 .lb-row { display: flex; gap: 10px; margin-top: 8px; }
 .lb-row .lb-btn { flex: 1; }
 .lb-btn {

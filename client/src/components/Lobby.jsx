@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { net } from "../net/socket.js";
 import { playNotebookOpen } from "../game/sound.js";
+import { SETTING_OPTIONS, DEFAULT_SETTINGS, DEV_SETTINGS } from "@shared/constants.js";
+
+// Human labels for the setting values. Timers are stored in SECONDS (matching
+// TIMER_PRESETS) but read in minutes, and null genuinely means "no limit" rather
+// than zero — the server never arms a force-resolve for it.
+const MINUTES = (v) => (v == null ? "Off" : `${v / 60}m`);
+const ONOFF = (v) => (v ? "On" : "Off");
+
+// Row order is deliberate: the time limit is the whole point of this panel, so
+// it leads; the two privacy/difficulty dials come last.
+const ROWS = [
+  { key: "softTimer",      label: "Time limit",      fmt: MINUTES, hint: "Off = play until someone accuses" },
+  { key: "accuseGate",     label: "Accuse opens at", fmt: MINUTES, hint: "Investigate first" },
+  { key: "opponentWindow", label: "Rival window",    fmt: MINUTES, hint: "Their time to answer once you lock in" },
+  { key: "hotspotMarkers", label: "Hotspot markers", fmt: ONOFF,   hint: "Off hides what's searchable — harder" },
+  { key: "sprint",         label: "Sprint (Shift)",  fmt: ONOFF,   hint: "" },
+  { key: "rivalProgress",  label: "Rival progress",  fmt: ONOFF,   hint: "Off hides their clue count" },
+];
 
 // Lobby: create a room (you become Holmes) or join one by code (you become
 // Watson). On create, we wait here showing the code until the server emits
@@ -16,6 +34,18 @@ export default function Lobby({ onError, onBack }) {
   const [devMode, setDevMode] = useState(() => {
     try { return localStorage.getItem("wr.devModeDefault") === "1"; } catch { return false; }
   });
+  // Host-chosen room settings. Ticking Dev Mode stamps the short-timer preset in,
+  // so the checkbox reads as a preset button rather than a competing source of
+  // truth — and the server falls back to DEV_SETTINGS from `devMode` alone anyway.
+  const [settings, setSettings] = useState(
+    () => (typeof localStorage !== "undefined" && localStorage.getItem("wr.devModeDefault") === "1"
+      ? { ...DEV_SETTINGS } : { ...DEFAULT_SETTINGS })
+  );
+  const setSetting = (key, value) => setSettings((s) => ({ ...s, [key]: value }));
+  const toggleDev = (on) => {
+    setDevMode(on);
+    setSettings((s) => ({ ...s, ...(on ? DEV_SETTINGS : DEFAULT_SETTINGS) }));
+  };
   const [code, setCode] = useState("");
   const [waitingCode, setWaitingCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +53,7 @@ export default function Lobby({ onError, onBack }) {
 
   const create = async () => {
     setBusy(true); setErr("");
-    const res = await net.createRoom(name || "Holmes", devMode);
+    const res = await net.createRoom(name || "Holmes", devMode, settings);
     setBusy(false);
     if (!res?.ok) return setErr(res?.error || "Could not create room.");
     setWaitingCode(res.code);
@@ -73,10 +103,38 @@ export default function Lobby({ onError, onBack }) {
             <label className="lb-label">Your name</label>
             <input className="lb-input" value={name} placeholder="Holmes"
               maxLength={16} onChange={(e) => setName(e.target.value)} />
+            {/* Keep this the ONLY .lb-check on the page — twelve e2e suites click
+                `.lb-check input[type="checkbox"]` to turn on short timers. New
+                controls below deliberately use different class names. */}
             <label className="lb-check">
-              <input type="checkbox" checked={devMode} onChange={(e) => setDevMode(e.target.checked)} />
+              <input type="checkbox" checked={devMode} onChange={(e) => toggleDev(e.target.checked)} />
               <span>Dev Mode <em>(short timers: 60s / 20s / 30s)</em></span>
             </label>
+
+            <div className="lb-settings">
+              <div className="lb-settings-head">Game settings</div>
+              {ROWS.map((row) => (
+                <div className="set-row" key={row.key}>
+                  <span className="set-label">
+                    {row.label}
+                    {row.hint && <em className="set-hint">{row.hint}</em>}
+                  </span>
+                  <span className="set-opts">
+                    {SETTING_OPTIONS[row.key].map((v) => (
+                      <button
+                        key={String(v)}
+                        type="button"
+                        className={`set-opt ${settings[row.key] === v ? "on" : ""}`}
+                        onClick={() => setSetting(row.key, v)}
+                      >
+                        {row.fmt(v)}
+                      </button>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+
             {err && <div className="lb-error">{err}</div>}
             <div className="lb-row">
               <button className="lb-btn ghost" onClick={() => { setMode("home"); setErr(""); }}>Back</button>

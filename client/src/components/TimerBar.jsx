@@ -11,19 +11,37 @@ export default function TimerBar({ accusation, serverNow }) {
   const acc = accusation;
   if (!acc?.startedAt) return null;
 
+  // Timer: Off — the host chose no time limit, so softMs arrives as null. There is
+  // nothing to count DOWN to, so count up instead: an elapsed clock is honest, and
+  // a blank centre section would read as a bug. Once somebody locks in, the
+  // opponent window gives us a real deadline again and the normal path resumes.
+  if (acc.softMs == null && !acc.finalDeadline) {
+    const gated = serverNow < acc.opensAt;
+    return (
+      <div className="hud-sec hud-timer">
+        <div className="tb-phase">{gated ? "STORM SEALED" : "NO LIMIT"}</div>
+        <div className="tb-time">
+          {fmt(gated ? acc.opensAt - serverNow : serverNow - acc.startedAt)}
+        </div>
+      </div>
+    );
+  }
+
   const endAt = acc.finalDeadline || acc.startedAt + acc.softMs;
   const endMsLeft = Math.max(0, endAt - serverNow);
   const urgent = endMsLeft > 0 && endMsLeft <= 60_000;
 
+  // The phase label is the only place the UI ever explains WHY the ACCUSE pill is
+  // greyed out, so the wording is deliberately about the game's state, not a count.
   let phase, remaining;
   if (acc.finalDeadline) {
     phase = "FINAL WINDOW";
     remaining = endMsLeft;
   } else if (serverNow < acc.opensAt) {
-    phase = "INVESTIGATION";
+    phase = "STORM SEALED";
     remaining = Math.max(0, acc.opensAt - serverNow);
   } else {
-    phase = "ACCUSE WINDOW";
+    phase = "ACCUSE OPEN";
     remaining = endMsLeft;
   }
 

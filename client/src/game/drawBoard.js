@@ -579,17 +579,26 @@ export function drawOccluders(c, roomId, feetX, feetY) {
 // Draw the current room's hotspot indicators. `hotspots` are normalized (0–1)
 // within the room; `examined` is a Set of examined ids; `activeId` is the spot the
 // player is standing next to (scaled up + "Press E" prompt).
-export function drawHotspots(c, roomId, hotspots, examined, activeId) {
+// `showMarkers` is the host's difficulty dial. When it is off the ambient
+// magnifiers and checkmarks disappear, so the room stops advertising what is
+// searchable — but the in-reach "Press E" prompt STILL draws. Hiding that too
+// wouldn't make the game harder, it would make examining undiscoverable.
+export function drawHotspots(c, roomId, hotspots, examined, activeId, showMarkers = true) {
   if (!roomId || !hotspots) return;
   const r = roomRect(roomId);
   c.textBaseline = "alphabetic";
   for (const h of hotspots) {
     const px = r.x + h.x * r.w;
     const py = r.y + h.y * r.h;
-    if (examined.has(h.id)) { checkMark(c, px, py, 0.35); continue; }
     const active = h.id === activeId;
-    const pulse = 0.55 + 0.22 * Math.sin(Date.now() / 320);
-    magnifier(c, px, py, active ? 1.25 : 1, active ? 0.95 : pulse);
+    if (examined.has(h.id)) {
+      if (showMarkers) checkMark(c, px, py, 0.35);
+      continue;
+    }
+    if (showMarkers) {
+      const pulse = 0.55 + 0.22 * Math.sin(Date.now() / 320);
+      magnifier(c, px, py, active ? 1.25 : 1, active ? 0.95 : pulse);
+    }
     if (active) {
       // 22px to match the room-label tags. The board is drawn at 1472x860 and
       // then CSS-scaled DOWN to fit the viewport, so on a typical 1600x900

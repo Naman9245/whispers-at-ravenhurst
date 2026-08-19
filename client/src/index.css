@@ -6,6 +6,12 @@
   --cream: #f0e6d2;
   --teal: #6fd6c4;
   --amber: #f0b85c;
+  /* One gutter for the whole in-game layout, and one source of truth for the top
+     bar's height -- the fixed panels used to hardcode `top: 84px`, which silently
+     misaligned the moment the bar changed. */
+  --gutter: 12px;
+  --topbar-h: 68px;
+  --rail-w: 288px;
 }
 
 * { box-sizing: border-box; }
@@ -22,9 +28,23 @@ body {
   display: flex;
   flex-direction: column;
   padding: 6px 10px 8px;
-  gap: 6px;
+  gap: var(--gutter);
 }
-.sb-left { display: flex; align-items: center; gap: 12px; }
+
+/* Stage: board (hero) + strip beneath it, suspect rail alongside spanning both.
+   The rail's top edge lines up with the board's because they share grid row 1 --
+   structural, not a measured offset that drifts the moment the bar changes. */
+.stage {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--rail-w);
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: var(--gutter);
+}
+.stage > .board-hero    { grid-column: 1; grid-row: 1; }
+.stage > .tab-strip     { grid-column: 1; grid-row: 2; }
+.stage > .suspect-rail  { grid-column: 2; grid-row: 1 / span 2; }
 
 /* ---- cohesive top HUD bar: player | timer | clues | tools (fixed 68px) ---- */
 .hud-bar {
@@ -39,9 +59,48 @@ body {
   overflow: hidden;
 }
 .hud-sec { display: flex; flex-direction: column; justify-content: center; padding: 6px 14px; }
-.hud-player { flex: 1 1 0; min-width: 0; flex-direction: row; align-items: center; gap: 7px; border-right: 1px solid rgba(201,162,63,0.25); }
-.hud-timer  { flex: 0 0 220px; align-items: center; justify-content: center; text-align: center; gap: 0; }
-.hud-clues  { flex: 1 1 0; min-width: 0; justify-content: center; gap: 4px; border-left: 1px solid rgba(201,162,63,0.25); }
+.hud-player { flex: 1 1 0; min-width: 0; flex-direction: row; align-items: center; gap: 9px; border-right: 1px solid rgba(201,162,63,0.25); }
+.hud-timer  { flex: 0 0 200px; align-items: center; justify-content: center; text-align: center; gap: 0; }
+/* Mirrored against .hud-player: same sizes, reversed order, cooler colour. That
+   symmetry is what makes the bar read as "two detectives, one race". */
+.hud-rival  { flex: 1 1 0; min-width: 0; flex-direction: row; align-items: center; justify-content: flex-end; gap: 9px; border-left: 1px solid rgba(201,162,63,0.25); }
+.hud-rival.empty { justify-content: flex-end; }
+.rv-waiting { font-size: 12px; font-style: italic; color: rgba(240,230,210,0.45); }
+.rv-id { display: flex; flex-direction: column; align-items: flex-end; min-width: 0; }
+.rv-name { font-size: 13px; font-weight: 700; color: #c9b6e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rv-status { font-size: 10px; letter-spacing: 0.06em; color: rgba(240,230,210,0.5); }
+.rv-status.locked { color: #ff7a86; font-weight: 800; }
+.rv-status.gone { color: #8a8a8a; font-style: italic; }
+
+/* The source is a full-body 124x124 sprite frame. Dropped straight into a 34px
+   circle it renders the whole detective at postage-stamp size -- a dark blob. So
+   the circle CROPS instead: the image is blown up and pulled north so the frame
+   lands on the head and shoulders, which is what a portrait wants. */
+.hud-avatar {
+  width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%;
+  overflow: hidden; display: block; position: relative;
+  background: rgba(0,0,0,0.35); border: 1px solid rgba(201,162,63,0.55);
+}
+.hud-avatar img {
+  position: absolute; left: 50%; top: 0;
+  width: 96px; height: 96px;
+  transform: translate(-50%, -14px);
+  image-rendering: pixelated;
+}
+.hud-avatar.rival { border-color: rgba(167,139,208,0.6); }
+.hp-id { display: flex; flex-direction: column; min-width: 0; }
+.hp-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Clue pips: readable at a glance, with the raw count kept alongside because
+   pips are genuinely hard to COUNT past about five. */
+.clue-pips { display: inline-flex; align-items: center; gap: 7px; }
+.cp-dots { display: inline-flex; gap: 3px; }
+.cp-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(240,230,210,0.14);
+  border: 1px solid rgba(240,230,210,0.12);
+}
+.cp-dot.on { border-color: transparent; }
 
 /* ---- HUD tools cluster (Activity / Notebook / Menu) ---- */
 .hud-tools { display: flex; align-items: center; gap: 6px; padding: 0 10px; border-left: 1px solid rgba(201,162,63,0.25); }
@@ -69,8 +128,11 @@ body {
 @keyframes ping-dot { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(1.5); } }
 @media (max-width: 1080px) { .ht-label { display: none; } }
 
-/* ---- compact action pills under the HUD ---- */
-.action-bar { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 8px; }
+/* ---- action pills, floating INSIDE the board ---- */
+.action-bar {
+  position: absolute; left: 12px; bottom: 12px; z-index: 5;
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
 
 /* ---- mansion board: THE HERO — fills all remaining viewport ---- */
 .board-hero {
@@ -153,23 +215,7 @@ body {
   50% { box-shadow: inset 0 0 36px 2px rgba(240,90,100,0.5); }
 }
 
-/* ---- HUD clue tracker section (progress bars; count stays inside) ---- */
-.ct-title {
-  font-size: 11px; letter-spacing: 2px; text-align: center;
-  color: rgba(240,230,210,0.65); margin-bottom: 2px;
-}
-.ct-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; font-weight: 700;
-}
-.ct-name { flex: 0 0 84px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ct-you { font-size: 10px; font-weight: 400; opacity: 0.75; }
-.ct-bar {
-  flex: 1 1 auto; height: 9px; border-radius: 5px;
-  background: rgba(0,0,0,0.35); border: 1px solid rgba(240,230,210,0.18); overflow: hidden;
-}
-.ct-fill { display: block; height: 100%; border-radius: 5px; transition: width 0.3s ease; }
-.ct-count { flex: 0 0 38px; text-align: right; font-variant-numeric: tabular-nums; }
+.ct-count { font-variant-numeric: tabular-nums; font-size: 12px; font-weight: 700; }
 
 /* ===== Slide-in panels (activity log / notebook / menu) ===== */
 /* Transparent scrim: captures an outside click to close, but never darkens or
@@ -192,7 +238,7 @@ body {
 /* Activity log — slides in from the LEFT. HARD-CAPPED so it can never grow:
    fixed box + contain:layout size + an inner scroll area. */
 .activity-panel {
-  position: fixed; left: 10px; top: 84px; z-index: 35;
+  position: fixed; left: 10px; top: calc(var(--topbar-h) + 16px); z-index: 35;
   display: flex; flex-direction: column;
   width: 280px; max-width: 280px; height: 60vh; max-height: 60vh;
   contain: layout size;
@@ -229,7 +275,7 @@ body {
 
 /* Menu — drops from the HUD's far right. */
 .game-menu {
-  position: fixed; right: 10px; top: 84px; z-index: 35;
+  position: fixed; right: 10px; top: calc(var(--topbar-h) + 16px); z-index: 35;
   width: 260px; max-width: 260px;
   background: rgba(20,14,26,0.98); border: 1px solid var(--gold);
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.55);
@@ -342,26 +388,8 @@ body {
 .nb-clue-room { font-size: 10px; font-weight: 700; color: #8a6a2a; }
 .nb-clue-text { margin: 0; font-size: 12px; line-height: 1.35; color: #2a2218; }
 
-/* ---- status bar ---- */
-.status-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 15px;
-  color: var(--cream);
-  letter-spacing: 1px;
-  padding: 0 6px;
-}
-.dev-toggle {
-  font-family: inherit; font-size: 12px;
-  color: var(--cream); background: rgba(201,162,63,0.12);
-  border: 1px dashed var(--gold); border-radius: 4px;
-  padding: 4px 10px; cursor: pointer;
-}
-.dev-toggle:hover { background: rgba(201,162,63,0.25); }
-
 @media (max-width: 1100px) {
-  .hud-player, .hud-clues { padding: 6px 10px; }
+  .hud-player, .hud-rival { padding: 6px 10px; }
   .hud-timer { flex-basis: 180px; }
 }
 
@@ -491,7 +519,6 @@ body {
   box-shadow: 0 0 0 2px #000, 4px 4px 0 rgba(0,0,0,0.4); z-index: 20;
   pointer-events: none;
 }
-.dev-badge { font-size: 11px; font-weight: 700; letter-spacing: 2px; color: var(--amber); min-width: 80px; }
 
 /* ===== Suspect questioning modal ===== */
 .modal-backdrop {
@@ -554,10 +581,6 @@ body {
   border-radius: 4px; padding: 7px 10px; cursor: pointer;
 }
 .ql-btn:hover { background: rgba(111,214,196,0.2); }
-.no-more-questions {
-  text-align: center; font-weight: 800; letter-spacing: 1px; color: #d88;
-  border: 1px dashed rgba(216,136,136,0.6); border-radius: 6px; padding: 10px; margin-bottom: 12px;
-}
 
 .confront-section { border-top: 1px solid rgba(240,230,210,0.15); padding-top: 12px; }
 .confront-toggle {
@@ -890,3 +913,159 @@ body {
 .ql-done { float: right; color: #6ed68a; }
 .ql-btn:disabled { cursor: default; }
 .ql-again { color: var(--amber); font-style: italic; }
+
+/* ===================== Phase 2.8: strip · rail · briefing ================= */
+
+/* ---- Scenario / Questions / Log strip, under the board ----
+   Collapsed by default, and that is load-bearing rather than tidy: the board is
+   the hero, and a strip that opened on arrival would eat a third of it before
+   the player asked for anything. The panel is height-capped with
+   `contain: layout size` for the same reason the activity log is -- the Log tab
+   holds an unbounded feed, and without the cap a long game shrinks the board. */
+.tab-strip {
+  background: var(--panel);
+  border: 1px solid rgba(201,162,63,0.45);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ts-tabs { display: flex; align-items: center; gap: 4px; padding: 5px 8px; }
+.ts-tab {
+  font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  color: rgba(240,230,210,0.6); background: transparent;
+  border: 1px solid transparent; border-radius: 5px;
+  padding: 5px 12px; cursor: pointer; transition: color 0.12s, background 0.12s;
+}
+.ts-tab:hover { color: var(--cream); background: rgba(240,230,210,0.07); }
+.ts-tab.active { color: #1d1428; background: var(--amber); border-color: var(--amber); }
+.ts-case {
+  margin-left: auto; padding-right: 6px;
+  font-size: 10px; letter-spacing: 0.14em; color: rgba(240,230,210,0.32);
+}
+.ts-panel {
+  /* `contain: layout` only. Adding `size` here -- as the activity panel does --
+     tells the browser to size this element as if it had no content at all, and
+     since this one is CONTENT-sized rather than fixed, it collapsed to 25px of
+     padding. The max-height plus overflow is what actually stops the Log tab
+     growing the strip and squeezing the board. */
+  max-height: 32vh; overflow-y: auto; contain: layout;
+  padding: 10px 14px 14px;
+  border-top: 1px solid rgba(201,162,63,0.25);
+}
+.ts-hint { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: rgba(240,230,210,0.8); }
+.ts-hint b { color: var(--amber); }
+.ts-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ts-log-empty { font-size: 13px; font-style: italic; color: rgba(240,230,210,0.4); }
+
+/* ---- suspect rail ---- */
+.suspect-rail {
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 0; overflow-y: auto; contain: layout size;
+  padding: 10px; background: var(--panel);
+  border: 1px solid rgba(201,162,63,0.45); border-radius: 10px;
+}
+.rail-head {
+  font-size: 10px; letter-spacing: 0.18em; color: var(--gold);
+  padding-bottom: 4px; border-bottom: 1px solid rgba(201,162,63,0.25);
+}
+
+/* ---- suspect flip card ----
+   Two behaviours, two targets: the body cycles your mark, the corner button
+   flips. Sharing one target would mean every attempt to mark someone risked
+   flipping them instead. prefers-reduced-motion already kills every transition
+   globally, so the flip degrades to an instant swap for free. */
+.sus-card { position: relative; perspective: 900px; height: 118px; flex: 0 0 auto; }
+.sus-inner {
+  position: relative; width: 100%; height: 100%;
+  transform-style: preserve-3d; transition: transform 0.45s ease;
+}
+.sus-card.flipped .sus-inner { transform: rotateY(180deg); }
+.sus-face {
+  position: absolute; inset: 0; backface-visibility: hidden;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 9px 10px; border-radius: 7px;
+  background: rgba(0,0,0,0.32); border: 1px solid rgba(201,162,63,0.3);
+  overflow: hidden;
+}
+.sus-front { cursor: pointer; }
+.sus-front:hover { background: rgba(240,230,210,0.07); }
+.sus-back { transform: rotateY(180deg); background: rgba(24,16,34,0.85); }
+.sus-chip {
+  align-self: flex-start; font-size: 10px; font-weight: 800; color: #fff;
+  padding: 1px 6px; border-radius: 3px;
+}
+.sus-name { font-size: 13px; font-weight: 700; color: var(--cream); }
+.sus-role { font-size: 11px; color: var(--amber); }
+.sus-blurb { font-size: 11px; line-height: 1.35; color: rgba(240,230,210,0.55); }
+.sus-mark {
+  position: absolute; right: 8px; top: 8px;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px;
+}
+.sus-mark.suspected { color: #ffb3b3; background: rgba(180,60,70,0.3); }
+.sus-mark.cleared { color: #9fe1cb; background: rgba(40,120,100,0.3); }
+.sus-card.status-suspected .sus-front { border-color: rgba(200,80,90,0.6); }
+.sus-card.status-cleared .sus-front { border-color: rgba(90,190,160,0.5); opacity: 0.72; }
+.sus-bio { margin: 4px 0 0; display: flex; flex-direction: column; gap: 2px; }
+.sus-bio-row { display: flex; justify-content: space-between; font-size: 11px; }
+.sus-bio-row dt { color: rgba(240,230,210,0.5); margin: 0; }
+.sus-bio-row dd { color: var(--cream); margin: 0; }
+.sus-flavour { margin-top: auto; font-size: 9px; font-style: italic; color: rgba(240,230,210,0.35); line-height: 1.3; }
+.sus-question {
+  font-family: inherit; font-size: 11px; font-weight: 700; color: var(--teal);
+  background: rgba(111,214,196,0.1); border: 1px solid rgba(111,214,196,0.45);
+  border-radius: 4px; padding: 3px 8px; margin-top: 4px; cursor: pointer;
+}
+.sus-flip {
+  position: absolute; right: 6px; bottom: 6px; z-index: 2;
+  width: 22px; height: 22px; line-height: 1;
+  font-family: inherit; font-size: 13px; color: var(--gold);
+  background: rgba(0,0,0,0.5); border: 1px solid rgba(201,162,63,0.5);
+  border-radius: 50%; cursor: pointer;
+}
+.sus-flip:hover { background: rgba(201,162,63,0.28); color: var(--cream); }
+
+/* ---- case briefing (full screen) + the Scenario tab body ---- */
+.briefing-screen {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; background: var(--bg2); overflow-y: auto;
+}
+.briefing-card {
+  width: min(680px, 96vw);
+  background: #181022; border: 1px solid var(--gold); border-radius: 12px;
+  padding: 22px 28px 26px;
+  box-shadow: 0 0 0 1px #000, 0 12px 40px rgba(0,0,0,0.6);
+}
+.briefing-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.briefing-case { font-size: 10px; letter-spacing: 0.16em; color: var(--gold); }
+.briefing-clock { font-size: 11px; font-style: italic; color: rgba(240,230,210,0.45); }
+.briefing-title {
+  margin: 6px 0 14px; font-size: 26px; letter-spacing: 0.04em;
+  color: var(--cream); font-weight: 700;
+}
+.briefing-go { width: 100%; margin-top: 18px; }
+
+.brief { display: flex; flex-direction: column; gap: 4px; }
+.brief-label {
+  margin-top: 12px; font-size: 10px; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold);
+}
+.brief-victim { display: flex; flex-direction: column; gap: 2px; }
+.brief-victim .brief-label { margin-top: 0; }
+.brief-name { font-size: 17px; font-weight: 700; color: #ff9d9d; }
+.brief-opening, .brief-back {
+  margin: 4px 0 0; font-size: 13.5px; line-height: 1.6; color: rgba(240,230,210,0.85);
+}
+.brief-back { color: rgba(240,230,210,0.65); }
+.brief-cast { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.brief-cast li { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.brief-chip { font-size: 9px; font-weight: 800; color: #fff; padding: 1px 5px; border-radius: 3px; }
+.brief-cast-name { color: var(--cream); font-weight: 700; }
+.brief-cast-role { color: rgba(240,230,210,0.5); font-size: 12px; }
+.brief-rules { margin: 6px 0 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: rgba(240,230,210,0.7); }
+.brief.compact .brief-opening, .brief.compact .brief-back { font-size: 12.5px; }
+.brief.compact .brief-label { margin-top: 9px; }
+
+@media (max-width: 1180px) {
+  :root { --rail-w: 232px; }
+}

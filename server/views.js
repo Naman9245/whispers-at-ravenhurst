@@ -14,7 +14,14 @@ function publicCase(caseData) {
     caseId: caseData.case_id,
     victimName: caseData.narrative?.victim_name,
     opening: caseData.narrative?.opening,
-    suspects: (caseData.suspects || []).map((s) => ({ id: s.id, name: s.name, role: s.role, blurb: s.blurb })),
+    victimBackstory: caseData.narrative?.victim_backstory,
+    // age/height/build/occupation are FLAVOUR ONLY and safe to publish — see the
+    // note in shared/caseSchema.js. They are optional, so a case without them
+    // simply renders a shorter card.
+    suspects: (caseData.suspects || []).map((s) => ({
+      id: s.id, name: s.name, role: s.role, blurb: s.blurb,
+      age: s.age, height: s.height, build: s.build, occupation: s.occupation,
+    })),
     weapons: (caseData.weapons || []).map((w) => ({ id: w.id, name: w.name })),
     rooms: Object.entries(ROOMS).map(([id, r]) => ({ id, label: r.label })),
   };

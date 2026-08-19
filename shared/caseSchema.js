@@ -12,6 +12,14 @@
 // the solution (so it's exposed as false once the real clues are in).
 //
 // Expected case shape:
+// A suspect may also carry OPTIONAL flavour fields — { age, height, build,
+// occupation } — rendered on the back of its card in the suspect rail. They are
+// deliberately NOT validated and must stay non-eliminating: this validator only
+// reasons about `clue.eliminates`, so a bio detail that narrows the field (say a
+// time of arrival that matches a clue's timeline, or a handedness) would hand out
+// a free deduction it cannot see, and solvability would silently stop meaning
+// what it claims. Keep bios atmospheric; put real evidence in clues.
+//
 //   { case_id, map, narrative, solution:{ culprit_id, weapon_id, room_id },
 //     suspects:[...6], weapons:[...6],
 //     clues:{ shared:[3], player1_private:[4], player2_private:[4],

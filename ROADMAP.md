@@ -180,6 +180,35 @@ removed (creaks are strictly the random in-game scheduler now); (4) ghost separa
 detectives never overlap; (5) tagline overlap fixed with a text-anchored pill backdrop.
 `menu-test.mjs` → **47 checks**; 2.4a/2.4b audio suites still green.
 
+### 2.8 — Game Modes, Camera & the New Layout 📐 *(planned — see [docs/PHASE-2.8-PLAN.md](docs/PHASE-2.8-PLAN.md))*
+The next structural pass. Full breakdown, risks and file lists live in the plan doc;
+summary only here.
+
+- 📐 **Lobby settings panel** (Among Us-style): time limit **Off / 15 / 20 / 30 / 45**,
+  accuse gate, opponent window, hotspot markers on/off, sprint, rival-progress
+  visibility, accusation rule. The forced 20-minute cap goes away — `softTimer: null`
+  means `scheduleForceResolve()` never arms.
+- 📐 **Walk while waiting:** the endgame rule itself is UNCHANGED (each player locks
+  in one answer; the truth is revealed once both are in). The only change is that a
+  locked-in player may still **roam the map** while waiting — one `setRegion` guard
+  deleted. Examine / question / accuse stay closed. *(An earlier draft had the first
+  correct solve end the game with wrong accusations eliminating a player; it was
+  rejected — see the plan doc.)*
+- 📐 **Camera zoom + follow** and a **hidden map overlay** (`M`). The board bakes at
+  2× and the camera is a per-frame transform — `window.__wrBoard.bakes` stays **1**.
+- 📐 **New layout:** race top bar (you vs rival clue pips, timer + phase label,
+  `LOCKED IN` status) · game view as the single hero · Scenario/Questions/Log tab
+  strip · scrolling suspect rail.
+- 📐 **Case briefing screen** — the narrative already reaches the client in
+  `caseInfo`; nothing renders it today.
+- 📐 **Suspect flip cards** in the rail, replacing the notebook's Suspects tab.
+- 📐 **Phase 2.5 folded in** — contextual speech bubbles (`Aha!` / `Hmm…` / `?`) built
+  by generalising the searching cloud, plus procedural idle (breathing bob + an idle
+  glance after 8–14s). No new sprite art needed.
+- ⏳ **Configurable suspect count is blocked** on live case generation (2.1/Phase 3):
+  `SUSPECT_COUNT = 6` is baked into the hand-authored case, its clue eliminations and
+  the 15-per-suspect question sets.
+
 ---
 
 ## Phase 3 — Content Expansion · **FUTURE** 🔜

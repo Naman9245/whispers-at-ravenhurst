@@ -772,7 +772,7 @@ export function drawSearching(c, cx, cy, hx, hy, startTime) {
 //
 // PRIVACY: only the requesting player's own room is ever marked. The opponent's
 // position is not in buildView() and must never be added to it.
-export function drawMiniMap(c, w, h, currentRoom, { examined = new Set() } = {}) {
+export function drawMiniMap(c, w, h, { examined = new Set(), player = null } = {}) {
   const { bg } = getBoardLayers(paintStatic);
   const k = w / BOARD_W;
 
@@ -781,23 +781,22 @@ export function drawMiniMap(c, w, h, currentRoom, { examined = new Set() } = {})
   c.imageSmoothingEnabled = true;
   c.imageSmoothingQuality = "high";
   c.drawImage(bg, 0, 0, w, h);
-  // Dim the whole thing so the "you are here" highlight is the only bright mark.
-  c.fillStyle = "rgba(8,5,14,0.55)";
+  // Dim the whole thing so the "you are here" dot is the only bright mark on it.
+  c.fillStyle = "rgba(8,5,14,0.58)";
   c.fillRect(0, 0, w, h);
 
   c.textAlign = "center";
   c.textBaseline = "middle";
+  // Every room is drawn the SAME. The map used to light up whichever room you
+  // were in, which told you nothing you didn't already know and was actively
+  // wrong in the corridor — it kept highlighting the room you had just left.
+  // Your position is the dot below; the rooms are just the floor plan.
   for (const id of Object.keys(ROOMS)) {
     const r = roomRect(id);
     const x = r.x * k, y = r.y * k, rw = r.w * k, rh = r.h * k;
-    const here = id === currentRoom;
 
-    if (here) {
-      c.fillStyle = "rgba(240,184,92,0.22)";
-      c.fillRect(x, y, rw, rh);
-    }
-    c.strokeStyle = here ? P.amberLt : "rgba(240,230,210,0.28)";
-    c.lineWidth = here ? 2.5 : 1;
+    c.strokeStyle = "rgba(240,230,210,0.30)";
+    c.lineWidth = 1;
     c.strokeRect(x, y, rw, rh);
 
     // Searched-here ticks: a small dot per hotspot, filled once examined. Purely
@@ -814,9 +813,34 @@ export function drawMiniMap(c, w, h, currentRoom, { examined = new Set() } = {})
       });
     }
 
-    c.font = `700 ${here ? 11 : 10}px 'Courier New', monospace`;
-    c.fillStyle = here ? P.amberLt : "rgba(240,230,210,0.62)";
+    c.font = "700 10px 'Courier New', monospace";
+    c.fillStyle = "rgba(240,230,210,0.62)";
     c.fillText(ROOMS[id].label, x + rw / 2, y + rh / 2);
+  }
+
+  // --- you are here --------------------------------------------------------
+  // A single dot at the detective's actual feet, which means it is correct in the
+  // corridor and between rooms too, and it MOVES while the map is open.
+  if (player) {
+    const px = player.x * k, py = player.y * k;
+    const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 320);
+
+    c.beginPath();
+    c.arc(px, py, 7 + 3 * pulse, 0, Math.PI * 2);
+    c.fillStyle = `rgba(111,214,196,${0.16 + 0.12 * pulse})`;
+    c.fill();
+
+    c.beginPath();
+    c.arc(px, py, 4.2, 0, Math.PI * 2);
+    c.fillStyle = P.tealTxt;
+    c.shadowColor = P.tealTxt;
+    c.shadowBlur = 8;
+    c.fill();
+    c.shadowBlur = 0;
+
+    c.lineWidth = 1.4;
+    c.strokeStyle = "rgba(10,8,16,0.85)";
+    c.stroke();
   }
   c.restore();
 }

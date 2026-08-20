@@ -255,6 +255,15 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
 - **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
   floor creak (never both), only during the `playing` phase; each tab runs its own
   scheduler (players hear their own ambient creaks — this is not a leak).
+- **The manor map shows YOU, not your room (2.8).** `drawMiniMap` draws every room
+  identically and puts a single pulsing dot at the detective's actual feet, so it is
+  correct in the corridor and between rooms. It originally highlighted the current
+  room, which meant it kept naming the room you had just walked out of. The live
+  position comes from `client/src/game/playerPos.js` — a module store written once
+  per frame by `BoardCanvas` and read by `MapOverlay`'s own rAF while it is open.
+  ⚠️ Do NOT read `window.__wrChar` for this: that handle is stripped from production
+  builds, so it would work in dev and break for real players. And do not route the
+  position through React state — it changes every frame.
 - **Main menu (2.7):** the app opens on a cinematic menu (`phase` state in App) BEFORE
   the lobby; `?menu=skip` (used by every e2e suite) starts on the lobby. The idle
   scene engine lives in `client/src/game/menuScene.js` (ONE rAF, zero timers,

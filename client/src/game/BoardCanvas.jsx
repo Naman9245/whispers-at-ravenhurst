@@ -11,6 +11,7 @@ import { EXAMINE_RADIUS } from "@shared/constants.js";
 import { loadSprites } from "./sprites.js";
 import { Character } from "./Character.js";
 import { playFootstepsWalk, playFootstepsSprint, stopFootsteps } from "./sound.js";
+import { setPlayerPos } from "./playerPos.js";
 
 // Reach is measured to the nearest point of the furniture's rect, so "in range"
 // means standing beside the piece — which is the only way a SOLID object could
@@ -177,6 +178,10 @@ export default function BoardCanvas({
         // Shift → 2x, gated with input AND with the host's Sprint setting.
         ch.sprint = enabled && sprintEnabledRef.current && Boolean(k.shift);
         ch.update(dt);
+        // Publish the feet position for the manor map, which needs a live dot
+        // rather than a room highlight (you can be in the corridor, where there
+        // is no room to light up).
+        setPlayerPos(ch.x, ch.y, ch.anchorRoom, ch.inCorridor);
 
         // Footsteps follow the movement state. Character.update() now sets state
         // to "idle" when a wall blocks the step (feet didn't advance), so this is

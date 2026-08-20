@@ -129,6 +129,25 @@ try {
   console.log("   ", foot.replace(/\s+/g, " ").trim());
   ok("it says where you are", /you are in/i.test(foot));
 
+  // The dot is YOU, and it moves. The map used to highlight whichever room you
+  // were in, which meant it kept naming the room you had just walked out of and
+  // showed nothing at all about where you actually were in the corridor.
+  const mapPixels = () => h.$eval(".map-canvas", (c) => c.toDataURL());
+  await place(h, 236, 246); await sleep(500);   // study, near the centre
+  const inStudy = await h.$eval(".map-foot", e => e.textContent);
+  const pixStudy = await mapPixels();
+
+  await place(h, 736, 430); await sleep(600);   // the corridor, between rooms
+  const inCorridor = await h.$eval(".map-foot", e => e.textContent);
+  const pixCorridor = await mapPixels();
+  console.log("   study ->", inStudy.split("Filled")[0].trim(), "| corridor ->", inCorridor.split("Filled")[0].trim());
+
+  ok("standing in a room, it names that room", /STUDY/i.test(inStudy));
+  ok("standing in the corridor, it says CORRIDOR", /corridor/i.test(inCorridor));
+  ok("and it stops claiming the room you left", !/STUDY/i.test(inCorridor));
+  ok("the you-are-here dot actually moved", pixStudy !== pixCorridor);
+
+  await place(h, 236, 246); await sleep(400);
   await h.keyboard.press("m"); await sleep(300);
   ok("M closes it again", (await h.$(".map-overlay")) === null);
   await h.keyboard.press("m"); await sleep(300);

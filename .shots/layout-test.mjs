@@ -47,8 +47,35 @@ try {
   await byText(w, "Join");
   await sleep(1200);
 
-  console.log("\n[1] The briefing shows the case — and only when asked for.");
-  await h.bringToFront(); await sleep(400);
+  console.log("\n[1] The briefing TYPES the case out — and only when asked for.");
+  await h.bringToFront(); await sleep(700);
+
+  // Mid-type: the story is on screen but unfinished, on a black ground, with a
+  // caret. If this ever comes back complete on the first frame, the cinematic has
+  // quietly reverted to being a wall of text.
+  const mid = await h.evaluate(() => {
+    const s = document.querySelector(".briefing-screen");
+    if (!s) return null;
+    return {
+      bg: getComputedStyle(s).backgroundColor,
+      typed: (s.querySelector(".brief-opening")?.textContent || "").length,
+      caret: !!s.querySelector(".mm-caret"),
+      castYet: s.querySelectorAll(".brief-cast li").length,
+      go: !!s.querySelector(".briefing-go"),
+    };
+  });
+  console.log("   mid-type:", JSON.stringify(mid));
+  await h.screenshot({ path: ".shots/layout-0-briefing.png" });
+  ok("the page is actually black", (mid?.bg || "").replace(/\s/g, "") === "rgb(0,0,0)");
+  ok("it has started typing", (mid?.typed || 0) > 5);
+  ok("but has NOT finished", (mid?.typed || 0) < 250);
+  ok("a caret is blinking", mid?.caret === true);
+  ok("the cast waits its turn", mid?.castYet === 0);
+  ok("and you cannot enter yet", mid?.go === false);
+
+  // Any key fast-forwards past the whole cinematic.
+  await h.keyboard.press("Space");
+  await sleep(600);
   const brief = await h.evaluate(() => {
     const s = document.querySelector(".briefing-screen");
     if (!s) return null;
@@ -62,7 +89,7 @@ try {
     };
   });
   console.log("   briefing:", JSON.stringify(brief));
-  ok("briefing appears with ?briefing=1", !!brief);
+  ok("a keypress skips to the whole story", !!brief);
   ok("it names the victim", /Ashworth/.test(brief?.victim || ""));
   ok("it tells the opening", (brief?.opening || 0) > 80);
   ok("it gives the backstory", (brief?.backstory || 0) > 80);

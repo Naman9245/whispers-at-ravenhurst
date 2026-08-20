@@ -255,6 +255,16 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
 - **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
   floor creak (never both), only during the `playing` phase; each tab runs its own
   scheduler (players hear their own ambient creaks — this is not a leak).
+- **The case briefing is a cinematic, not a dialog (2.8).** Entering a game opens on
+  a **black** screen and TYPES the story out — victim, opening, backstory, then the
+  six suspects one at a time — over the existing rain bed (App's `ambient` already
+  covers the `playing` status, so the storm is under it without a new asset). The
+  reveal is driven THROUGH `CaseBriefingBody` via its `reveal` prop rather than by
+  re-implementing the layout, so the cinematic and the in-game **Scenario tab** render
+  the same markup and cannot drift. Skippable by any key or click, and
+  `prefers-reduced-motion` renders it complete. The screen is top-anchored, not
+  centred — centring re-centres the block on every new line, so the story visibly
+  jumps upward as it types. `?menu=skip` still bypasses the whole thing.
 - **The manor map shows YOU, not your room (2.8).** `drawMiniMap` draws every room
   identically and puts a single pulsing dot at the detective's actual feet, so it is
   correct in the corridor and between rooms. It originally highlighted the current

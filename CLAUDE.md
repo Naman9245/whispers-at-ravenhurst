@@ -271,6 +271,16 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
   evidence pointed at answers nothing could test. ⚠️ At least TWO innocents must also
   have breakable stories (s1, s2 do) — if only the culprit's answers break, "who is
   lying" is the whole puzzle. `server/test/interrogation.js` [6b] pins the loop.
+- **The briefing does NOT burn the game clock (2.8).** `startedAt` is still set on
+  join, but play only BEGINS once both detectives send **`case:ready`** (dismissing
+  the briefing), at which point the origin moves to now and the soft cap is re-armed.
+  Before this the cap ran behind the story, and in Dev Mode — a 60s cap against a 60s
+  briefing — the game reliably resolved itself mid-sentence and showed "No one cracked
+  the case". ⚠️ A client that SKIPS the briefing must ack immediately (App does this on
+  `game:start` for `?menu=skip`), or its partner waits on an ack that never comes. The
+  design is additive on purpose: a socket that never acks behaves exactly as before,
+  which is why every raw-socket server test still passes untouched.
+  `server/test/briefingClock.js` is the regression.
 - **The case briefing is a cinematic, not a dialog (2.8).** Entering a game opens on
   a **black** screen and TYPES the story out — victim, opening, backstory, then the
   six suspects one at a time — over the existing rain bed (App's `ambient` already

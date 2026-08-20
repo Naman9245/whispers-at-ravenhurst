@@ -57,6 +57,8 @@ export const net = {
   askSuspect: (suspectId, questionId) => ask("suspect:ask", { suspectId, questionId }),
   confrontSuspect: (suspectId, clueId) => ask("suspect:confront", { suspectId, clueId }),
   accuse: (payload) => ask("accuse:lock", payload),
+  // "briefing read" — both acks start the game clock (server/game.js markReady).
+  caseReady: () => ask("case:ready", {}),
   requestState: () => ask("state:request", {}),
   on: (event, cb) => { socket.on(event, cb); return () => socket.off(event, cb); },
   off: (event, cb) => socket.off(event, cb),

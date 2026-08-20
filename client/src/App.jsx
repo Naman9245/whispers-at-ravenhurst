@@ -116,6 +116,13 @@ export default function App() {
   useEffect(() => {
     const offStart = net.on("game:start", (v) => {
       applyView(v);
+      // The clock does not start until BOTH detectives have put the briefing down.
+      // A client that skips it (?menu=skip, reduced ceremony) must therefore say so
+      // immediately, or its partner's ack waits on one that never arrives.
+      try {
+        const q = new URLSearchParams(location.search);
+        if (q.get("menu") === "skip" && q.get("briefing") !== "1") net.caseReady();
+      } catch { net.caseReady(); }
       setReveal(null);
       setRegion(null);
       accuseAnnounced.current = false;
@@ -482,7 +489,7 @@ export default function App() {
       <CaseBriefing
         caseInfo={view.caseInfo}
         settings={view.settings}
-        onBegin={() => setBriefed(true)}
+        onBegin={() => { setBriefed(true); net.caseReady(); }}
       />
     );
   }

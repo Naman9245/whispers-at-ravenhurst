@@ -89,27 +89,39 @@
   "weapons": [
     {
       "id": "w1",
-      "name": "Brass Candlestick"
+      "name": "Brass Candlestick",
+      "type": "BLUNT",
+      "description": "Heavy at the base. Whatever it strikes, it marks — and it leaves wax where it falls."
     },
     {
       "id": "w2",
-      "name": "Letter Opener"
+      "name": "Letter Opener",
+      "type": "BLADE",
+      "description": "Sharp enough to open a throat as easily as an envelope. It cuts."
     },
     {
       "id": "w3",
-      "name": "Poisoned Brandy"
+      "name": "Poisoned Brandy",
+      "type": "POISON",
+      "description": "Takes its time and leaves no mark at all. The decanter would stand lower for it."
     },
     {
       "id": "w4",
-      "name": "Fire Poker"
+      "name": "Fire Poker",
+      "type": "BLUNT",
+      "description": "Iron, and long enough to swing. It draws blood every time."
     },
     {
       "id": "w5",
-      "name": "Silk Cravat"
+      "name": "Silk Cravat",
+      "type": "LIGATURE",
+      "description": "Leaves no blood and no bruise — only a line at the throat, and a knot pulled toward the hand that tied it."
     },
     {
       "id": "w6",
-      "name": "Antique Revolver"
+      "name": "Antique Revolver",
+      "type": "FIREARM",
+      "description": "Loud, and it leaves powder burns on the hand that fires it."
     }
   ],
   "clues": {
@@ -133,13 +145,14 @@
       {
         "id": "shared-2",
         "hotspot": "library_writing_desk",
-        "text": "There is not a drop of blood on Lord Edmund, nor any burn of powder. No blade was drawn, no poker swung, no shot fired.",
+        "text": "There is not a mark of violence on Lord Edmund. Nothing cut him, nothing struck him, and nothing was fired — no blood, no bruise, no powder.",
         "category": "weapon",
         "tag": "physical_evidence",
         "found_in": "library",
         "eliminates": {
           "suspects": [],
           "weapons": [
+            "w1",
             "w2",
             "w4",
             "w6"

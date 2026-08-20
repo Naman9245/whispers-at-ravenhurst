@@ -58,8 +58,12 @@ export default function DeductionNotebook({
             const key = `weapon:${w.id}`;
             const status = statusOf(key);
             return (
-              <li key={w.id} className={`nb-row status-${status}`} onClick={() => cycle(key)}>
-                <span className="nb-row-name">{w.name}</span>
+              <li key={w.id} className={`nb-row weapon status-${status}`} onClick={() => cycle(key)} title={w.description || ""}>
+                <span className="nb-weapon-text">
+                  <span className="nb-row-name">{w.name}</span>
+                  {w.description && <span className="nb-weapon-desc">{w.description}</span>}
+                </span>
+                {w.type && <span className="nb-wtype">{w.type}</span>}
                 {status !== "unknown" && <span className={`nb-status ${status}`}>{STATUS_LABEL[status]}</span>}
               </li>
             );

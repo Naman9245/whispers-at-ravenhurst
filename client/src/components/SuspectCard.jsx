@@ -41,6 +41,14 @@ export default function SuspectCard({ suspect, index, status = "unknown", onCycl
           <span className="sus-name">{suspect.name}</span>
           <span className="sus-role">{suspect.role}</span>
           <span className="sus-blurb">{suspect.blurb}</span>
+          {/* The attribute row lives on the FRONT as well as the dossier, because the
+              clues key off it and flipping all six cards every time you find one is
+              busywork. Murdle prints the same row straight under the name. */}
+          {(suspect.height || suspect.handedness) && (
+            <span className="sus-attrs">
+              {[suspect.height, suspect.build, suspect.handedness].filter(Boolean).join(" · ")}
+            </span>
+          )}
           {status !== "unknown" && <span className={`sus-mark ${status}`}>{status}</span>}
         </div>
 

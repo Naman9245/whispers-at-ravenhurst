@@ -45,6 +45,7 @@ export class GameRoom {
     this.startedAt = null;            // epoch ms when play began (timer origin)
     this.finalDeadline = null;        // epoch ms the final accusation window closes
     this.reveal = null;               // computed once, at game end
+    this.playStarted = false;         // both detectives have dismissed the briefing
     this._softTimer = null;           // force-resolve at softTimer
     this._windowTimer = null;         // resolve when the final window closes
   }
@@ -67,6 +68,7 @@ export class GameRoom {
       questionsUsed: {},               // suspectId -> [questionIds asked] (ids, not a count,
                                        //   so the UI can grey out what's been used)
       confronted: {},                  // suspectId -> [clueIds already used as evidence]
+      ready: false,                    // has dismissed the case briefing (see markReady)
       lockedIn: false,                 // has submitted accusation (step 10)
       accusation: null,                // payload (private until reveal)
       connected: true,
@@ -86,6 +88,30 @@ export class GameRoom {
     this.caseData = await generateCase({ devMode: this.devMode });
     this.status = "playing";
     this.startedAt = Date.now();
+    return true;
+  }
+
+  // The case briefing is client-side ceremony, but the clock was already running
+  // behind it — so a player who sat and read the story lost that time from the
+  // game, and in Dev Mode (a 60s cap) the soft timer expired while the story was
+  // still typing and the reveal replaced it with "No one cracked the case".
+  //
+  // So play now BEGINS when both detectives have put the briefing down. This is
+  // deliberately additive: startedAt is still set on join, so a client that never
+  // sends case:ready (every raw-socket test does exactly that) behaves precisely
+  // as before. Acking only pushes the origin forward, and only once.
+  //
+  // Returns true when this ack actually started play, so the caller knows to
+  // re-arm the soft cap against the new origin.
+  markReady(id) {
+    if (this.status !== "playing" || this.playStarted) return false;
+    const p = this.player(id);
+    if (!p) return false;
+    p.ready = true;
+    if (!this.players.every((x) => x.ready)) return false;
+    this.playStarted = true;
+    this.startedAt = Date.now();      // the clock starts HERE, not at join
+    this.finalDeadline = null;
     return true;
   }
 

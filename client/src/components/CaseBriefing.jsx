@@ -13,11 +13,14 @@ import CaseBriefingBody from "./CaseBriefingBody.jsx";
 // The reveal is driven THROUGH CaseBriefingBody rather than by re-implementing the
 // layout here, so the cinematic and the in-game Scenario tab cannot drift apart.
 //
-// The clock is ALREADY RUNNING behind this: the server starts the game the moment
-// the second player joins, and gating that on both detectives acknowledging a screen
-// would mean a new intent, a both-ready gate and a stall path if one of them wandered
-// off — a real protocol change for ceremony. So it says so, and dismisses itself
-// rather than letting an idle player lose the game to a modal.
+// The clock does NOT run behind this. It used to — the server started the game the
+// moment the second player joined — and in Dev Mode, where the cap is 60s, the game
+// resolved itself while the story was still typing and replaced it with "No one
+// cracked the case". Play now begins when BOTH detectives dismiss this screen
+// (`case:ready`), so reading the case file costs nobody anything.
+//
+// The auto-dismiss stays, and is the reason there is no stall path: an idle player
+// cannot hold their rival at the title card forever.
 //
 // Everything is skippable: reduced motion renders it complete, and any key or click
 // fast-forwards. Nobody should be held hostage by an animation, least of all on a
@@ -25,7 +28,7 @@ import CaseBriefingBody from "./CaseBriefingBody.jsx";
 const TYPE_MS = 18;          // per character
 const BEAT_MS = 420;         // pause between sections
 const CAST_MS = 260;         // stagger between faces
-const AUTO_DISMISS_MS = 60_000;
+const AUTO_DISMISS_MS = 45_000;   // bounds how long one reader can hold the other
 
 const STEP = { OPENING: 0, BACKSTORY: 1, CAST: 2, DONE: 3 };
 
@@ -70,8 +73,9 @@ export default function CaseBriefing({ caseInfo, settings, onBegin }) {
     return () => clearInterval(id);
   }, [step, cast, suspects.length]);
 
-  // Any key fast-forwards. Deliberately does NOT begin the game: this screen costs
-  // you clock, but walking into the manor stays a decision you make on purpose.
+  // Any key fast-forwards the typing. Deliberately does NOT begin the game — a
+  // stray keypress should never march you into the manor before you have read who
+  // is in it. Entering stays its own press.
   useEffect(() => {
     if (done) return;
     const onKey = () => skip();
@@ -98,7 +102,7 @@ export default function CaseBriefing({ caseInfo, settings, onBegin }) {
       <div className="briefing-reel">
         <div className="briefing-head">
           <span className="briefing-case">CASE Nº {caseInfo?.caseId || "—"}</span>
-          <span className="briefing-clock">The clock is already running · {Math.max(0, left)}s</span>
+          <span className="briefing-clock">The investigation begins when you both do · {Math.max(0, left)}s</span>
         </div>
 
         <CaseBriefingBody caseInfo={caseInfo} settings={settings} reveal={reveal} />

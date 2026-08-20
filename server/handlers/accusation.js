@@ -37,6 +37,24 @@ export function scheduleForceResolve(io, room) {
 }
 
 export function registerAccusation(io, socket, store) {
+  // "I have read the case file." Once BOTH detectives say so, play begins and the
+  // soft cap is re-armed against the new origin — otherwise the briefing would eat
+  // the clock, which in Dev Mode meant the game resolved itself mid-story.
+  socket.on("case:ready", (_payload, cb) => {
+    const room = store.roomOf(socket);
+    if (!room) return cb?.({ ok: false, error: "Not in a room." });
+    const began = room.markReady(socket.id);
+    if (began) {
+      clearTimeout(room._softTimer);
+      room._softTimer = null;
+      scheduleForceResolve(io, room);
+      console.log(`[lobby] room ${room.code} — both briefed, clock starts now`);
+    }
+    for (const p of room.players) io.to(p.id).emit("state:update", room.viewFor(p.id));
+    cb?.({ ok: true, began });
+  });
+
+
   socket.on("accuse:lock", (payload, cb) => {
     const room = store.roomOf(socket);
     if (!room) return cb?.({ ok: false, error: "Not in a room." });

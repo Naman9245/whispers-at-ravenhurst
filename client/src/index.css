@@ -1025,18 +1025,36 @@ body {
 .sus-flip:hover { background: rgba(201,162,63,0.28); color: var(--cream); }
 
 /* ---- case briefing (full screen) + the Scenario tab body ---- */
+/* Black. Not "dark panel on a dark page" -- actually black, so the typed story is
+   the only thing in the room. There is no card and no border: a frame would make
+   it a dialog, and this is meant to read as the lights going down. */
 .briefing-screen {
   position: fixed; inset: 0; z-index: 60;
-  display: flex; align-items: center; justify-content: center;
-  padding: 24px; background: var(--bg2); overflow-y: auto;
+  /* Top-anchored, not centred. Centring re-centres the whole block on every new
+     line, so the story visibly jumps upward as it types -- the opposite of what a
+     typewriter does. Anchored, it grows downward the way it is being written. */
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 16vh 24px 8vh; background: #000; overflow-y: auto;
+  cursor: default;
 }
-.briefing-card {
-  width: min(680px, 96vw);
-  background: #181022; border: 1px solid var(--gold); border-radius: 12px;
-  padding: 22px 28px 26px;
-  box-shadow: 0 0 0 1px #000, 0 12px 40px rgba(0,0,0,0.6);
+.briefing-reel {
+  width: min(680px, 94vw);
+  display: flex; flex-direction: column;
+  animation: brief-fade 0.9s ease both;
 }
-.briefing-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+@keyframes brief-fade { from { opacity: 0; } to { opacity: 1; } }
+/* Each face arrives on its own beat rather than the list appearing at once. */
+.cast-in { animation: cast-in 0.45s ease both; }
+@keyframes cast-in { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+.briefing-skip {
+  margin-top: 22px; font-size: 11px; letter-spacing: 0.1em;
+  color: rgba(240,230,210,0.28); text-transform: uppercase;
+}
+.briefing-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+  padding-bottom: 10px; margin-bottom: 14px;
+  border-bottom: 1px solid rgba(201,162,63,0.18);
+}
 .briefing-case { font-size: 10px; letter-spacing: 0.16em; color: var(--gold); }
 .briefing-clock { font-size: 11px; font-style: italic; color: rgba(240,230,210,0.45); }
 .briefing-title {
@@ -1054,8 +1072,13 @@ body {
 .brief-victim .brief-label { margin-top: 0; }
 .brief-name { font-size: 17px; font-weight: 700; color: #ff9d9d; }
 .brief-opening, .brief-back {
-  margin: 4px 0 0; font-size: 13.5px; line-height: 1.6; color: rgba(240,230,210,0.85);
+  margin: 4px 0 0; font-size: 15px; line-height: 1.75; color: rgba(240,230,210,0.88);
+  /* min-height stops the block collapsing to nothing on the first typed character
+     and shoving everything below it down a line at a time. */
+  min-height: 1.75em;
 }
+.briefing-reel .brief-name { font-size: 21px; }
+.briefing-reel .brief-cast li { font-size: 14px; }
 .brief-back { color: rgba(240,230,210,0.65); }
 .brief-cast { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .brief-cast li { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }

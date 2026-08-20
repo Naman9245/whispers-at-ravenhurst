@@ -26,7 +26,13 @@ function publicCase(caseData) {
       age: s.age, height: s.height, build: s.build, occupation: s.occupation,
       handedness: s.handedness, note: s.note,
     })),
-    weapons: (caseData.weapons || []).map((w) => ({ id: w.id, name: w.name })),
+    // Weapons carry their TYPE and description for the same reason suspects carry
+    // handedness: "nothing cut him, nothing was fired" is unanswerable unless the
+    // list says which of these is a blade and which is a firearm. Everything the
+    // player needs to reason with has to be on the page.
+    weapons: (caseData.weapons || []).map((w) => ({
+      id: w.id, name: w.name, type: w.type, description: w.description,
+    })),
     rooms: Object.entries(ROOMS).map(([id, r]) => ({ id, label: r.label })),
   };
 }

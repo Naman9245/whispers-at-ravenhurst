@@ -255,6 +255,15 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
 - **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
   floor creak (never both), only during the `playing` phase; each tab runs its own
   scheduler (players hear their own ambient creaks — this is not a leak).
+- **Everything the player must reason with is printed on the page (2.8, after Murdle).**
+  Murdle's stated rule is "you don't have to make leaps of logic: everything you need
+  to know clearly appears in the descriptions", and its clues are attribute-shaped
+  (*"Whoever was in the stadium was right-handed"*). So SUSPECTS carry an attribute
+  row (`6'1" · Broad · Left-handed`) on the card FRONT as well as the dossier, and
+  WEAPONS carry a **type** (BLADE / BLUNT / POISON / LIGATURE / FIREARM) and a
+  description. Without the type, "nothing cut him, nothing was fired" was
+  unanswerable — nothing on screen said a Letter Opener was a blade. The wound clue
+  now eliminates by TYPE and the player checks the list.
 - **Clues state what the KILLER was; the CARDS say who that rules out (2.8).** A clue
   that reads "the killer was left-handed — Crane and Frost are right-handed" is an
   answer key, not a clue: the player reads a name and crosses it off. Clues now

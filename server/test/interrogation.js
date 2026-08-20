@@ -10,6 +10,7 @@
 //   • a suspect LIES until confronted, then their answer changes — and the
 //     collapsed question becomes re-askable exactly once
 import { io } from "socket.io-client";
+import { ROOM_HOTSPOTS } from "../../shared/roomHotspots.js";
 import { CORE_QUESTION_IDS, SUSPECT_QUESTIONS, questionsFor } from "../../shared/suspectQuestions.js";
 import { QUESTION_CAP } from "../../shared/constants.js";
 
@@ -87,6 +88,44 @@ check("re-asking is allowed and the answer CHANGED", after.ok === true && after.
 console.log(`      truth: "${after.answer.slice(0, 72)}…"`);
 const again = await ask(A, "suspect:ask", { suspectId: "s3", questionId: "s3_lounge" });
 check("but only once — a second re-ask is refused", again.ok === false);
+
+console.log("\n[6b] The CORE loop: a clue points at a core question, and breaks its answer.");
+// This is the point of the evidence rewrite. The mud clue says the killer had been
+// outside; "Did you step outside this evening?" is a core question every suspect
+// answers; Vale says no; putting the mud to him collapses it. Before this, his core
+// answers were flat lies with nothing in the game able to test them, so the clue
+// pointed at a question whose answer could never be checked.
+const C1 = io(URL, { forceNew: true });
+const C2 = io(URL, { forceNew: true });
+await Promise.all([wait(C1, "connect"), wait(C2, "connect")]);
+const room2 = await ask(C1, "room:create", { name: "Lestrade", devMode: true });
+const c1start = wait(C1, "game:start");
+await ask(C2, "room:join", { code: room2.code, name: "Gregson" });
+await c1start;
+
+const lie = await ask(C1, "suspect:ask", { suspectId: "s3", questionId: "leaving" });
+check("Vale answers the core 'did you step outside' question", lie.ok === true);
+check("and it is the LIE", lie.broke === false);
+
+// Find the mud for real rather than hardcoding which hotspot holds it.
+let mudFound = false;
+for (const room of ["dining", "library", "study", "lounge", "kitchen", "conservatory"]) {
+  await ask(C1, "region:enter", { room, inCorridor: false });
+  for (const h of ROOM_HOTSPOTS[room] || []) {
+    const r = await ask(C1, "hotspot:examine", { hotspotId: h.id });
+    if (r.ok && r.found && r.clue && r.clue.id === "shared-1") { mudFound = true; break; }
+  }
+  if (mudFound) break;
+}
+check("the mud clue is findable", mudFound === true);
+
+const put = await ask(C1, "suspect:confront", { suspectId: "s3", clueId: "shared-1" });
+check("the mud can be put to him", put.ok === true);
+const truth = await ask(C1, "suspect:ask", { suspectId: "s3", questionId: "leaving" });
+check("his story collapses and the answer changes", truth.ok === true && truth.broke === true && truth.answer !== lie.answer);
+console.log(`      was:  "${String(lie.answer).slice(0, 64)}…"`);
+console.log(`      now:  "${String(truth.answer).slice(0, 64)}…"`);
+C1.close(); C2.close();
 
 console.log("\n[7] PRIVACY: no dialogue tree, lie variant or unheard answer in the view.");
 const blob = JSON.stringify(st4.view);

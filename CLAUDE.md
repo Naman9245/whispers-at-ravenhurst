@@ -255,6 +255,22 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
 - **Random creaks (2.4b):** a 30–90s self-rescheduling timer plays EITHER a door OR a
   floor creak (never both), only during the `playing` phase; each tab runs its own
   scheduler (players hear their own ambient creaks — this is not a leak).
+- **Clues state what the KILLER was; the CARDS say who that rules out (2.8).** A clue
+  that reads "the killer was left-handed — Crane and Frost are right-handed" is an
+  answer key, not a clue: the player reads a name and crosses it off. Clues now
+  describe the evidence only ("the knot was pulled hard to the left"), and the suspect
+  dossier carries `handedness` and a practical `note` so the player does the crossing
+  off. `clue.eliminates` stays the ONLY machine-checkable truth — any dossier detail a
+  clue leans on MUST also appear in that clue's `eliminates`, or solvability stops
+  meaning what `validateCase()` claims. This reverses the earlier "bios are flavour
+  only" rule on purpose; flavour-only bios left the cards with nothing to say.
+- **The culprit's CORE answers must be breakable (2.8).** The clue-to-confession loop
+  is: find the mud → ask "did you step outside?" → he says no → confront him with the
+  mud → the story collapses. That only works if the lie sits on a question the clue
+  actually points at. Vale's core lies were flat strings with no `brokenBy`, so the
+  evidence pointed at answers nothing could test. ⚠️ At least TWO innocents must also
+  have breakable stories (s1, s2 do) — if only the culprit's answers break, "who is
+  lying" is the whole puzzle. `server/test/interrogation.js` [6b] pins the loop.
 - **The case briefing is a cinematic, not a dialog (2.8).** Entering a game opens on
   a **black** screen and TYPES the story out — victim, opening, backstory, then the
   six suspects one at a time — over the existing rain bed (App's `ambient` already

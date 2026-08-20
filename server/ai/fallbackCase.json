@@ -341,7 +341,11 @@
         "storm": "At my dressing table. I heard the first thunder and thought only that it suited my mood.",
         "knewhim": "I knew him as a wife knows a husband who has stopped speaking to her — which is to say, hardly at all, by the end.",
         "lastsaw": "At dinner. He did not so much as glance my way, and now he never shall again.",
-        "heard": "Thunder. Rain. And somewhere below, a door — though in a storm one hears doors that aren't there.",
+        "heard": {
+          "base": "Nothing. The storm saw to that. I heard nothing at all until the screaming started.",
+          "afterConfront": "I heard them quarrelling, if you must have it. Edmund and Sebastian, raised voices, before dinner. I said nothing because a widow who names her husband's partner on the first night looks exactly like what you are all thinking.",
+          "brokenBy": "p1-1"
+        },
         "account": "I left the table early, sat with my maid while she drew my bath at ten, and did not stir until the screaming began.",
         "suspect": "I should sooner ask who among them did NOT have cause. But Mr. Vale shouted loudest tonight.",
         "grievance": "Everyone Edmund ever did business with held a grievance. He collected them like debts.",
@@ -381,7 +385,11 @@
         "whereabouts": "I never entered the house tonight, sir, let alone the library — I was three miles off at a child's sickbed.",
         "storm": "Riding through it, soaked to the bone, my bag across my knees. The apothecary will tell you the same.",
         "knewhim": "His physician these twenty years. I knew his failing heart better than he did. I did not expect a stranger's hand to stop it.",
-        "lastsaw": "Midafternoon. I advised him to rest, and he laughed in my face. That was the last of him for me.",
+        "lastsaw": {
+          "base": "After dinner, in the hall. He seemed tired but well enough. I bid him goodnight and thought no more of it.",
+          "afterConfront": "Before the soup, then. You have me. I was gone before the fish and I have said otherwise all evening, because a physician who leaves a house and comes back to a corpse in it does not care to be the last man who saw him breathing.",
+          "brokenBy": "p2-1"
+        },
         "heard": "Only the village dogs and the storm. I was three miles from this house when it happened.",
         "account": "Called away before the soup, gone the whole evening, back only when the bell tolled the alarm. Half the village watched me ride out and ride in.",
         "suspect": "I am a poor hand at suspicion. But Vale and Edmund were at each other's throats in the study before I left — make of that what you will.",
@@ -415,7 +423,11 @@
     },
     "s3": {
       "questions": {
-        "whereabouts": "The library? No. I told you — the lounge, the whole evening. I'd no reason to go near the place.",
+        "whereabouts": {
+          "base": "The library? No. I told you — the lounge, the whole evening. I had no reason to go near the place.",
+          "afterConfront": "The west wing. Very well. I looked in on him. He was reading, and he was ALIVE when I left him, and if you can prove otherwise you are a better man than the last three who tried.",
+          "brokenBy": "shared-3"
+        },
         "storm": "In the lounge, consoling Vivienne. The thunder quite frightened her.",
         "knewhim": "Partners. Friends, once. Lately he meant to ruin me to save his own skin. But one does not murder over a balance sheet.",
         "lastsaw": "At dinner. We parted civilly enough — whatever you may have heard.",
@@ -426,7 +438,11 @@
         "motive": "The lounge will vouch for me — Vivienne, at least; we sat together by the fire. Take her word and mine and you'll want no other.",
         "gain": "Cordial enough. Vivienne leans on me, the captain keeps his distance, the rest I scarcely know. Hardly the nest of vipers you're hunting.",
         "quarrel": "Tonight. At the table. Six people will already have told you so, and I shall not insult you by pretending otherwise.",
-        "leaving": "No. The fire was warm and the weather was not. I had no reason to.",
+        "leaving": {
+          "base": "No. The fire was warm and the weather was not. I had no reason to.",
+          "afterConfront": "Mud. Yes. All right — I stepped out to the garden door for air, once, and briefly. A man may want air. That is not the same as wanting him dead, whatever you think you have there on your boots.",
+          "brokenBy": "shared-1"
+        },
         "s3_ruin": "He meant to hand the creditors my name in place of his own. Yes. I have not pretended otherwise and I do not intend to start.",
         "s3_books": "Edmund. Myself. Our clerk in Bristol, who is seventy and cannot see. Why do you ask it in that tone?",
         "s3_shouting": "The Bristol contract. Being made the scapegoat for a ledger I never kept.",

@@ -12,13 +12,18 @@
 // the solution (so it's exposed as false once the real clues are in).
 //
 // Expected case shape:
-// A suspect may also carry OPTIONAL flavour fields — { age, height, build,
-// occupation } — rendered on the back of its card in the suspect rail. They are
-// deliberately NOT validated and must stay non-eliminating: this validator only
-// reasons about `clue.eliminates`, so a bio detail that narrows the field (say a
-// time of arrival that matches a clue's timeline, or a handedness) would hand out
-// a free deduction it cannot see, and solvability would silently stop meaning
-// what it claims. Keep bios atmospheric; put real evidence in clues.
+// A suspect may also carry OPTIONAL dossier fields — { age, height, build,
+// occupation, handedness, note } — rendered on the back of its card in the suspect
+// rail. These ARE allowed to discriminate, and the good clues depend on it: a clue
+// says what the KILLER was ("the knot was pulled to the left") and the player
+// crosses names off by reading the cards. Clues that name who to eliminate instead
+// do the deduction for the player and are the reason the first pass felt hollow.
+//
+// The rule that makes this safe: `clue.eliminates` stays the ONLY machine-checkable
+// truth. This validator proves solvability from it alone, so every dossier detail a
+// clue leans on MUST also be reflected in that clue's `eliminates` list. A detail
+// the cards imply but no clue eliminates on is unprovable — the player may reason
+// from it, but the case is not guaranteed solvable by it.
 //
 //   { case_id, map, narrative, solution:{ culprit_id, weapon_id, room_id },
 //     suspects:[...6], weapons:[...6],

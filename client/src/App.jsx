@@ -617,6 +617,7 @@ export default function App() {
 
       <MapOverlay
         open={showMap}
+        me={me}
         /* No room/inCorridor prop: the map reads the LIVE position itself, so it
            stays right in the corridor instead of still naming the room you left. */
         roomLabel={roomLabelOf(curRoom)}

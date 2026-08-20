@@ -973,7 +973,8 @@ body {
    flips. Sharing one target would mean every attempt to mark someone risked
    flipping them instead. prefers-reduced-motion already kills every transition
    globally, so the flip degrades to an instant swap for free. */
-.sus-card { position: relative; perspective: 900px; height: 118px; flex: 0 0 auto; }
+/* Tall enough for the five dossier rows plus the practical note on the back. */
+.sus-card { position: relative; perspective: 900px; height: 156px; flex: 0 0 auto; }
 .sus-inner {
   position: relative; width: 100%; height: 100%;
   transform-style: preserve-3d; transition: transform 0.45s ease;
@@ -1009,7 +1010,10 @@ body {
 .sus-bio-row { display: flex; justify-content: space-between; font-size: 11px; }
 .sus-bio-row dt { color: rgba(240,230,210,0.5); margin: 0; }
 .sus-bio-row dd { color: var(--cream); margin: 0; }
-.sus-flavour { margin-top: auto; font-size: 9px; font-style: italic; color: rgba(240,230,210,0.35); line-height: 1.3; }
+.sus-note {
+  margin-top: 4px; font-size: 10px; line-height: 1.35; color: rgba(240,230,210,0.62);
+}
+.sus-flavour { margin-top: auto; font-size: 9px; font-style: italic; color: rgba(240,230,210,0.32); line-height: 1.25; }
 .sus-question {
   font-family: inherit; font-size: 11px; font-weight: 700; color: var(--teal);
   background: rgba(111,214,196,0.1); border: 1px solid rgba(111,214,196,0.45);

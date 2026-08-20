@@ -21,7 +21,9 @@
       "age": 41,
       "height": "5'6\"",
       "build": "Slight",
-      "occupation": "Lady of the house"
+      "occupation": "Lady of the house",
+      "handedness": "Right-handed",
+      "note": "In mourning black. Has not left the east wing since the doctor came."
     },
     {
       "id": "s2",
@@ -31,7 +33,9 @@
       "age": 58,
       "height": "5'10\"",
       "build": "Stooped",
-      "occupation": "Physician"
+      "occupation": "Physician",
+      "handedness": "Right-handed",
+      "note": "Carries his bag everywhere. Called out to sickbeds at all hours."
     },
     {
       "id": "s3",
@@ -41,7 +45,9 @@
       "age": 46,
       "height": "6'1\"",
       "build": "Broad",
-      "occupation": "Shipping partner"
+      "occupation": "Shipping partner",
+      "handedness": "Left-handed",
+      "note": "A shipping man's grip. Takes the stairs two at a time."
     },
     {
       "id": "s4",
@@ -51,7 +57,9 @@
       "age": 27,
       "height": "5'4\"",
       "build": "Slender",
-      "occupation": "Governess"
+      "occupation": "Governess",
+      "handedness": "Right-handed",
+      "note": "Slight enough to pass unnoticed. Sleeps by the nursery."
     },
     {
       "id": "s5",
@@ -61,7 +69,9 @@
       "age": 53,
       "height": "5'11\"",
       "build": "Weathered",
-      "occupation": "Sea captain (ret.)"
+      "occupation": "Sea captain (ret.)",
+      "handedness": "Left-handed",
+      "note": "An old war wound in the knee. Cannot manage a narrow stair."
     },
     {
       "id": "s6",
@@ -71,7 +81,9 @@
       "age": 61,
       "height": "5'3\"",
       "build": "Stout",
-      "occupation": "Housekeeper"
+      "occupation": "Housekeeper",
+      "handedness": "Right-handed",
+      "note": "Thirty years in this house. Knows every door and every key."
     }
   ],
   "weapons": [
@@ -105,7 +117,7 @@
       {
         "id": "shared-1",
         "hotspot": "dining_table",
-        "text": "Wet mud is tracked from the garden door to the body — whoever did this had been outside in the storm. Anyone who never left the house tonight is in the clear.",
+        "text": "Wet mud from the garden path is tracked all the way to the body. Whoever did this had been out in the storm tonight — and not every guest under this roof set foot outside.",
         "category": "suspect",
         "tag": "physical_evidence",
         "found_in": "dining",
@@ -158,14 +170,16 @@
       {
         "id": "p1-1",
         "hotspot": "lounge_coffee_table",
-        "text": "The killer's hand was left-handed — the bruising falls to the left. Dr. Crane and Miss Frost are both firmly right-handed.",
+        "text": "The cravat was crossed behind his neck and drawn tight, and the knot was pulled hard to the LEFT. Whoever tied it did so with a left hand.",
         "category": "suspect",
         "tag": "physical_evidence",
         "found_in": "lounge",
         "eliminates": {
           "suspects": [
+            "s1",
             "s2",
-            "s4"
+            "s4",
+            "s6"
           ],
           "weapons": [],
           "rooms": []
@@ -252,7 +266,7 @@
       {
         "id": "p2-3",
         "hotspot": "conservatory_fountain",
-        "text": "The killer reached the body by the narrow servants' stair. Captain Hawk's war wound makes those steps impossible for him.",
+        "text": "The killer came and went by the narrow servants' stair — the dust on those steps is scuffed, and scuffed in a hurry. Not every guest could take them at that pace.",
         "category": "suspect",
         "tag": "testimony",
         "found_in": "conservatory",

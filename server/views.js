@@ -15,12 +15,16 @@ function publicCase(caseData) {
     victimName: caseData.narrative?.victim_name,
     opening: caseData.narrative?.opening,
     victimBackstory: caseData.narrative?.victim_backstory,
-    // age/height/build/occupation are FLAVOUR ONLY and safe to publish — see the
-    // note in shared/caseSchema.js. They are optional, so a case without them
-    // simply renders a shorter card.
+    // The dossier the detectives are entitled to: physical description and a
+    // practical note. These are DELIBERATELY discriminating — the clues describe
+    // what the killer was (left-handed, took the stairs at speed) and the player
+    // crosses names off by reading these. Safe to publish: they say nothing about
+    // the solution that the clue set does not already prove, and `clue.eliminates`
+    // remains the machine-checkable truth. See shared/caseSchema.js.
     suspects: (caseData.suspects || []).map((s) => ({
       id: s.id, name: s.name, role: s.role, blurb: s.blurb,
       age: s.age, height: s.height, build: s.build, occupation: s.occupation,
+      handedness: s.handedness, note: s.note,
     })),
     weapons: (caseData.weapons || []).map((w) => ({ id: w.id, name: w.name })),
     rooms: Object.entries(ROOMS).map(([id, r]) => ({ id, label: r.label })),

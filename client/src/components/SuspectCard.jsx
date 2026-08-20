@@ -11,10 +11,10 @@ const NEXT = { unknown: "suspected", suspected: "cleared", cleared: "unknown" };
 // is its own corner button. Putting both on the card would mean every attempt to
 // mark someone risked flipping them instead.
 //
-// The bio is FLAVOUR ONLY and says so on the card. validateCase() proves a case is
-// solvable from `clue.eliminates` alone and knows nothing about these fields, so a
-// player who treats "5'3\", stout" as evidence is reasoning about something the
-// game never promised — the note is there to stop that being a trap.
+// The dossier on the back is EVIDENCE, and the card says so. The clues describe what
+// the killer was — a left hand on the knot, someone who took the servants' stair at
+// speed — and this is where you find out who that rules out. Clues that named the
+// people to cross off did the deduction for the player and left nothing to do.
 export default function SuspectCard({ suspect, index, status = "unknown", onCycle, onQuestion }) {
   const [flipped, setFlipped] = useState(false);
   const chip = suspectChip(index);
@@ -22,6 +22,7 @@ export default function SuspectCard({ suspect, index, status = "unknown", onCycl
     ["Age", suspect.age],
     ["Height", suspect.height],
     ["Build", suspect.build],
+    ["Handed", suspect.handedness],
     ["Occupation", suspect.occupation],
   ].filter(([, v]) => v != null && v !== "");
 
@@ -54,7 +55,8 @@ export default function SuspectCard({ suspect, index, status = "unknown", onCycl
           ) : (
             <span className="sus-blurb">No dossier on file.</span>
           )}
-          <span className="sus-flavour">Background detail only — none of this clears or condemns anyone.</span>
+          {suspect.note && <span className="sus-note">{suspect.note}</span>}
+          <span className="sus-flavour">Compare this against what the evidence describes.</span>
           {onQuestion && (
             <button className="sus-question" onClick={() => onQuestion(suspect.id)}>Question</button>
           )}

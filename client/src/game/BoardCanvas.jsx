@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
 import {
-  drawBoard, drawHotspots, drawOccluders, drawExamineGlow, drawBubble, searchBubbleScale,
+  drawBoard, drawHotspots, drawOccluders, drawOverhead, drawExamineGlow, drawBubble, searchBubbleScale,
 } from "./drawBoard.js";
 import { BOARD_W, BOARD_H, PALETTE, ROOM_IDS, roomRect } from "./boardData.js";
 import { makeCamera, VIEW_W, VIEW_H, DEFAULT_ZOOM, MIN_ZOOM, MAX_ZOOM } from "./camera.js";
@@ -247,7 +247,13 @@ export default function BoardCanvas({
         // Tall furniture the detective is standing behind is re-blitted over
         // them, so they can walk behind a bookshelf or hearth instead of
         // floating in front of everything.
-        if (!ch.inCorridor) drawOccluders(ctx, ch.anchorRoom, ch.x, ch.y);
+        if (!ch.inCorridor) {
+          drawOccluders(ctx, ch.anchorRoom, ch.x, ch.y);
+          // Wall- and ceiling-mounted pieces go over the detective unconditionally,
+          // so standing at the knife rack or a bookshelf puts your head behind it
+          // instead of your whole body on top of it.
+          drawOverhead(ctx, ch.anchorRoom);
+        }
       }
 
       // The hotspot being searched glows in WORLD space — it marks a piece of

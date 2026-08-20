@@ -17,13 +17,22 @@ import { ROOMS } from "../game/boardData.js";
 const MAP_W = 440;
 const MAP_H = 257;   // 440 * (860 / 1472), the board's aspect
 
-export default function MapOverlay({ open, roomLabel, examined = [], onClose }) {
+export default function MapOverlay({ open, me = "holmes", roomLabel, examined = [], onClose }) {
   const canvasRef = useRef(null);
+  // The same head-on portrait the top bar uses. One small PNG, decoded once and
+  // reused every frame; drawMiniMap falls back to a plain dot until it is ready.
+  const avatarRef = useRef(null);
   const examinedRef = useRef(new Set(examined));
   examinedRef.current = new Set(examined);
   // Only for the caption under the map. Updated on a 250ms tick rather than per
   // frame: it changes when you cross a doorway, not sixty times a second.
   const [where, setWhere] = useState(null);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = `/assets/${me}/rotations/south.png`;
+    avatarRef.current = img;
+  }, [me]);
 
   useEffect(() => {
     if (!open) return;
@@ -33,7 +42,7 @@ export default function MapOverlay({ open, roomLabel, examined = [], onClose }) 
 
     let raf;
     const frame = () => {
-      drawMiniMap(c, MAP_W, MAP_H, { examined: examinedRef.current, player: getPlayerPos() });
+      drawMiniMap(c, MAP_W, MAP_H, { examined: examinedRef.current, player: getPlayerPos(), avatar: avatarRef.current });
       raf = requestAnimationFrame(frame);
     };
     frame();

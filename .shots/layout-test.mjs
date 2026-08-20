@@ -175,8 +175,11 @@ try {
   });
   console.log("   dossier:", JSON.stringify(bio));
   ok("the card flips", bio.flipped);
-  ok("the dossier lists age/height/build/occupation", bio.rows.length === 4);
-  ok("and says the detail is flavour only", /clears or condemns/i.test(bio.flavour));
+  ok("the dossier lists age/height/build/handedness/occupation", bio.rows.length === 5);
+  // Handedness is the attribute the ligature clue keys off. If it ever stops
+  // reaching the card, that clue becomes unanswerable.
+  ok("handedness is on the card", bio.rows.some(r => /Handed/.test(r)));
+  ok("and it tells you to compare it against the evidence", /compare this against/i.test(bio.flavour));
 
   console.log("\n[6] Marks are owned by the app, not the notebook.");
   await h.evaluate(() => document.querySelector(".sus-card .sus-flip").click());

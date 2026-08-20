@@ -576,6 +576,22 @@ function checkMark(c, px, py, alpha) {
 // intersect the sprite.
 const CH_HALF_W = 50, CH_TOP = 76, CH_BOT = 24;   // sprite box around the FEET
 
+// Pieces that hang above the floor plane, or stand flush against the FAR wall, are
+// re-blitted over the detective EVERY frame — no feet test. Walking up to the knife
+// rack or a bookshelf used to draw the sprite squarely on top of it, which read as
+// standing on the furniture; now the head passes behind it. Unconditional is the
+// point: an overhead piece is never something you can be in front of.
+export function drawOverhead(c, roomId) {
+  if (!roomId) return;
+  const { bg, scale: S } = getBoardLayers(paintStatic);
+  const r = roomRect(roomId);
+  for (const o of objectsIn(roomId)) {
+    if (!o.overhead) continue;
+    const ax = r.x + o.x, ay = r.y + o.y;
+    c.drawImage(bg, ax * S, ay * S, o.w * S, o.h * S, ax, ay, o.w, o.h);
+  }
+}
+
 export function drawOccluders(c, roomId, feetX, feetY) {
   if (!roomId) return;
   const { bg, scale: S } = getBoardLayers(paintStatic);
@@ -583,7 +599,7 @@ export function drawOccluders(c, roomId, feetX, feetY) {
   const cl = feetX - CH_HALF_W, cr = feetX + CH_HALF_W;
   const ct = feetY - CH_TOP, cb = feetY + CH_BOT;
   for (const o of objectsIn(roomId)) {
-    if (!o.tall) continue;
+    if (!o.tall || o.overhead) continue;   // overhead pieces draw unconditionally, in drawOverhead
     const ax = r.x + o.x, ay = r.y + o.y, bottom = ay + o.h;
     // A piece only occludes when it extends BELOW the feet — i.e. the detective
     // is standing further back than the object's front face.
@@ -772,7 +788,7 @@ export function drawSearching(c, cx, cy, hx, hy, startTime) {
 //
 // PRIVACY: only the requesting player's own room is ever marked. The opponent's
 // position is not in buildView() and must never be added to it.
-export function drawMiniMap(c, w, h, { examined = new Set(), player = null } = {}) {
+export function drawMiniMap(c, w, h, { examined = new Set(), player = null, avatar = null } = {}) {
   const { bg } = getBoardLayers(paintStatic);
   const k = w / BOARD_W;
 
@@ -819,28 +835,34 @@ export function drawMiniMap(c, w, h, { examined = new Set(), player = null } = {
   }
 
   // --- you are here --------------------------------------------------------
-  // A single dot at the detective's actual feet, which means it is correct in the
-  // corridor and between rooms too, and it MOVES while the map is open.
+  // The DETECTIVE, at their actual feet — correct in the corridor and between
+  // rooms too, and it MOVES while the map is open. A marker dot was the first
+  // version and it read as an abstraction; on a map of your own house you want to
+  // see yourself. The soft halo stays, because at this scale the sprite alone is
+  // about 18px and would vanish against the furniture underneath it.
   if (player) {
     const px = player.x * k, py = player.y * k;
     const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 320);
 
     c.beginPath();
-    c.arc(px, py, 7 + 3 * pulse, 0, Math.PI * 2);
-    c.fillStyle = `rgba(111,214,196,${0.16 + 0.12 * pulse})`;
+    c.arc(px, py - 5, 11 + 3 * pulse, 0, Math.PI * 2);
+    c.fillStyle = `rgba(111,214,196,${0.18 + 0.12 * pulse})`;
     c.fill();
 
-    c.beginPath();
-    c.arc(px, py, 4.2, 0, Math.PI * 2);
-    c.fillStyle = P.tealTxt;
-    c.shadowColor = P.tealTxt;
-    c.shadowBlur = 8;
-    c.fill();
-    c.shadowBlur = 0;
-
-    c.lineWidth = 1.4;
-    c.strokeStyle = "rgba(10,8,16,0.85)";
-    c.stroke();
+    if (avatar?.complete && avatar.naturalWidth) {
+      // Feet-anchored, matching how the character is drawn on the board.
+      const sw = 26, sh = 26;
+      c.save();
+      c.imageSmoothingEnabled = false;
+      c.drawImage(avatar, px - sw / 2, py - sh + 4, sw, sh);
+      c.restore();
+    } else {
+      // The portrait is one small PNG, but never assume it has decoded yet.
+      c.beginPath();
+      c.arc(px, py, 4.2, 0, Math.PI * 2);
+      c.fillStyle = P.tealTxt;
+      c.fill();
+    }
   }
   c.restore();
 }

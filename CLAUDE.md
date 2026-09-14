@@ -14,7 +14,7 @@ cheat-proof; built as a portfolio piece.
 
 **Phase 2 (Polish & Immersion) — DONE, including 2.8.** Phase 1 (vertical slice) is
 fully complete. Audio **2.4a + 2.4b**, the **Cinematic Main Menu (2.7)**, **Phase 2.5**
-(speech bubbles + procedural idle) and **Phase 2.8** (host-chosen room settings, the
+(PARTIAL — see below) and **Phase 2.8** (host-chosen room settings, the
 zoom-and-follow camera + manor map, the new stage layout, the case briefing and the
 suspect rail) all ship. A few ambient/UI clips remain deferred (wind + thunder,
 distant footsteps, whispers, modal open/close). Next up is **Phase 3** — live case
@@ -41,8 +41,14 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
   a SOURCE rect out of the bitmap and writes a DEST rect in world units — only the
   source takes the scale, and getting it wrong is silent. The frame is now three
   bands: explicit clear → world under the transform → screen-space UI.
-  **(C2) Phase 2.5** — `drawSearching`'s cloud generalised into `drawBubble`, plus
-  `bubbles.js` (timestamp-scheduled, zero timers) and procedural idle in `Character`.
+  **(C2) Phase 2.5 — PARTIAL, verified 2026-08-20.** `drawSearching`'s cloud was
+  generalised into `drawBubble` (text or dots, screen-space) and `bubbles.js` landed
+  (timestamp-scheduled, zero timers). ⚠️ But **nothing calls `say()`** — the only
+  consumer is the dev handle `window.__wrBubble`, so the contextual reactions never
+  appear in play — and there is **no procedural idle in `Character.js`**; idle is
+  still the sprite sheet's own idle frames. Both are small isolated follow-ups.
+  `drawSearching` itself now has no callers (BoardCanvas composes `drawBubble` +
+  `drawExamineGlow` so the bubble can be screen-space and the ring world-space).
   **(D/E/F) The new stage** — race-scoreboard top bar (you | clock | rival, with the
   rival's `LOCKED IN` finally visible), board as hero with the action pills floating
   inside it, a Scenario/Questions/Log strip beneath, and a suspect rail of flip cards.
@@ -428,31 +434,39 @@ generation, maps 2/3, multi-floor. See [ROADMAP.md](ROADMAP.md) and
 ```
 shared/                 # SINGLE SOURCE OF TRUTH (imported by client AND server)
   mapData.js            # rooms, connection graph, walkable geometry, collision
-  constants.js          # timers, clue distribution, question cap, move speed
+  roomObjects.js        # ALL furniture (47) — draw rect IS the collision rect
+  constants.js          # timers, ROOM SETTINGS + sanitizeSettings, clue split, speed
   caseSchema.js         # case JSON shape + solvability + hotspot validator
-  roomHotspots.js       # the 4 hotspots per room (24 total) — positions + ids
+  roomHotspots.js       # the 4 hotspots per room (24 total) — DERIVED from roomObjects
   suspectQuestions.js   # 102 questions: 12 core + 15 per suspect, some clue-gated
 server/
   index.js              # Express + Socket.io bootstrap; wires handlers per socket
-  rooms.js              # RoomStore + lobby (create/join) + disconnect handling
+  rooms.js              # RoomStore + lobby (create/join/leave) + detach + reap
   game.js               # GameRoom: authoritative state machine, rules, scoring,
-                        #   tryExamine / tryLock / setRegion / scoreFor / resolve
+                        #   tryExamine / tryAsk / tryLock / setRegion / markReady / resolve
   views.js              # buildView() — THE per-player privacy boundary
-  handlers/             # movement · investigate(hotspot:examine) · suspects · accusation
+  handlers/             # movement · investigate(hotspot:examine) · suspects ·
+                        #   accusation (also owns case:ready + scheduleForceResolve)
   ai/                   # generateCase.js (validate + fallback) + fallbackCase.json
-  test/                 # node tests: caseValidation, accusation, movement,
-                        #   lobbyFlow, lockout, hotspots
+  test/                 # 10 node suites: caseValidation, accusation, movement,
+                        #   settings, briefingClock, lobbyFlow, lockout, hotspots,
+                        #   interrogation, timerOff
 client/src/
-  App.jsx               # phases (menu→lobby→playing→reveal), event wiring, searching SM
-  net/socket.js         # promise-based intent senders (the `net` object)
-  game/                 # BoardCanvas.jsx (rAF loop, WASD/E/click), Character.js
-                        #   (feet-based collision, sprint), drawBoard.js (board +
-                        #   drawHotspots + drawSearching), sprites.js, sound.js,
-                        #   menuScene.js (2.7 idle-mansion engine + ghost AI)
-  components/           # PlayerHud, TimerBar, ClueTracker, ActionBar, ActivityLog,
-                        #   GameMenu, DeductionNotebook, SuspectModal, AccusationModal,
-                        #   ExamineModal, RevealScreen, Lobby, MainMenu, MenuBackdrop
-                        #   (shared pre-game scene), DeskPanel, CaseFilesPanel
+  App.jsx               # menu→lobby→briefing→playing→reveal, event wiring, searching SM
+  net/socket.js         # promise-based intent senders (the `net` object; 7s ack timeout)
+  game/                 # BoardCanvas.jsx (rAF loop, WASD/E/click, 3 draw bands),
+                        #   Character.js (feet collision, sprint), camera.js (zoom+
+                        #   follow transform), boardLayers.js (the 2x static bake),
+                        #   drawBoard.js (board + hotspots + bubble + minimap),
+                        #   playerPos.js + bubbles.js (per-frame module stores),
+                        #   objectSprites.js (optional furniture PNG slot),
+                        #   sprites.js, sound.js, menuScene.js (idle-mansion engine)
+  components/           # PlayerHud, RivalHud, CluePips, TimerBar, ActionBar, TabStrip,
+                        #   SuspectCard (+suspectStyle), CaseBriefing(+Body), MapOverlay,
+                        #   ActivityLog, GameMenu, DeductionNotebook, SuspectModal,
+                        #   AccusationModal, ExamineModal, RevealScreen, Lobby, MainMenu,
+                        #   MenuBackdrop (shared pre-game scene), DeskPanel, CaseFilesPanel
+scripts/dev.js          # runs both servers; frees ports 3001/5173 first (zombie guard)
 .shots/                 # puppeteer e2e scripts + screenshots (dev artifacts)
 ```
 
@@ -475,10 +489,11 @@ client/src/
 ## What's Done vs What's Left
 
 - **Phase 1 (Vertical Slice):** ✅ DONE
-- **Phase 2 (Polish):** 🟡 mostly DONE — UI restructure, hotspots, sprint, modal
-  keys, searching animation, cute bubble, **audio 2.4a + 2.4b**, and the **cinematic
-  main menu (2.7)** all ✅ (a few ambient/UI clips deferred); **Phase 2.5 (speech
-  bubbles + idle animations) is next**.
+- **Phase 2 (Polish):** 🟡 DONE through 2.8 — UI restructure, hotspots, sprint, modal
+  keys, searching animation, **audio 2.4a + 2.4b**, the **cinematic main menu (2.7)**
+  and **2.8** (room settings, camera + map, briefing, stage layout, suspect rail) all
+  ✅. Open: **2.6 (optional flavor)**, the deferred ambient/UI clips, and the two
+  leftovers from **2.5** — wiring `say()` to gameplay events + procedural idle.
 - **Phase 3 (Content Expansion):** 🔜 planned (live API, maps 2/3, multi-floor).
 - **Phase 4 (Launch):** 🔜 planned.
 
@@ -489,10 +504,12 @@ When the user starts a new session:
 2. Read [ROADMAP.md](ROADMAP.md) for the status of every phase/item.
 3. Ask the user **"Where would you like to continue?"** and show the pending items
    from the Active TODOs above.
-4. **Default suggestion: Phase 2.5 (speech bubbles + idle animations)** — the next polish
-   step now that audio Pass 1 (2.4a) and Pass 2 (2.4b) both ship. *(Optional smaller
-   audio follow-up:* the deferred clips — wind + thunder for the storm bed, distant
-   footsteps, whispers, modal open/close — slot straight into `sound.js` when sourced.)
+4. **Default suggestion: Phase 3** (live case generation, maps 2/3, multi-floor) — the
+   next structural track now that 2.7 and 2.8 both ship. *(Two cheap short sessions if
+   you'd rather warm up: finish **2.5** — call `bubbles.say()` from the clue-found /
+   nothing-found / questioning events and add the procedural idle to `Character.js` —
+   or source the deferred audio clips (wind + thunder, distant footsteps, whispers,
+   modal open/close), which slot straight into `sound.js`.)*
 
 ## User Preferences (Important)
 

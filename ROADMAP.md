@@ -1,11 +1,14 @@
 # Roadmap — Whispers at Ravenhurst
 
-> **Last updated:** 2026-07-02
+> **Last updated:** 2026-08-20
 
 Progress tracker. **Phase 1 (vertical slice) is complete**; **Phase 2 (polish) is
-mostly complete** — audio **Pass 1 (2.4a) and Pass 2 (2.4b) are both done** (a few
-ambient/UI clips deferred to a future pass — see 2.4). Phases 3–4 are planned. Session
-context lives in **[CLAUDE.md](CLAUDE.md)**.
+complete through 2.8** — audio **Pass 1 (2.4a) and Pass 2 (2.4b)**, the **cinematic
+main menu (2.7)** and **2.8** (host-chosen room settings, the zoom-and-follow camera +
+manor map, the case briefing, the new stage layout and the suspect rail) all ship. Only
+2.6 (optional flavor) and a handful of deferred ambient/UI audio clips remain open in
+Phase 2; Phases 3–4 are planned. Session context lives in **[CLAUDE.md](CLAUDE.md)**,
+and the technical deep-dive in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ---
 
@@ -127,10 +130,14 @@ with 2.4a + server suites still green.
 (the storm bed is **rain-only** for now), distant footsteps, whispers, and the modal
 open/close pair. Tracked in **[CLAUDE.md](CLAUDE.md) → Sound Assets TODO**.
 
-### 2.5 — Speech bubbles + idle animations ✅ *(shipped inside 2.8)*
-Contextual bubbles above the character (`...` investigating, `!`/"Aha!" on a clue, `?`
-questioning; auto-dismiss). Idle loops while standing still (Holmes: pipe/deerstalker;
-Watson: pocket-watch/bowler).
+### 2.5 — Speech bubbles + idle animations 🟡 *(partially shipped inside 2.8)*
+The searching cloud was generalised into a reusable `drawBubble` (text or thinking
+dots, screen-space so it holds its size under the camera) and `game/bubbles.js` landed
+as the timestamp-scheduled, zero-timer bubble store. **Still open:** no gameplay event
+calls `say()` yet, so the contextual reactions (`...` investigating, `!`/"Aha!" on a
+clue, `?` questioning) do not appear in play; and the procedural idle (breathing bob,
+an idle glance after 8–14s) is not in `Character.js` — idle animation is still the
+sprite sheet's own idle frames. Both are small, isolated follow-ups.
 
 ### 2.6 — Optional flavor 🔜
 - Scripted scare event at the 5-minute mark (lights flicker, scream, a new clue).
@@ -241,4 +248,6 @@ summary only here.
 > **Note:** Phase 2.4+ items are built in their own focused sessions. Audio **Pass 1
 > (2.4a) and Pass 2 (2.4b) are complete**; a few ambient/UI clips (wind + thunder,
 > distant footsteps, whispers, modal open/close) are **deferred to a later polish pass**.
-> The next track is **2.5 (speech bubbles + idle animations)**.
+> The next track is **Phase 3** (live case generation, maps 2/3, multi-floor). The two
+> small leftovers from 2.5 — wiring `say()` to gameplay events and the procedural idle —
+> are the cheapest remaining polish if you want a short session first.

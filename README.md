@@ -1,5 +1,7 @@
 # Whispers at Ravenhurst
 
+[![tests](https://github.com/Naman9245/whispers-at-ravenhurst/actions/workflows/test.yml/badge.svg)](https://github.com/Naman9245/whispers-at-ravenhurst/actions/workflows/test.yml)
+
 ### A 2-player online deduction game with AI-generated mysteries
 
 > **Last updated:** 2026-08-20 · current through **Phase 2.8**
@@ -80,6 +82,15 @@ Then open **http://localhost:5173** in **two browser tabs** (it's a 2-player gam
 The game auto-starts when both detectives are present.
 
 > You can also run the processes separately: `npm run server` (backend) and `npm run client` (frontend).
+
+### Running the tests
+
+```bash
+cd server
+npm test
+```
+
+This runs all 10 server suites: lobby lifecycle, movement and collision, hotspots, interrogation, accusation and scoring, lockout, case validation, settings, the briefing clock, and Timer: Off. Each group gets a fresh server started in the timer mode it needs, so stop `npm run dev` first. The same command runs in GitHub Actions on every push and pull request.
 
 ---
 

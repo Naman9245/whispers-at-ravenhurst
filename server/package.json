@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --watch index.js",
     "start": "node index.js",
+    "test": "node test/run-all.js",
     "test:lobby": "node test/lobbyFlow.js",
     "test:case": "node test/caseValidation.js",
     "test:accuse": "node test/accusation.js",

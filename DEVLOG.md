@@ -88,7 +88,7 @@ Each of these is asserted by the test suite — `server/test/lobbyFlow.js` (priv
 ### Pre-production
 - A written design doc fixing the rules, the privacy model, and the scoring formula.
 - **Asset generation**: Holmes/Watson eight-direction sprite sets via **Pixellab.ai**;
-  a concept mockup via **Gemini** (`reference/whispers-mockup.png`) to lock the look.
+  a concept mockup via **Gemini** (`docs/concept-mockup.jpg`) to lock the look.
 
 ### Production — Phase 1 (vertical slice, 12 steps)
 Built as a vertical slice: every system end-to-end, narrow but complete.

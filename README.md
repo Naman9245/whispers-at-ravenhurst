@@ -1,30 +1,35 @@
 # Whispers at Ravenhurst
 
 [![tests](https://github.com/Naman9245/whispers-at-ravenhurst/actions/workflows/test.yml/badge.svg)](https://github.com/Naman9245/whispers-at-ravenhurst/actions/workflows/test.yml)
+![Node 22](https://img.shields.io/badge/node-22-5FA04E?logo=nodedotjs&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
-### A 2-player online deduction game with AI-generated mysteries
+**A real-time, two-player deduction game where only the server knows who did it.**
 
-> **Last updated:** 2026-08-20 · current through **Phase 2.8**
+Two detectives race to solve the same murder in a storm-sealed Victorian manor, working from a mix of shared and private evidence. Accusations are scored on the *reasoning* behind them, not just speed. Built with Node, Socket.io and React, and drawn on a raw HTML5 canvas with no game engine.
 
-> 📸 **Screenshots:** [`docs/screenshot.png`](docs/screenshot.png) and
-> [`docs/screenshot-active.png`](docs/screenshot-active.png). Note these were
-> captured before the hotspot-exploration pass (2.2), the cinematic main menu (2.7)
-> and the 2.8 stage layout, so they show a much older HUD — a fresh hero capture /
-> GIF of the current build is a pre-launch task. The newest in-repo captures live
-> in [`.shots/`](.shots) (`layout-1-stage.png`, `camera-3-map.png`,
-> `menu-1-main.png`).
+![Holmes searching the study while Watson investigates elsewhere, with the suspect dossiers on the right](docs/gameplay.png)
+
+---
+
+## Engineering highlights
+
+- **Cheat-resistant by construction.** The solution never reaches a client until the reveal. A single serializer, `buildView()`, builds every payload a player receives, and the mapping from hotspot to clue is never sent at all. Tests fail if the words `solution`, `red_herring` or `culprit` ever appear in a view. → [Security / Anti-Cheat](ARCHITECTURE.md#6-security--anti-cheat)
+- **One rules layer, two runtimes.** Map geometry, collision, rule constants, the question pool and the case schema live in `shared/` and are imported by both client and server, so the two cannot disagree about the rules. → [Shared Layer](ARCHITECTURE.md#4-shared-layer-shared)
+- **Every case is proven solvable before anyone plays it.** The validator checks that *each* player can reach the answer from their own clues, and rejects cases where two clues share a hotspot. → [Case generation](ARCHITECTURE.md#8-ai-case-generation)
+- **Tested where it actually breaks.** 10 server suites cover the room lifecycle, the privacy boundary, lock-in rules, lying suspects and timer edge cases, and GitHub Actions runs them on every push. → [Test Map](ARCHITECTURE.md#9-test-map)
 
 ---
 
 ## What It Is
 
-**Whispers at Ravenhurst** is a real-time, two-player online deduction game set in a storm-sealed Victorian manor. Two detectives — Holmes and Watson — race to solve the same murder: *who* did it, with *which weapon*, in *which room*. Each game is a fresh, AI-generated mystery rendered in hand-feel pixel art. Players free-roam the mansion, search rooms for clues, interrogate six suspects, and piece together the truth from a mix of **shared** and **private** evidence. The twist isn't just speed — accusations are scored on the **reasoning** behind them, so the detective who can *prove* their case, not merely guess it, comes out ahead.
+**Whispers at Ravenhurst** is a real-time, two-player online deduction game set in a storm-sealed Victorian manor. Two detectives — Holmes and Watson — race to solve the same murder: *who* did it, with *which weapon*, in *which room*. Players free-roam the mansion, search rooms for clues, interrogate six suspects, and piece together the truth from a mix of **shared** and **private** evidence. The twist isn't just speed — accusations are scored on the **reasoning** behind them, so the detective who can *prove* their case, not merely guess it, comes out ahead.
 
 ---
 
 ## Key Features
 
-- 🧩 **AI-generated cases** via `claude-opus-4-8` — every game is a unique, solvable mystery. *(The generation pipeline + solvability validator are complete; the live API call is deferred — awaiting credits. Today the game ships on a baked, pre-validated case so it runs with zero setup.)*
+- 🧩 **AI case generation pipeline** built for `claude-opus-4-8`, with a validator that proves every generated case is solvable. Live generation is off by default: the game ships with a baked, pre-validated case, so it runs with zero setup and no API key.
 - 🛡️ **Server-authoritative anti-cheat** — the solution never reaches a client until the reveal.
 - ⚖️ **Dual-window accusation system** with **reasoning-based scoring** (base + reasoning + speed).
 - 🔎 **Private clue investigation** — 3 shared clues + 4 private per player, plus red herrings.
@@ -38,7 +43,7 @@
 - 🔌 **Real-time multiplayer** over WebSockets, with disconnect detection and a reconnect grace window.
 - 🎨 **Indie pixel-art Victorian noir** aesthetic, drawn on a raw HTML5 canvas (no game engine) — the static board is **baked once** and blitted, so the art is free at runtime.
 - 🔊 **Full sound pass** — rain bed, random creaks, footsteps, searching loop, clue stings, UI clicks, and dramatic lock-in / reveal stings, all behind one mute toggle.
-- 🕯️ **Cinematic main menu** over an idle mansion scene with two wandering ghost detectives.
+- 🕯️ **Cinematic main menu** over an idle mansion scene with two wandering ghost detectives ([screenshot](docs/main-menu.png)).
 - 🖥️ **Board-first UI** — a race scoreboard on top, the board as the hero, a Scenario/Questions/Log strip beneath, and a rail of flip-card suspect dossiers alongside.
 
 ---
@@ -49,8 +54,9 @@
 |-------|------------|
 | **Frontend** | React 18 + HTML5 Canvas 2D, bundled with Vite 5 |
 | **Backend** | Node.js (ESM) + Express 4 + Socket.io 4 |
-| **AI** | Anthropic Claude API (`claude-opus-4-8`) |
+| **AI** | Anthropic Claude API (`claude-opus-4-8`) — pipeline built, off by default |
 | **Architecture** | Server-authoritative state machine; a shared rules layer imported by both sides |
+| **CI** | GitHub Actions runs all 10 server suites on every push and pull request |
 
 ---
 
@@ -127,7 +133,7 @@ whispers-at-ravenhurst/
 │   ├── views.js             # buildView() — the per-player privacy boundary
 │   ├── handlers/            # movement · investigate · suspects · accusation
 │   ├── ai/                  # generateCase() + fallbackCase.json
-│   └── test/                # node socket + unit tests (10 suites)
+│   └── test/                # 10 node suites + run-all.js (`npm test`)
 ├── client/              # React + Canvas frontend (Vite)
 │   └── src/
 │       ├── App.jsx          # menu → lobby → briefing → playing → reveal + wiring
@@ -135,11 +141,11 @@ whispers-at-ravenhurst/
 │       │                    #   drawBoard, menuScene, playerPos, bubbles, sound
 │       ├── components/      # HUD, stage, suspect rail, panels, modals, menu, reveal
 │       └── net/socket.js    # promise-based intent senders (the `net` object)
+├── .github/workflows/   # CI: runs the server suites on every push and PR
 ├── scripts/dev.js       # runs both servers; frees ports 3001/5173 first
-├── .shots/              # puppeteer e2e suites + screenshots (dev artifacts)
+├── .shots/              # puppeteer e2e suites (the screenshots they save are gitignored)
 ├── assets/              # Holmes / Watson sprite sets (Pixellab)
-├── reference/           # whispers-mockup.png (Gemini concept mockup)
-└── docs/                # screenshots + PHASE-2.8-PLAN.md
+└── docs/                # screenshots, concept mockup, PHASE-2.8-PLAN.md
 ```
 
 See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the technical deep-dive, **[DEVLOG.md](DEVLOG.md)** for the build journey and design decisions, and **[ROADMAP.md](ROADMAP.md)** for what's done and what's planned.
@@ -149,7 +155,7 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the technical deep-dive, **[DEVLO
 ## Credits
 
 - **Character sprites** generated via [Pixellab.ai](https://www.pixellab.ai/) — eight-direction Walking + Idle animations, indexed in `client/public/assets/sprites.json`.
-- **Reference mockup** generated via Google **Gemini** (`reference/whispers-mockup.png`).
+- **Concept mockup** generated via Google **Gemini** ([`docs/concept-mockup.jpg`](docs/concept-mockup.jpg)).
 - **Sound** — CC0 clips from freesound.org / pixabay / mixkit, each logged in
   [`client/public/sounds/CREDITS.md`](client/public/sounds/CREDITS.md).
 - **Design & engineering:** Naman.

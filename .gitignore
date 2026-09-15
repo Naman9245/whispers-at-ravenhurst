@@ -36,5 +36,14 @@ coverage/
 .cache/
 *.tsbuildinfo
 
-# NOTE: assets/ and reference/ are intentionally TRACKED (essential project
-# files, ~8MB total). Revisit Git LFS only if total assets exceed ~50MB.
+# Dev-only artifacts. The e2e suites in .shots/*.mjs stay tracked; the
+# screenshots they write are regenerated on every run.
+.shots/*.png
+# The 7MB concept mockup source stays local; docs/concept-mockup.jpg is the
+# compressed copy the README links.
+reference/
+# Local Claude Code launch config (CLAUDE.md itself stays tracked).
+.claude/
+
+# NOTE: assets/ is intentionally TRACKED (essential project files).
+# Revisit Git LFS only if total assets exceed ~50MB.

@@ -754,13 +754,17 @@ baked case, so it's playable with no key — and the validator runs on every loa
 
 ## 9. Test Map
 
+Run all ten with `cd server && npm test`. `test/run-all.js` starts a fresh server in
+each timer mode the table below lists, refuses to start if :3001 is already taken,
+and is the same command GitHub Actions runs (`.github/workflows/test.yml`).
+
 | File | Needs a server? | Covers |
 |------|-----------------|--------|
 | `server/test/caseValidation.js` | no | the validator against the baked case + deliberately broken variants |
 | `server/test/accusation.js` | no | gate, scoring, forfeit — clock driven by setting `startedAt` |
 | `server/test/movement.js` | no | pure geometry: reachability, doorways, spawn, flood-fill connectivity, centre-walkable |
 | `server/test/settings.js` | no | `sanitizeSettings` whitelist + Dev Mode / `WHISPERS_FAST_TIMERS` precedence |
-| `server/test/briefingClock.js` | no | `case:ready` moves the timer origin; a non-acking socket behaves as before |
+| `server/test/briefingClock.js` | yes (`=1`) | `case:ready` moves the timer origin; a non-acking socket behaves as before |
 | `server/test/lobbyFlow.js` | yes (`=1`) | create/join, auto-start, movement, **the privacy boundary** |
 | `server/test/lockout.js` | yes (`=demo`) | post-lock-in: actions rejected, **movement still allowed** |
 | `server/test/hotspots.js` | yes (`=demo`) | hotspot examination end-to-end over sockets |

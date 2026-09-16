@@ -159,7 +159,6 @@ See **[ARCHITECTURE.md](ARCHITECTURE.md)** for the technical deep-dive, **[DEVLO
 - **Sound** — CC0 clips from freesound.org / pixabay / mixkit, each logged in
   [`client/public/sounds/CREDITS.md`](client/public/sounds/CREDITS.md).
 - **Design & engineering:** Naman.
-- Built with **[Claude Code](https://claude.com/claude-code)**.
 
 ---
 

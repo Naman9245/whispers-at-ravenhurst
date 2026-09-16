@@ -42,8 +42,9 @@ coverage/
 # The 7MB concept mockup source stays local; docs/concept-mockup.jpg is the
 # compressed copy the README links.
 reference/
-# Local Claude Code launch config (CLAUDE.md itself stays tracked).
+# Local assistant notes and launch config
 .claude/
+CLAUDE.md
 
 # NOTE: assets/ is intentionally TRACKED (essential project files).
 # Revisit Git LFS only if total assets exceed ~50MB.

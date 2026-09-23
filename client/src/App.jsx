@@ -34,6 +34,20 @@ function fmtMs(ms) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Is the keyboard focus somewhere the player is TYPING (the lobby's name and
+// code fields)? Global game hotkeys must stay out of the way there.
+const isTyping = (el) =>
+  Boolean(el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)));
+
+// Every activity line gets a sequence number. The log keeps only its last 30
+// lines, so its LENGTH stops growing at the cap — counting unread lines by
+// length made the badge and the ping go dead for the rest of the game.
+let chatSeq = 0;
+const stamp = (entry) => ({ ...entry, seq: ++chatSeq });
+const lastSeq = (lines) => lines[lines.length - 1]?.seq ?? 0;
+
 // Top-level phases: "lobby" until two players are in, then "playing". The server
 // is authoritative for game state; the client owns its own free-roam position and
 // reports region changes back. Renders from the `view` the server pushes.
@@ -85,13 +99,14 @@ export default function App() {
     try { return localStorage.getItem("wr.soundOn") !== "0"; } catch { return true; }
   });
   const [audioUnlocked, setAudioUnlocked] = useState(false);  // first-gesture autoplay unlock ran
-  const [seen, setSeen] = useState(0);          // activity entries already viewed
+  const [seen, setSeen] = useState(0);          // seq of the last activity line already viewed
   const [pingDot, setPingDot] = useState(false);
 
   const toastTimer = useRef(null);
   const inGameRef = useRef(false);              // "am I still in a live game?" — read by the reveal guard
   const modalOpenRef = useRef(false);           // mirrored for the always-mounted map key handler
-  const searchRef = useRef(null);              // active hotspot search: { timer, safety, stop }
+  const boardShownRef = useRef(false);          // the manor is on screen (not menu/lobby/briefing)
+  const searchRef = useRef(null);              // the in-flight hotspot search (a token), or null
   const clockOffset = useRef(0);                // serverNow - clientNow
   const accuseAnnounced = useRef(false);        // toasted when the window opened
   const oppLockedAnnounced = useRef(false);     // toasted when rival locked in
@@ -104,7 +119,7 @@ export default function App() {
   }, []);
 
   const pushChat = useCallback((entry) => {
-    setChat((c) => [...c.slice(-29), { ts: Date.now(), kind: "ambient", ...entry }]);
+    setChat((c) => [...c.slice(-29), stamp({ ts: Date.now(), kind: "ambient", ...entry })]);
   }, []);
 
   const applyView = useCallback((v) => {
@@ -129,7 +144,7 @@ export default function App() {
       oppLockedAnnounced.current = false;
       tickBurstFired.current = false;
       setExamineResult(null); setExamining(null);
-      setShowActivity(false); setShowNotebook(false); setShowMenu(false);
+      setShowActivity(false); setShowNotebook(false); setShowMenu(false); setShowMap(false);
       setOpenTab(null); setMarks({});
       setBriefed(() => {
         try {
@@ -137,15 +152,16 @@ export default function App() {
           return q.get("menu") === "skip" && q.get("briefing") !== "1";
         } catch { return false; }
       });
-      setSeen(1); setPingDot(false);
-      setChat([{ who: "System", color: "#9ad6a0", kind: "system", ts: Date.now(), text: "Both detectives have entered Ravenhurst." }]);
+      const first = stamp({ who: "System", color: "#9ad6a0", kind: "system", ts: Date.now(), text: "Both detectives have entered Ravenhurst." });
+      setSeen(first.seq); setPingDot(false);
+      setChat([first]);
     });
     const offUpdate = net.on("state:update", (v) => applyView(v));
     const offChat = net.on("chat", (line) =>
-      setChat((c) => [...c.slice(-29), {
+      setChat((c) => [...c.slice(-29), stamp({
         who: line.who, color: COLOR[line.character] || "#ccc", text: line.text,
         kind: line.kind || "ambient", ts: Date.now(),
-      }])
+      })])
     );
     const offPeer = net.on("peer:status", ({ connected, left }) =>
       flash(left ? "Opponent left the game." : connected ? "Opponent reconnected." : "Opponent disconnected…")
@@ -171,9 +187,13 @@ export default function App() {
   // BoardCanvas because the overlay is React state, and it stays out of the way
   // while a modal owns the screen. BoardCanvas's key map already records "m" but
   // nothing reads it, so there is no double-handling.
+  //
+  // Only while the manor is actually on screen, and never while typing: this
+  // listener lives for the whole app, so an "m" typed into the lobby's name field
+  // ("Naman", "Mary") used to flip the map on, and it popped open at game start.
   useEffect(() => {
     const onKey = (e) => {
-      if (e.repeat) return;
+      if (e.repeat || !boardShownRef.current || isTyping(e.target)) return;
       const k = e.key?.toLowerCase();
       if (k === "m" && !modalOpenRef.current) setShowMap((v) => !v);
       else if (k === "escape") setShowMap(false);
@@ -183,14 +203,16 @@ export default function App() {
   }, []);
 
   // Activity badge: count unread while the panel is closed; brief red ping on new.
+  // Keyed on the newest line's seq, which keeps rising after the log hits its cap.
+  const newestSeq = lastSeq(chat);
   useEffect(() => {
-    if (showActivity) { setSeen(chat.length); return; }
-    if (chat.length > seen) {
+    if (showActivity) { setSeen(newestSeq); return; }
+    if (newestSeq > seen) {
       setPingDot(true);
       const t = setTimeout(() => setPingDot(false), 1200);
       return () => clearTimeout(t);
     }
-  }, [chat.length, showActivity, seen]);
+  }, [newestSeq, showActivity, seen]);
 
   // Sound on/off (menu toggle) — applied to the manager and persisted so the
   // preference survives a refresh. Muting also stops anything currently playing.
@@ -204,6 +226,7 @@ export default function App() {
   // plus active gameplay. Only the reveal is storm-free.
   const inGame = view?.status === "playing" && !reveal;
   inGameRef.current = inGame;   // mirrored for the always-mounted game:reveal listener
+  boardShownRef.current = inGame && Boolean(view?.playStarted);   // read by the map hotkey
   const atMenu = phase === "menu" && !view && !reveal;
   const preGame = !view && !reveal;
   const ambient = preGame || inGame;
@@ -303,18 +326,33 @@ export default function App() {
   const closeSuspects = useCallback(() => setShowSuspects(false), []);
   const closeAccuse = useCallback(() => setShowAccuse(false), []);
 
-  // Clear any in-flight hotspot search (timers + searching sfx).
+  // Clear any in-flight hotspot search (the searching sfx + the in-flight marker).
+  // A result still in flight when this runs is dropped (see handleExamine).
   const finishSearch = useCallback(() => {
-    const s = searchRef.current;
-    if (s) { clearTimeout(s.timer); clearTimeout(s.safety); searchRef.current = null; }
+    searchRef.current = null;
     stopSearching();   // stop the looping rustle (no-op if not playing)
   }, []);
 
-  // Commit the examination: hit the server, then open the result modal.
-  const doExamine = useCallback(async (hotspotId) => {
+  // The search: ask the server at once, and show the result when BOTH the
+  // server has released it and the 2.5s animation has played out.
+  //
+  // The server owns the search time now (GameRoom.beginExamine holds the result
+  // until SEARCH_MS has passed), so the two waits overlap instead of adding up.
+  // It used to be the client that waited 2.5s before asking, which a script could
+  // simply skip — and so could any player with reduced motion switched on, since
+  // that skipped the wait along with the animation. Reduced motion still skips
+  // the animation; it no longer skips the search.
+  const handleExamine = useCallback(async (hotspotId) => {
+    if (searchRef.current || examineResult) return;
+    const token = {};
+    searchRef.current = token;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    setExamining({ hotspotId, startTime: Date.now() });
+    playSearching();   // looping rustle for the duration of the search
+    const [res] = await Promise.all([net.examine(hotspotId), sleep(reduced ? 0 : SEARCH_MS)]);
+    if (searchRef.current !== token) return;   // abandoned (left the game) mid-search
     finishSearch();
     setExamining(null);
-    const res = await net.examine(hotspotId);
     if (!res?.ok) return flash(res?.error || "Can't examine that.");
     setExamineResult(res);
     if (res.found) {
@@ -326,21 +364,8 @@ export default function App() {
       playNothingFound();   // soft whoosh on an empty hotspot
       pushChat({ who: "System", color: "#9ad6a0", kind: "system", text: `You examined ${res.hotspotName} — nothing of interest.` });
     }
-  }, [finishSearch, flash, pushChat]);
-
-  // Start the 2.5s "searching" state, then commit. Reduced-motion users skip
-  // straight to the result. One search at a time; never while a result is up.
-  const handleExamine = useCallback((hotspotId) => {
-    if (searchRef.current || examineResult) return;
-    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-    if (reduced) { doExamine(hotspotId); return; }
-    setExamining({ hotspotId, startTime: Date.now() });
-    playSearching();   // looping rustle for the duration of the search
-    const timer = setTimeout(() => doExamine(hotspotId), SEARCH_MS);
-    // Defensive: if the searching state ever wedges, force-reset after 5s.
-    const safety = setTimeout(() => { finishSearch(); setExamining(null); }, 5000);
-    searchRef.current = { timer, safety };
-  }, [doExamine, examineResult, finishSearch]);
+    // No safety timeout needed: net.examine always settles (its own ack timeout).
+  }, [examineResult, finishSearch, flash, pushChat]);
 
   // Cancel any in-flight search if the component unmounts.
   useEffect(() => finishSearch, [finishSearch]);
@@ -380,8 +405,11 @@ export default function App() {
     net.leaveRoom();
     setReveal(null); setView(null); setShowAccuse(false); setExamineResult(null); setExamining(null);
     setShowSuspects(false); setDialogues({}); setChat([]); setRegion(null);
-    setShowActivity(false); setShowNotebook(false); setShowMenu(false);
+    setShowActivity(false); setShowNotebook(false); setShowMenu(false); setShowMap(false);
   }, [finishSearch]);
+
+  // "I've read the case file." Stable for the same reason as closeExamine.
+  const finishBriefing = useCallback(() => { setBriefed(true); net.caseReady(); }, []);
 
   // Accusation timing (derived each heartbeat).
   const acc = view?.accusation;
@@ -450,8 +478,8 @@ export default function App() {
   }, [flash, canAccuse, youLocked, gateMsLeft, examining]);
 
   const openActivity = useCallback(() => {
-    setShowActivity(true); setSeen(chat.length); setPingDot(false); setShowMenu(false);
-  }, [chat.length]);
+    setShowActivity(true); setSeen(newestSeq); setPingDot(false); setShowMenu(false);
+  }, [newestSeq]);
 
   if (reveal) {
     return (
@@ -484,12 +512,21 @@ export default function App() {
   // The case file, once, before the board. It sits between the lobby branch above
   // and the game tree below rather than becoming a fourth `phase` value, because
   // "playing" has always been derived from the server view rather than stored.
-  if (view.status === "playing" && !briefed) {
+  //
+  // It stays up until the SERVER says play has begun — both detectives have read
+  // it, or its time ran out — and not merely until this player is done with it:
+  // entering early used to hand the faster reader a free head start on the race.
+  // Having put it down, the player waits on it for their rival (`waiting`).
+  if (view.status === "playing" && !view.playStarted) {
     return (
       <CaseBriefing
         caseInfo={view.caseInfo}
         settings={view.settings}
-        onBegin={() => { setBriefed(true); net.caseReady(); }}
+        endsAt={view.briefingEndsAt}
+        serverNow={serverNow}
+        waiting={briefed}
+        rivalName={view.opponent?.name}
+        onBegin={finishBriefing}
       />
     );
   }
@@ -499,7 +536,7 @@ export default function App() {
   const inCorridor = region?.inCorridor ?? view.you.inCorridor ?? false;
   const modalOpen = showSuspects || showAccuse || Boolean(examineResult);
   modalOpenRef.current = modalOpen;   // read by the always-mounted map key handler
-  const unread = Math.max(0, chat.length - seen);
+  const unread = Math.max(0, newestSeq - seen);
 
   return (
     <div className="app">

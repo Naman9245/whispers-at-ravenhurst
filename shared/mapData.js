@@ -158,6 +158,17 @@ export function doorwayRect(id) {
   return { x: cx - DOOR_HALF, y, w: DOOR_HALF * 2, h: WALL_INSET * 2 };
 }
 
+// The least distance a detective's feet must cover between leaving room a and
+// entering room b: the gap between their two doorways, since you leave through
+// one and arrive through the other. A lower bound, not a path — the server uses
+// it to refuse to believe a room change faster than a sprint could manage.
+export function doorwayGap(a, b) {
+  const r1 = doorwayRect(a), r2 = doorwayRect(b);
+  const dx = Math.max(0, r1.x - (r2.x + r2.w), r2.x - (r1.x + r1.w));
+  const dy = Math.max(0, r1.y - (r2.y + r2.h), r2.y - (r1.y + r1.h));
+  return Math.hypot(dx, dy);
+}
+
 const inRect = (x, y, r) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
 
 // Is (x, y) somewhere the player may stand, given which rooms are currently open?

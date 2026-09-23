@@ -1,6 +1,6 @@
 # Development Log — Whispers at Ravenhurst
 
-> **Last updated:** 2026-06-21
+> **Last updated:** 2026-09-23
 
 The story of how the game was built: the idea, the decisions that shaped it, the
 "loopholes" a competitive deduction game has to close to stay fair, the build
@@ -233,10 +233,10 @@ TODO stubs, reserved for the single Phase 2.4 sound pass.
 
 ## 7. What's Next
 
-Phases 1 and 2 (minus audio) are complete and on GitHub. The immediate next step is
-**Phase 2.4 — Audio**: filling the already-stubbed sound hooks (searching loop, clue
-ding, footsteps, ambient storm, UI/dramatic stings) from CC0 sources. After that:
-idle/speech-bubble animations, then Phase 3 content — **live `claude-opus-4-8`
-generation** (awaiting credits), themed maps, and a **multi-floor mansion**. The full
-status board lives in **[ROADMAP.md](ROADMAP.md)**; session context in
-**[CLAUDE.md](CLAUDE.md)**.
+Phases 1 and 2 are complete, audio included, followed by a review bug-fix pass (2.9)
+whose biggest lessons were about trust: the client had been pacing the race (it
+waited out the search, it decided when play began), and anything the client paces a
+script can skip — so the server now owns both. Left in Phase 2: wiring the speech
+bubbles to gameplay events and the procedural idle (2.5). Then Phase 3 content —
+**live case generation** (awaiting credits), themed maps, and a **multi-floor
+mansion**. The full status board lives in **[ROADMAP.md](ROADMAP.md)**.

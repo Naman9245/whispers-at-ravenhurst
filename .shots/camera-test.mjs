@@ -8,7 +8,7 @@
 // Run against a normal Dev-Mode `npm run dev`.
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const URL = "http://localhost:5173/?menu=skip", VW = 1600, VH = 900;
 const BOARD_W = 1472, BOARD_H = 860;
 

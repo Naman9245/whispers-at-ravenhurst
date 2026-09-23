@@ -16,6 +16,8 @@ const created = await ask(h, "room:create", { name: "Holmes", devMode: true });
 const ws = wait(w, "game:start");
 await ask(w, "room:join", { code: created.code, name: "Watson" });
 await Promise.all([hs, ws]); // both start in the study
+// Both detectives put the case briefing down first: play (and every action) waits on it.
+await Promise.all([ask(h, "case:ready", {}), ask(w, "case:ready", {})]);
 
 console.log("\n[1] Examining a hotspot in another room is rejected.");
 const wrong = await ask(h, "hotspot:examine", { hotspotId: "kitchen_pantry" });

@@ -37,6 +37,8 @@ check("join ok", joined.ok === true);
 check("joiner is watson", joined.view.you.character === "watson");
 
 const [viewA, viewB] = await Promise.all([startA, startB]);
+// Both detectives put the case briefing down first: play (and every action) waits on it.
+await Promise.all([ask(A, "case:ready", {}), ask(B, "case:ready", {})]);
 log("\n[4] game:start received by both. Status:", viewA.status);
 check("game started (playing)", viewA.status === "playing" && viewB.status === "playing");
 check("both see 2 players online", viewA.playersOnline === 2 && viewB.playersOnline === 2);
@@ -208,6 +210,8 @@ async function freshRoom(nameH, nameW) {
   const ws = wait(w, "game:start");
   await ask(w, "room:join", { code: created.code, name: nameW });
   await Promise.all([hs, ws]);
+  // Both detectives put the case briefing down first: play (and every action) waits on it.
+  await Promise.all([ask(h, "case:ready", {}), ask(w, "case:ready", {})]);
   return { h, w };
 }
 
@@ -251,7 +255,9 @@ log("\n[10] Accusation — lock-in, privacy boundary, reveal & scoring:");
   log(`      REVEAL — truth: ${rH.solution.culpritName} / ${rH.solution.weaponName} / ${rH.solution.roomLabel}`);
   log(`      Holmes ${Hs.score.base}+${Hs.score.reasoning}+${Hs.score.speed}=${Hs.score.total}  vs  Watson ${Ws.score.base}+${Ws.score.reasoning}+${Ws.score.speed}=${Ws.score.total}`);
   check("reveal now contains BOTH accusations", !!Hs.accusation && !!Ws.accusation);
-  check("scores: Holmes 7, Watson 4", Hs.score.total === 7 && Ws.score.total === 4);
+  // Watson names s1 but cites shared-1, which rules s1 OUT, plus p2-1, which only
+  // narrows the suspects (the category Watson got wrong) — so no reasoning credit.
+  check("scores: Holmes 7 (3+2+2), Watson 2 (2+0+0)", Hs.score.total === 7 && Ws.score.total === 2 && Ws.score.reasoning === 0);
   check("winner is Holmes alone", rH.winners.length === 1 && rH.winners[0] === "holmes");
   check("monologue references the true culprit", rH.monologue.includes("Sebastian Vale"));
   h.close(); w.close();

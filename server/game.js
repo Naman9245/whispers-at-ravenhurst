@@ -2,9 +2,10 @@
 // player positions, found clues, dialogue seen, question budgets, accusation
 // locks, and (later) the full case incl. solution all live here and are NEVER
 // serialized to a client except through buildView(), which filters per player.
-import { ROOM_IDS, ROOMS } from "../shared/mapData.js";
+import { randomUUID } from "node:crypto";
+import { ROOM_IDS, ROOMS, doorwayGap } from "../shared/mapData.js";
 import {
-  CHARACTERS, PROGRESS_TOTAL, QUESTION_CAP,
+  CHARACTERS, PROGRESS_TOTAL, QUESTION_CAP, MOVE_SPEED, SEARCH_MS, BRIEFING_MAX_MS, NAME_MAX,
   DEFAULT_SETTINGS, DEV_SETTINGS, sanitizeSettings,
 } from "../shared/constants.js";
 import { findQuestion, isFreeQuestion } from "../shared/suspectQuestions.js";
@@ -13,6 +14,17 @@ import { buildView } from "./views.js";
 import { generateCase } from "./ai/generateCase.js";
 
 const START_ROOM = "study";
+
+// Slack on the anti-teleport travel time, so network jitter squeezing the gap
+// between two honest region reports never slows an honest player down.
+const TRAVEL_SLACK = 0.8;
+
+// Display names are untrusted wire data that end up on the rival's screen: text
+// only, no control characters, capped to the lobby input's length.
+function cleanName(raw, fallback) {
+  const s = typeof raw === "string" ? raw.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, NAME_MAX) : "";
+  return s || fallback;
+}
 
 export class GameRoom {
   constructor(code, devMode = false, settings = null) {
@@ -27,13 +39,18 @@ export class GameRoom {
     // over everything, because the whole test suite depends on that precedence:
     //   "demo" → gate open, long soft cap (manual browser walkthroughs)
     //   any other truthy → tiny timers (fast automated tests)
+    const fast = process.env.WHISPERS_FAST_TIMERS;
     this.settings = (() => {
-      const fast = process.env.WHISPERS_FAST_TIMERS;
       if (fast === "demo") return { ...DEFAULT_SETTINGS, softTimer: 900, accuseGate: 0, opponentWindow: 120 };
       if (fast) return { ...DEFAULT_SETTINGS, softTimer: 8, accuseGate: 0, opponentWindow: 2 };
       const base = devMode ? DEV_SETTINGS : DEFAULT_SETTINGS;
       return settings ? sanitizeSettings(settings, base) : base;
     })();
+    // Real-time pacing the server enforces (see beginExamine / setRegion). Fast
+    // timers collapse these along with the clock, so the socket suites can walk
+    // and search at full speed; the client still plays its own search animation.
+    this.searchMs = fast ? 0 : SEARCH_MS;
+    this.travelScale = fast ? 0 : 1;
     // The same three keys buildView() has always shipped, derived rather than
     // duplicated so the wire shape is unchanged.
     this.timers = {
@@ -46,8 +63,10 @@ export class GameRoom {
     this.finalDeadline = null;        // epoch ms the final accusation window closes
     this.reveal = null;               // computed once, at game end
     this.playStarted = false;         // both detectives have dismissed the briefing
+    this.briefingEndsAt = null;       // epoch ms play starts regardless (see start)
     this._softTimer = null;           // force-resolve at softTimer
     this._windowTimer = null;         // resolve when the final window closes
+    this._briefingTimer = null;       // begin play when the briefing runs out
   }
 
   isFull() { return this.players.length >= 2; }
@@ -58,11 +77,14 @@ export class GameRoom {
     const character = CHARACTERS[this.players.length] || CHARACTERS[1];
     const player = {
       id,                              // current socket id
-      token: cryptoId(),               // stable id for reconnects (step 12)
-      name: name?.trim() || (character === "holmes" ? "Holmes" : "Watson"),
+      token: randomUUID(),             // stable id for reconnects (step 12)
+      name: cleanName(name, character === "holmes" ? "Holmes" : "Watson"),
       character,                       // "holmes" | "watson"
       room: START_ROOM,                // authoritative room occupancy (private)
       inCorridor: false,               // true when standing in the corridor
+      corridorSince: null,             // when they last stepped out of a room
+      roomReadyAt: 0,                  // earliest they could really be in `room`
+      searching: null,                 // hotspot id while a search is in flight
       clues: [],                       // ids the player has found (private)
       examinedHotspots: [],            // hotspot ids this player has examined (private)
       questionsUsed: {},               // suspectId -> [questionIds asked] (ids, not a count,
@@ -87,59 +109,92 @@ export class GameRoom {
     if (this.players.length < 2) return false;
     this.caseData = await generateCase({ devMode: this.devMode });
     this.status = "playing";
+    // A provisional origin, so the view has a clock to show. The real one is set
+    // by beginPlay(), once the briefing is over.
     this.startedAt = Date.now();
+    this.briefingEndsAt = this.startedAt + BRIEFING_MAX_MS;
     return true;
   }
 
-  // The case briefing is client-side ceremony, but the clock was already running
-  // behind it — so a player who sat and read the story lost that time from the
-  // game, and in Dev Mode (a 60s cap) the soft timer expired while the story was
-  // still typing and the reveal replaced it with "No one cracked the case".
+  // The case briefing sits between the lobby and the manor, and NOTHING may be
+  // done until it is over for both detectives. Before this gate, whoever put the
+  // file down first could already search and question while the other was still
+  // reading — a free head start in a race — and could even lock in, after which
+  // the rival's ack wiped the final-window deadline off their screen.
   //
-  // So play now BEGINS when both detectives have put the briefing down. This is
-  // deliberately additive: startedAt is still set on join, so a client that never
-  // sends case:ready (every raw-socket test does exactly that) behaves precisely
-  // as before. Acking only pushes the origin forward, and only once.
-  //
-  // Returns true when this ack actually started play, so the caller knows to
-  // re-arm the soft cap against the new origin.
+  // Returns true when this ack means everyone is ready; the caller then runs
+  // beginPlay() (which also re-arms the soft cap against the new origin).
   markReady(id) {
     if (this.status !== "playing" || this.playStarted) return false;
     const p = this.player(id);
     if (!p) return false;
     p.ready = true;
-    if (!this.players.every((x) => x.ready)) return false;
+    return this.players.every((x) => x.ready);
+  }
+
+  // Play begins: both acked, or the briefing ran out (BRIEFING_MAX_MS). Once only.
+  beginPlay() {
+    if (this.status !== "playing" || this.playStarted) return false;
     this.playStarted = true;
     this.startedAt = Date.now();      // the clock starts HERE, not at join
-    this.finalDeadline = null;
+    this.briefingEndsAt = null;
+    clearTimeout(this._briefingTimer);
+    this._briefingTimer = null;
     return true;
   }
 
-  // SERVER-AUTHORITATIVE region tracking. The client free-roams in pixel space
-  // and reports which room it has entered (or that it's in the corridor). The
-  // server validates room changes against the graph (you can only enter the
-  // current room or a neighbour) — the connection graph still gates movement.
-  // Returns { ok, room, inCorridor, changedRoom, error? }.
-  setRegion(id, { room, inCorridor } = {}) {
+  // The checks every in-game ACTION shares. Returns an error result, or null.
+  _actionGate(id, { allowLocked = false } = {}) {
     if (this.status !== "playing") return { ok: false, error: "Game is not active." };
     const p = this.player(id);
     if (!p) return { ok: false, error: "You are not in this game." };
+    if (!this.playStarted) return { ok: false, briefing: true, error: "The investigation hasn't begun — your rival is still reading the case file." };
+    if (!allowLocked && p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
+    return null;
+  }
+
+  _isSuspect(id) {
+    return typeof id === "string" && (this.caseData?.suspects || []).some((s) => s.id === id);
+  }
+
+  // SERVER-AUTHORITATIVE region tracking. The client free-roams in pixel space
+  // and reports which room it has entered (or that it's in the corridor). Every
+  // room opens onto the shared corridor, so any real room may be entered; the
+  // walls and doorways that shape the walk are enforced client-side.
+  //
+  // What the server CAN check is time. It can't see feet, but it can refuse to
+  // believe a detective crossed the manor faster than a sprint: each room change
+  // sets `roomReadyAt`, the earliest they could really have arrived (doorway-to-
+  // doorway distance at top speed, timed from when they stepped out). Nothing is
+  // rejected — a desync between client and server would be worse than the cheat
+  // — but a search in the new room cannot finish before that moment. Honest
+  // walkers have long since arrived; a teleporting script pays the walk anyway.
+  // Returns { ok, room, inCorridor, changedRoom, error? }.
+  setRegion(id, { room, inCorridor } = {}) {
     // Deliberately NOT gated on p.accusation. A locked-in detective may keep
     // pacing the manor while their rival finishes — sitting frozen for the rest
     // of the game was the worst part of locking in early. It leaks nothing:
     // room/inCorridor are private to this player, and the chat line movement.js
     // emits is already vague on purpose. Investigation and questioning stay shut.
+    const gate = this._actionGate(id, { allowLocked: true });
+    if (gate) return gate;
+    const p = this.player(id);
+    const now = Date.now();
 
     let changedRoom = false;
     if (room && room !== p.room) {
       if (!ROOM_IDS.includes(room)) return { ok: false, error: "No such room." };
-      // Every room opens onto the shared corridor, so any room is reachable. We
-      // only validate that it's a real room — the geometry (walls/doorways) is the
-      // actual constraint, enforced client-side during free-roam.
+      // A client that never reported the corridor stepped out "just now".
+      const leftAt = p.inCorridor && p.corridorSince != null ? p.corridorSince : now;
+      const speed = MOVE_SPEED * (this.settings.sprint ? 2 : 1);   // px per second
+      const travelMs = this.travelScale * TRAVEL_SLACK * (doorwayGap(p.room, room) / speed) * 1000;
+      p.roomReadyAt = Math.max(now, leftAt + travelMs);
       p.room = room;
       changedRoom = true;
     }
-    p.inCorridor = Boolean(inCorridor);
+    const nowInCorridor = Boolean(inCorridor);
+    if (nowInCorridor && !p.inCorridor) p.corridorSince = now;
+    p.inCorridor = nowInCorridor;
     return { ok: true, room: p.room, inCorridor: p.inCorridor, changedRoom };
   }
 
@@ -193,10 +248,12 @@ export class GameRoom {
   // Ask a generic pool question. Budget is QUESTION_CAP per (player, suspect).
   // Returns only the ONE answer branch — never the whole tree.
   tryAsk(id, suspectId, questionId) {
-    if (this.status !== "playing") return { ok: false, error: "Game is not active." };
+    const gate = this._actionGate(id);
+    if (gate) return gate;
     const p = this.player(id);
-    if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
+    // Checked against the cast list, not by indexing the dialogue trees: an id
+    // like "__proto__" or "constructor" would otherwise find a "tree".
+    if (!this._isSuspect(suspectId)) return { ok: false, error: "No such suspect." };
     const tree = this._dialogueFor(suspectId);
     if (!tree) return { ok: false, error: "No such suspect." };
     // The question must belong to THIS suspect's set (core + their own).
@@ -260,10 +317,10 @@ export class GameRoom {
   // once per suspect. A matching evidence_response yields a behavioral tell;
   // otherwise the suspect deflects. Does NOT consume the question budget.
   tryConfront(id, suspectId, clueId) {
-    if (this.status !== "playing") return { ok: false, error: "Game is not active." };
+    const gate = this._actionGate(id);
+    if (gate) return gate;
     const p = this.player(id);
-    if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
+    if (!this._isSuspect(suspectId)) return { ok: false, error: "No such suspect." };
     const tree = this._dialogueFor(suspectId);
     if (!tree) return { ok: false, error: "No such suspect." };
     if (!p.clues.includes(clueId)) return { ok: false, error: "You have not found that evidence." };
@@ -314,15 +371,46 @@ export class GameRoom {
   // player's clue for that hotspot if one is placed there, else nothing. The
   // hotspot→clue mapping NEVER leaves the server until the player examines that
   // exact spot (anti-cheat). Returned clues are stripped of the `eliminates` key.
-  tryExamine(id, hotspotId) {
-    if (this.status !== "playing") return { ok: false, error: "Game is not active." };
-    const p = this.player(id);
-    if (!p) return { ok: false, error: "You are not in this game." };
-    if (p.accusation) return { ok: false, locked: true, error: "You've locked in — you can only wait for your rival now." };
-    const spot = HOTSPOT_BY_ID[hotspotId];
+  //
+  // A search takes TIME, and the server is what enforces it. The client used to
+  // own the 2.5s search and only then ask for the result, so a script could skip
+  // the wait and sweep all 24 hotspots in ~30ms. Now it's two steps with the
+  // wait in between (handlers/investigate.js): beginExamine() validates and says
+  // how long to wait — SEARCH_MS, plus any walk the player hasn't finished yet
+  // (see setRegion) — and finishExamine() hands out the result. One search at a
+  // time per player, so searches cannot be run in parallel either.
+  _examineCheck(p, hotspotId) {
+    // Own-key lookup: "__proto__" must not resolve to a "hotspot".
+    const spot = typeof hotspotId === "string" && Object.hasOwn(HOTSPOT_BY_ID, hotspotId) ? HOTSPOT_BY_ID[hotspotId] : null;
     if (!spot) return { ok: false, error: "No such hotspot." };
     if (p.inCorridor || spot.room !== p.room) return { ok: false, error: "You must stand in that room to examine it." };
     if (p.examinedHotspots.includes(hotspotId)) return { ok: false, already: true, error: "You have already examined this." };
+    return null;
+  }
+
+  // Returns { ok, waitMs } or an error result.
+  beginExamine(id, hotspotId) {
+    const gate = this._actionGate(id);
+    if (gate) return gate;
+    const p = this.player(id);
+    if (p.searching) return { ok: false, busy: true, error: "You are already searching something." };
+    const bad = this._examineCheck(p, hotspotId);
+    if (bad) return bad;
+    p.searching = hotspotId;
+    const now = Date.now();
+    return { ok: true, waitMs: Math.max(now, p.roomReadyAt) + this.searchMs - now };
+  }
+
+  // The search is over: everything is re-checked (the game may have ended, or
+  // the player locked in or left, while they were searching), then the result.
+  finishExamine(id, hotspotId) {
+    const gate = this._actionGate(id);
+    if (gate) return gate;
+    const p = this.player(id);
+    if (p.searching !== hotspotId) return { ok: false, error: "That search was interrupted." };
+    const bad = this._examineCheck(p, hotspotId);
+    if (bad) return bad;
+    const spot = HOTSPOT_BY_ID[hotspotId];
 
     p.examinedHotspots.push(hotspotId);
 
@@ -339,6 +427,12 @@ export class GameRoom {
     };
   }
 
+  // Always called when a search ends, however it ends.
+  endSearch(id) {
+    const p = this.player(id);
+    if (p) p.searching = null;
+  }
+
   // ---- accusation: gate, lock-in, scoring, reveal -----------------------
 
   accuseOpensAt() { return (this.startedAt || 0) + this.timers.accuseGate * 1000; }
@@ -346,16 +440,17 @@ export class GameRoom {
   clearTimers() {
     clearTimeout(this._softTimer);
     clearTimeout(this._windowTimer);
-    this._softTimer = this._windowTimer = null;
+    clearTimeout(this._briefingTimer);
+    this._softTimer = this._windowTimer = this._briefingTimer = null;
   }
   startFinalWindow() { this.finalDeadline = Date.now() + this.timers.opponentWindow * 1000; }
 
   // Validate and store one player's accusation. Gate: not before accuseGate.
   // Clues cited must be 2–3, distinct, and actually in the player's found list.
   tryLock(id, { culpritId, weaponId, roomId, clueIds } = {}) {
-    if (this.status !== "playing") return { ok: false, error: "Game is not active." };
+    const gate = this._actionGate(id, { allowLocked: true });
+    if (gate) return gate;
     const p = this.player(id);
-    if (!p) return { ok: false, error: "You are not in this game." };
     if (p.accusation) return { ok: false, error: "You have already locked in." };
     if (Date.now() < this.accuseOpensAt()) return { ok: false, gated: true, error: "Accusations are not open yet." };
     if (!this.caseData.suspects.some((s) => s.id === culpritId)) return { ok: false, error: "Unknown suspect." };
@@ -390,8 +485,29 @@ export class GameRoom {
     return hasElim && !hitsTruth;
   }
 
+  // Does this cited clue actually back the player's OWN accusation? It must be
+  // real evidence (not a herring), must not rule out anything they accused, and
+  // must narrow down a category they got RIGHT — so the credit is for proof of
+  // your own correct answer.
+  //
+  // It used to be only `_supportsSolution`, which scores the clue against the
+  // truth and ignores what the player said: an accusation wrong on all three
+  // counts still took the full +3, even for a clue that eliminated the very
+  // suspect they named.
+  _backsAccusation(clue, a) {
+    if (!this._supportsSolution(clue)) return false;
+    const sol = this.caseData.solution;
+    const e = clue.eliminates || {};
+    const rulesOut = (cat, id) => (e[cat] || []).includes(id);
+    if (rulesOut("suspects", a.culpritId) || rulesOut("weapons", a.weaponId) || rulesOut("rooms", a.roomId)) return false;
+    return (a.culpritId === sol.culprit_id && (e.suspects?.length || 0) > 0)
+        || (a.weaponId === sol.weapon_id && (e.weapons?.length || 0) > 0)
+        || (a.roomId === sol.room_id && (e.rooms?.length || 0) > 0);
+  }
+
   // base: +1 per correct of culprit/weapon/room (3 = perfect). reasoning: +1 per
-  // cited clue that genuinely supports the solution, capped at +3. speed set later.
+  // cited clue that backs the player's own correct answer (see _backsAccusation),
+  // capped at +3. speed set later.
   scoreFor(player) {
     if (!player.accusation) {
       return { base: 0, reasoning: 0, speed: 0, total: 0, correctComponents: 0, fullyCorrect: false, forfeited: true, lockedAt: Infinity };
@@ -404,7 +520,7 @@ export class GameRoom {
     let reasoning = 0;
     for (const cid of a.clueIds || []) {
       const cl = byId.get(cid);
-      if (cl && this._supportsSolution(cl)) reasoning++;
+      if (cl && this._backsAccusation(cl, a)) reasoning++;
     }
     return {
       base: correctComponents,
@@ -497,8 +613,4 @@ export class GameRoom {
 
   // Privacy-filtered snapshot for one player (delegates to views.js).
   viewFor(id) { return buildView(this, id); }
-}
-
-function cryptoId() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }

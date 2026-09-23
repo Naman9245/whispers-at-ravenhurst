@@ -1,8 +1,9 @@
 // Runs every server suite with one command: `npm test` (from server/).
 //
-// Six suites talk to a live server on :3001, and they disagree on how it must be
+// Seven suites talk to a live server on :3001, and they disagree on how it must be
 // started: briefingClock/interrogation/lobbyFlow need WHISPERS_FAST_TIMERS=1,
-// hotspots/lockout need =demo, and timerOff needs it UNSET. So each group gets a
+// hotspots/lockout need =demo, and timerOff/antiCheat need it UNSET (antiCheat
+// measures the real search and travel pacing fast timers switch off). So each group gets a
 // FRESH server in its own mode, stopped before the next group starts. That also
 // closes the zombie-server trap from CLAUDE.md: if something is already bound to
 // :3001 we refuse to run rather than test stale code.
@@ -18,7 +19,7 @@ const GROUPS = [
   { server: false, timers: null, suites: ["caseValidation", "accusation", "movement", "settings"] },
   { server: true, timers: "1", suites: ["lobbyFlow", "briefingClock", "interrogation"] },
   { server: true, timers: "demo", suites: ["hotspots", "lockout"] },
-  { server: true, timers: null, suites: ["timerOff"] },
+  { server: true, timers: null, suites: ["timerOff", "antiCheat"] },
 ];
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

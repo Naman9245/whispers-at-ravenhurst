@@ -3,6 +3,7 @@
 // opponent's window; the game resolves when both have locked in, when that window
 // closes (auto-forfeit), or when the soft timer expires with no lock-ins. The
 // solution + scoring + both accusations are revealed ONLY at resolution.
+import { onIntent } from "../intent.js";
 
 function fmtClock(sec) {
   const m = Math.floor(sec / 60);
@@ -36,34 +37,67 @@ export function scheduleForceResolve(io, room) {
   room._softTimer = setTimeout(() => resolveGame(io, room), ms);
 }
 
+// Play begins (both detectives briefed, or the briefing ran out): the clock
+// starts from NOW, and the soft cap is armed against that origin — not against
+// the join, or the briefing would eat the clock, which in Dev Mode meant the game
+// resolved itself mid-story. Returns true if this call started play.
+export function beginPlay(io, room) {
+  if (!room.beginPlay()) return false;
+  clearTimeout(room._softTimer);
+  room._softTimer = null;
+  scheduleForceResolve(io, room);
+  for (const p of room.players) io.to(p.id).emit("state:update", room.viewFor(p.id));
+  console.log(`[lobby] room ${room.code} — briefing over, clock starts now`);
+  return true;
+}
+
+// Armed when the game starts: whoever is still reading when the briefing runs
+// out is brought in anyway, so one idle player cannot stall the other forever.
+export function armBriefing(io, room) {
+  clearTimeout(room._briefingTimer);
+  const ms = Math.max(0, (room.briefingEndsAt ?? Date.now()) - Date.now());
+  room._briefingTimer = setTimeout(() => beginPlay(io, room), ms);
+}
+
+// Resolve as soon as every detective still in the game has locked in. With both
+// present that is the familiar "both in → reveal"; if one has walked away, the
+// one who stayed and accused should not sit out a final window meant for nobody.
+function resolveIfAllLocked(io, room) {
+  if (room.status === "playing" && room.players.length > 0 && room.players.every((p) => p.accusation)) {
+    resolveGame(io, room);
+  }
+}
+
+// A detective has left for good (explicit exit, or their reconnect window ran
+// out). Whatever the game was waiting on them for must not wait forever.
+export function settleAfterDeparture(io, room) {
+  if (room.status !== "playing" || room.players.length === 0) return;
+  if (!room.playStarted && room.players.every((p) => p.ready)) beginPlay(io, room);
+  resolveIfAllLocked(io, room);
+}
+
 export function registerAccusation(io, socket, store) {
-  // "I have read the case file." Once BOTH detectives say so, play begins and the
-  // soft cap is re-armed against the new origin — otherwise the briefing would eat
-  // the clock, which in Dev Mode meant the game resolved itself mid-story.
-  socket.on("case:ready", (_payload, cb) => {
+  // "I have read the case file." Once BOTH detectives say so, play begins.
+  onIntent(socket, "case:ready", (_payload, cb) => {
     const room = store.roomOf(socket);
-    if (!room) return cb?.({ ok: false, error: "Not in a room." });
-    const began = room.markReady(socket.id);
-    if (began) {
-      clearTimeout(room._softTimer);
-      room._softTimer = null;
-      scheduleForceResolve(io, room);
-      console.log(`[lobby] room ${room.code} — both briefed, clock starts now`);
-    }
-    for (const p of room.players) io.to(p.id).emit("state:update", room.viewFor(p.id));
-    cb?.({ ok: true, began });
+    if (!room) return cb({ ok: false, error: "Not in a room." });
+    const began = room.markReady(socket.id) && beginPlay(io, room);
+    // beginPlay already pushed fresh views; otherwise the rival still needs to
+    // hear that this detective is ready.
+    if (!began) for (const p of room.players) io.to(p.id).emit("state:update", room.viewFor(p.id));
+    cb({ ok: true, began });
   });
 
 
-  socket.on("accuse:lock", (payload, cb) => {
+  onIntent(socket, "accuse:lock", (payload, cb) => {
     const room = store.roomOf(socket);
-    if (!room) return cb?.({ ok: false, error: "Not in a room." });
+    if (!room) return cb({ ok: false, error: "Not in a room." });
 
-    const result = room.tryLock(socket.id, payload || {});
-    if (!result.ok) return cb?.(result);
+    const result = room.tryLock(socket.id, payload);
+    if (!result.ok) return cb(result);
 
     const me = room.player(socket.id);
-    cb?.({ ok: true });
+    cb({ ok: true });
 
     // First lock-in: cancel the soft cap and open the opponent's final window.
     if (room.lockedCount() === 1) {
@@ -82,7 +116,7 @@ export function registerAccusation(io, socket, store) {
     // Refresh both views (lock flags + finalDeadline) — but no choices.
     for (const p of room.players) io.to(p.id).emit("state:update", room.viewFor(p.id));
 
-    // Both in → resolve immediately.
-    if (room.lockedCount() === 2) resolveGame(io, room);
+    // Everyone in → resolve immediately.
+    resolveIfAllLocked(io, room);
   });
 }

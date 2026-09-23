@@ -1,14 +1,14 @@
 # Roadmap — Whispers at Ravenhurst
 
-> **Last updated:** 2026-08-20
+> **Last updated:** 2026-09-23
 
 Progress tracker. **Phase 1 (vertical slice) is complete**; **Phase 2 (polish) is
 complete through 2.8** — audio **Pass 1 (2.4a) and Pass 2 (2.4b)**, the **cinematic
 main menu (2.7)** and **2.8** (host-chosen room settings, the zoom-and-follow camera +
 manor map, the case briefing, the new stage layout and the suspect rail) all ship. Only
 2.6 (optional flavor) and a handful of deferred ambient/UI audio clips remain open in
-Phase 2; Phases 3–4 are planned. Session context lives in **[CLAUDE.md](CLAUDE.md)**,
-and the technical deep-dive in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
+Phase 2; Phases 3–4 are planned. A full code review followed (**2.9**, below). The
+technical deep-dive lives in **[ARCHITECTURE.md](ARCHITECTURE.md)**.
 
 ---
 
@@ -64,8 +64,8 @@ the 1:00 mark** → **visual-only** urgency (red timer + red edge vignette + red
 for the final minute. The intrusive "ACCUSE NOW or forfeit" banner was removed.
 
 ### 2.0.3 — Documentation ✅
-README · DEVLOG · ARCHITECTURE · ROADMAP refreshed, and **CLAUDE.md** added for
-session continuity.
+README · DEVLOG · ARCHITECTURE · ROADMAP refreshed, and a local **CLAUDE.md** added for
+session continuity (gitignored — it is not part of the repo).
 
 ### 2.1 — Live `claude-opus-4-8` API integration ⏳ *(deferred — awaiting credits)*
 Pipeline + `validateCase()` + 3-retry/fallback are ready; the call is the marked
@@ -128,7 +128,7 @@ with 2.4a + server suites still green.
 
 *Deferred to a future polish pass (intentionally not added now):* wind + a thunder layer
 (the storm bed is **rain-only** for now), distant footsteps, whispers, and the modal
-open/close pair. Tracked in **[CLAUDE.md](CLAUDE.md) → Sound Assets TODO**.
+open/close pair. Also listed in `client/public/sounds/CREDITS.md`.
 
 ### 2.5 — Speech bubbles + idle animations 🟡 *(partially shipped inside 2.8)*
 The searching cloud was generalised into a reusable `drawBubble` (text or thinking
@@ -215,6 +215,35 @@ summary only here.
 - ⏳ **Configurable suspect count is blocked** on live case generation (2.1/Phase 3):
   `SUSPECT_COUNT = 6` is baked into the hand-authored case, its clue eliminations and
   the 15-per-suspect question sets.
+
+### 2.9 — Review bug-fix pass ✅
+A full code review, with every bug reproduced against a live server or in the browser
+before it was fixed. `server/test/antiCheat.js` (new, the 11th suite) pins the server
+side.
+
+- **One malformed message could crash the server** (a `null` payload, a number for a
+  name, a non-function ack) — for every room at once. Every handler now registers
+  through `onIntent()` (`server/intent.js`); names are cleaned and capped.
+- **Searches are paced by the server.** A script swept all 24 hotspots in ~30ms, and
+  reduced motion skipped the 2.5s wait outright. The server now holds each result
+  for `SEARCH_MS`, one search at a time, and a room change can't beat a sprint.
+- **No head start behind the briefing.** Whoever dismissed it first could already
+  play (and a lock-in there wiped the rival's final-window countdown). Every action
+  now waits until both are ready or 45s pass; the first reader sees "waiting for
+  your rival".
+- **The briefing's 45s auto-dismiss never fired** (its countdown froze): it now
+  counts down to a deadline the server owns.
+- **Typing "m" in the lobby opened the map at game start**; the map hotkey now
+  ignores text fields and only works on the board.
+- **The Activity badge died after 30 lines** (it counted by length, which caps).
+- **Lobby:** a disconnected host no longer holds the room open for a ghost game,
+  joining your own code is refused, the waiting screen has a Cancel button, and a
+  rival leaving after you locked in resolves the case at once.
+- **Reasoning points now credit your own correct answer.** An all-wrong accusation
+  could score the full +3, even citing a clue that ruled out its own suspect.
+- Housekeeping: `npm audit fix` (server now clean), the client lockfile re-synced,
+  `scripts/dev.js` no longer kills other projects' processes on 3001/5173, and the
+  `.shots` suites take `CHROME_PATH` instead of a hard-coded Windows path.
 
 ---
 

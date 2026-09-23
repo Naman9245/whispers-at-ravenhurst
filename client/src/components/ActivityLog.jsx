@@ -22,11 +22,14 @@ export default function ActivityLog({ open, lines = [], onClose }) {
     timer.current = setTimeout(() => onClose?.(), AUTO_CLOSE_MS);
   };
   // (Re)arm the 5s auto-close on open and whenever a new line arrives while open.
+  // Keyed on the newest line's seq, not the length: the log is capped at 30, so
+  // past that point its length never changes and new lines stopped re-arming.
+  const newest = lines[lines.length - 1]?.seq ?? lines.length;
   useEffect(() => {
     if (!open) return;
     arm();
     return () => clearTimeout(timer.current);
-  }, [open, lines.length]);
+  }, [open, newest]);
 
   if (!open) return null;
   const shown = lines.slice(-MAX_SHOWN);

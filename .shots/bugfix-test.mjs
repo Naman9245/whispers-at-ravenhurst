@@ -9,7 +9,7 @@
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
 
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const URL = "http://localhost:5173/?menu=skip", VW = 1600, VH = 900;
 let fails = 0;
 const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c) fails++; };
@@ -21,6 +21,9 @@ const down = async (p, keys) => { for (const k of keys) await p.keyboard.down(k)
 const up = async (p, keys) => { for (const k of keys) await p.keyboard.up(k); };
 const pressE = async (p) => { await p.keyboard.down("e"); await sleep(120); await p.keyboard.up("e"); };
 const hasModal = (p) => p.evaluate(() => !!document.querySelector(".examine-modal"));
+// A search takes SEARCH_MS (2.5s) on the SERVER now, reduced motion or not, so wait
+// for the result rather than assuming it is instant.
+const waitModal = async (p, ms = 4000) => { try { await p.waitForSelector(".examine-modal", { timeout: ms }); return true; } catch { return false; } };
 
 // Study interior is x[60,412] y[136,356]; its only doorway is bottom-centre, so
 // the TOP wall (y≈136) is solid — holding 'w' pins the feet there with no escape.
@@ -43,8 +46,9 @@ try {
   const h = await browser.newPage();
   h.on("pageerror", (e) => errors.push("PAGEERROR: " + e.message));
   h.on("console", (m) => { if (m.type() === "error") errors.push("CONSOLE: " + m.text()); });
-  // Reduced motion → E opens the result instantly (skips the 2.5s search), keeping
-  // the facing assertions fast. faceToward fires on the E-press regardless.
+  // Reduced motion keeps the bubble still. It no longer skips the 2.5s search (the
+  // server holds the result), so the checks below wait for the modal. faceToward
+  // fires on the E-press regardless.
   await h.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
   await h.goto(URL, { waitUntil: "networkidle2" });
   await h.waitForSelector(".lobby"); await clickByText(h, "Create Room");
@@ -111,8 +115,8 @@ try {
   console.log("\n[6] Walk right up to the desk (~18px) → E examines it.");
   await place(h, HS.desk[0] + 18, HS.desk[1], "east");   // ~18px from the desk centre
   await sleep(140);
-  await pressE(h); await sleep(320);
-  ok("E up close → examination starts (modal opens)", await hasModal(h));
+  await pressE(h);
+  ok("E up close → examination starts (modal opens)", await waitModal(h));
   if (await hasModal(h)) { await h.keyboard.press("Enter"); await sleep(180); }
 
   console.log("\n=== BUG (regression): E auto-faces the character toward the hotspot ===");
@@ -131,7 +135,7 @@ try {
     await pressE(h);
     await sleep(320);
     const after = (await pos(h)).dir;
-    const opened = await hasModal(h);
+    const opened = await waitModal(h);
     console.log(`   [${caseNo}] ${fc.name}: was '${before}' → now '${after}' (expect '${fc.expect}')`);
     ok(`auto-face: ${fc.name} → faces ${fc.expect} (and examined within ~18px)`, before === fc.away && after === fc.expect && opened);
     if (opened) { await h.keyboard.press("Enter"); await sleep(180); }

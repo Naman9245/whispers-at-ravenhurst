@@ -2,8 +2,9 @@
 
 > Brainstorm dump, not a commitment. **Last updated:** 2026-08-20
 > Sorted by *impact per hour of work*, not by how cool it sounds.
-> Nothing here overrides the "Critical Design Decisions" in [CLAUDE.md](../CLAUDE.md) —
-> if an idea contradicts one of those, it needs an explicit approval first.
+> Nothing here overrides the invariants in [PHASE-2.8-PLAN.md §4](PHASE-2.8-PLAN.md) or the
+> design decisions in [DEVLOG.md](../DEVLOG.md) — if an idea contradicts one of those, it
+> needs an explicit approval first.
 
 ---
 

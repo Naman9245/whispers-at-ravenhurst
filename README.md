@@ -14,10 +14,10 @@ Two detectives race to solve the same murder in a storm-sealed Victorian manor, 
 
 ## Engineering highlights
 
-- **Cheat-resistant by construction.** The solution never reaches a client until the reveal. A single serializer, `buildView()`, builds every payload a player receives, and the mapping from hotspot to clue is never sent at all. Tests fail if the words `solution`, `red_herring` or `culprit` ever appear in a view. → [Security / Anti-Cheat](ARCHITECTURE.md#6-security--anti-cheat)
+- **Cheat-resistant by construction.** The solution never reaches a client until the reveal. A single serializer, `buildView()`, builds every payload a player receives, and the mapping from hotspot to clue is never sent at all. Tests fail if the words `solution`, `red_herring` or `culprit` ever appear in a view. The server also paces the race itself: a search takes 2.5s *on the server*, one at a time, and a room change can't beat a sprint, so a scripted client can't sweep the manor. → [Security / Anti-Cheat](ARCHITECTURE.md#6-security--anti-cheat)
 - **One rules layer, two runtimes.** Map geometry, collision, rule constants, the question pool and the case schema live in `shared/` and are imported by both client and server, so the two cannot disagree about the rules. → [Shared Layer](ARCHITECTURE.md#4-shared-layer-shared)
 - **Every case is proven solvable before anyone plays it.** The validator checks that *each* player can reach the answer from their own clues, and rejects cases where two clues share a hotspot. → [Case generation](ARCHITECTURE.md#8-ai-case-generation)
-- **Tested where it actually breaks.** 10 server suites cover the room lifecycle, the privacy boundary, lock-in rules, lying suspects and timer edge cases, and GitHub Actions runs them on every push. → [Test Map](ARCHITECTURE.md#9-test-map)
+- **Tested where it actually breaks.** 11 server suites cover the room lifecycle, the privacy boundary, lock-in rules, lying suspects, timer edge cases and a suite of attacks a raw socket can make, and GitHub Actions runs them on every push. → [Test Map](ARCHITECTURE.md#9-test-map)
 
 ---
 
@@ -39,7 +39,7 @@ Two detectives race to solve the same murder in a storm-sealed Victorian manor, 
 - 🗣️ **Pre-generated suspect dialogue trees** with evidence confrontation and behavioral "tells" — and suspects who **lie until you break their story** with the right clue.
 - 🎛️ **Host-chosen game settings** (Among Us style) — time limit **Off / 15 / 20 / 30 / 45 min**, accuse gate, rival window, hotspot markers, sprint, and whether you can see your rival's progress. All whitelisted server-side.
 - 🎥 **Zoom-and-follow camera** with a **hidden manor map** (press **M**) that shows a live "you are here" — including in the corridor.
-- 🎬 **Case briefing cinematic** — the game opens on black and types the case out; the clock doesn't start until *both* detectives put the file down.
+- 🎬 **Case briefing cinematic** — the game opens on black and types the case out; the clock doesn't start — and nobody can act — until *both* detectives put the file down (or 45 seconds pass).
 - 🔌 **Real-time multiplayer** over WebSockets, with disconnect detection and a reconnect grace window.
 - 🎨 **Indie pixel-art Victorian noir** aesthetic, drawn on a raw HTML5 canvas (no game engine) — the static board is **baked once** and blitted, so the art is free at runtime.
 - 🔊 **Full sound pass** — rain bed, random creaks, footsteps, searching loop, clue stings, UI clicks, and dramatic lock-in / reveal stings, all behind one mute toggle.
@@ -56,7 +56,7 @@ Two detectives race to solve the same murder in a storm-sealed Victorian manor, 
 | **Backend** | Node.js (ESM) + Express 4 + Socket.io 4 |
 | **AI** | Anthropic Claude API (`claude-opus-4-8`) — pipeline built, off by default |
 | **Architecture** | Server-authoritative state machine; a shared rules layer imported by both sides |
-| **CI** | GitHub Actions runs all 10 server suites on every push and pull request |
+| **CI** | GitHub Actions runs all 11 server suites on every push and pull request |
 
 ---
 
@@ -96,14 +96,14 @@ cd server
 npm test
 ```
 
-This runs all 10 server suites: lobby lifecycle, movement and collision, hotspots, interrogation, accusation and scoring, lockout, case validation, settings, the briefing clock, and Timer: Off. Each group gets a fresh server started in the timer mode it needs, so stop `npm run dev` first. The same command runs in GitHub Actions on every push and pull request.
+This runs all 11 server suites: lobby lifecycle, movement and collision, hotspots, interrogation, accusation and scoring, lockout, case validation, settings, the briefing clock, Timer: Off, and anti-cheat (malformed messages, the briefing gate, search and travel pacing). Each group gets a fresh server started in the timer mode it needs, so stop `npm run dev` first. The same command runs in GitHub Actions on every push and pull request.
 
 ---
 
 ## Game Rules (short version)
 
 - **Two detectives, one mansion, one murder.** Solve *culprit + weapon + room*.
-- The game opens on the **case briefing**. The clock only starts once **both** detectives dismiss it, so reading the file costs you nothing.
+- The game opens on the **case briefing**. Play only starts once **both** detectives dismiss it (or after 45 seconds), so reading the file costs you nothing and the faster reader gets no head start.
 - Both players **move freely** (WASD / arrow keys), **examine furniture hotspots** (walk up + press **E**, or click) to find clues, and **question** suspects — simultaneously, no turns.
 - **Controls:** WASD / arrows to move · **Shift** to sprint · **E** or click to examine · **M** for the manor map · **Enter / Esc** to close popups.
 - You gather **3 shared clues** (either player can find them) and **4 private clues** (yours alone), plus the occasional **red herring** that looks real but secretly contradicts the truth and never counts toward your total.
@@ -111,7 +111,7 @@ This runs all 10 server suites: lobby lifecycle, movement and collision, hotspot
 - You get **4 core questions per suspect**. Questions unlocked by a clue you found are **free** — investigating buys interrogation leverage. Some suspects **lie**: confront them with the contradicting evidence and their story breaks open.
 - The **ACCUSE** button unlocks after a gate the host picks (**5 minutes** by default, **20 seconds** in Dev Mode) so there's time to actually deduce. An accusation must cite **2–3 clues you actually found**.
 - The **first lock-in** opens a final window for the other detective; when both lock in (or time expires) the case resolves. With **Time limit: Off** there is no wall clock at all — the case stays open until someone accuses. Locking in early doesn't freeze you: you can still walk the manor while your rival finishes.
-- **Higher score wins:** `base` (+1 each for correct culprit / weapon / room) + `reasoning` (+1 per cited clue that genuinely supports the solution, capped at +3) + `speed` (among fully-correct accusations, earliest +2, the rest +1).
+- **Higher score wins:** `base` (+1 each for correct culprit / weapon / room) + `reasoning` (+1 per cited clue that proves a part of your accusation you got right — real evidence that doesn't rule out anything you named — capped at +3) + `speed` (among fully-correct accusations, earliest +2, the rest +1).
 
 ---
 
@@ -133,7 +133,7 @@ whispers-at-ravenhurst/
 │   ├── views.js             # buildView() — the per-player privacy boundary
 │   ├── handlers/            # movement · investigate · suspects · accusation
 │   ├── ai/                  # generateCase() + fallbackCase.json
-│   └── test/                # 10 node suites + run-all.js (`npm test`)
+│   └── test/                # 11 node suites + run-all.js (`npm test`)
 ├── client/              # React + Canvas frontend (Vite)
 │   └── src/
 │       ├── App.jsx          # menu → lobby → briefing → playing → reveal + wiring

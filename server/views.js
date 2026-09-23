@@ -59,6 +59,10 @@ export function buildView(room, playerId) {
     playersOnline: room.players.length,
     progressTotal: room.progressTotal(),
     caseInfo: publicCase(room.caseData),
+    // The briefing: nothing can be done until play starts (both detectives have
+    // read the file, or its time ran out at briefingEndsAt, server clock).
+    playStarted: room.playStarted,
+    briefingEndsAt: room.briefingEndsAt,
 
     // Accusation phase: timing + lock-in FLAGS only. Never the opponent's
     // chosen culprit/weapon/room/clues — those appear solely in the reveal.
@@ -103,6 +107,7 @@ export function buildView(room, playerId) {
           clueCount: room.settings.rivalProgress ? room.progressCount(opp) : null,
           lockedIn: opp.lockedIn,
           connected: opp.connected,
+          ready: opp.ready,                // has put the case briefing down
         }
       : null,
   };

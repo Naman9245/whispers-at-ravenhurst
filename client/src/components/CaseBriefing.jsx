@@ -13,14 +13,18 @@ import CaseBriefingBody from "./CaseBriefingBody.jsx";
 // The reveal is driven THROUGH CaseBriefingBody rather than by re-implementing the
 // layout here, so the cinematic and the in-game Scenario tab cannot drift apart.
 //
-// The clock does NOT run behind this. It used to — the server started the game the
-// moment the second player joined — and in Dev Mode, where the cap is 60s, the game
-// resolved itself while the story was still typing and replaced it with "No one
-// cracked the case". Play now begins when BOTH detectives dismiss this screen
-// (`case:ready`), so reading the case file costs nobody anything.
+// The clock does NOT run behind this, and nobody can act behind it either. Play
+// begins when BOTH detectives dismiss this screen (`case:ready`), so reading the
+// case file costs nobody anything — and whoever finishes first waits here
+// (`waiting`) rather than getting a head start in the manor.
 //
-// The auto-dismiss stays, and is the reason there is no stall path: an idle player
-// cannot hold their rival at the title card forever.
+// The SERVER bounds it: at `endsAt` (server clock, BRIEFING_MAX_MS after the
+// game starts) play begins regardless, so an idle player cannot hold their rival
+// at the title card forever. The countdown below is derived from that deadline
+// on every render. It used to be a local interval plus a bail-out timeout keyed
+// on `onBegin` — which App passed as a fresh arrow on its once-a-second
+// re-render, so both were torn down and re-armed every second: the countdown
+// froze and the auto-dismiss never fired.
 //
 // Everything is skippable: reduced motion renders it complete, and any key or click
 // fast-forwards. Nobody should be held hostage by an animation, least of all on a
@@ -28,11 +32,10 @@ import CaseBriefingBody from "./CaseBriefingBody.jsx";
 const TYPE_MS = 18;          // per character
 const BEAT_MS = 420;         // pause between sections
 const CAST_MS = 260;         // stagger between faces
-const AUTO_DISMISS_MS = 45_000;   // bounds how long one reader can hold the other
 
 const STEP = { OPENING: 0, BACKSTORY: 1, CAST: 2, DONE: 3 };
 
-export default function CaseBriefing({ caseInfo, settings, onBegin }) {
+export default function CaseBriefing({ caseInfo, settings, endsAt, serverNow, waiting = false, rivalName, onBegin }) {
   const suspects = caseInfo?.suspects || [];
   const opening = caseInfo?.opening || "";
   const backstory = caseInfo?.victimBackstory || "";
@@ -41,10 +44,12 @@ export default function CaseBriefing({ caseInfo, settings, onBegin }) {
     typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
   ).current;
 
-  const [step, setStep] = useState(reduced ? STEP.DONE : STEP.OPENING);
+  // Already waiting at mount means the ceremony was skipped (`?menu=skip`), so
+  // there is nothing to type out.
+  const [step, setStep] = useState(reduced || waiting ? STEP.DONE : STEP.OPENING);
   const [chars, setChars] = useState(0);
-  const [cast, setCast] = useState(reduced ? suspects.length : 0);
-  const [left, setLeft] = useState(Math.ceil(AUTO_DISMISS_MS / 1000));
+  const [cast, setCast] = useState(reduced || waiting ? suspects.length : 0);
+  const left = endsAt && serverNow ? Math.max(0, Math.ceil((endsAt - serverNow) / 1000)) : null;
 
   const done = step === STEP.DONE;
   const skip = () => { setStep(STEP.DONE); setCast(suspects.length); };
@@ -83,12 +88,6 @@ export default function CaseBriefing({ caseInfo, settings, onBegin }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [done, suspects.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    const tick = setInterval(() => setLeft((s) => s - 1), 1000);
-    const bail = setTimeout(() => onBegin?.(), AUTO_DISMISS_MS);
-    return () => { clearInterval(tick); clearTimeout(bail); };
-  }, [onBegin]);
-
   const reveal = done ? null : {
     opening: step === STEP.OPENING ? chars : opening.length,
     backstory: step === STEP.BACKSTORY ? chars : step > STEP.BACKSTORY ? backstory.length : 0,
@@ -102,12 +101,16 @@ export default function CaseBriefing({ caseInfo, settings, onBegin }) {
       <div className="briefing-reel">
         <div className="briefing-head">
           <span className="briefing-case">CASE Nº {caseInfo?.caseId || "—"}</span>
-          <span className="briefing-clock">The investigation begins when you both do · {Math.max(0, left)}s</span>
+          <span className="briefing-clock">
+            The investigation begins when you both do{left != null && ` · ${left}s`}
+          </span>
         </div>
 
         <CaseBriefingBody caseInfo={caseInfo} settings={settings} reveal={reveal} />
 
-        {done ? (
+        {waiting ? (
+          <span className="briefing-waiting">Waiting for {rivalName || "your rival"} to finish reading…</span>
+        ) : done ? (
           <button className="lb-btn primary briefing-go" onClick={onBegin}>Enter the Manor</button>
         ) : (
           <span className="briefing-skip">Press any key to skip</span>

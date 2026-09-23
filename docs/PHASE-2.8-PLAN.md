@@ -1,9 +1,11 @@
 # Phase 2.8 — Game Modes, Camera & the New Layout
 
-> **Status:** planning complete, implementation in progress on branch `phase-2.8`.
+> **Status:** complete — merged to `main` (see ROADMAP 2.8). Kept as the design record.
+> One thing here was later changed: the briefing's "accepted trade-off" (Pass E) — play
+> now begins only once both detectives have read it, or after 45s (ROADMAP 2.9).
 > **Written:** 2026-08-19
 > Supersedes parts of the Phase 2 design, and folds in Phase 2.5.
-> Read alongside [ROADMAP.md](../ROADMAP.md) and [CLAUDE.md](../CLAUDE.md).
+> Read alongside [ROADMAP.md](../ROADMAP.md) and [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 ---
 

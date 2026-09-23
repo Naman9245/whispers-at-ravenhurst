@@ -2,7 +2,7 @@
 // Needs client (:5173) + demo-timer server (:3001).
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const URL = "http://localhost:5173/?menu=skip", VW = 1600, VH = 900;
 let fails = 0;
 const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c) fails++; };

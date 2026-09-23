@@ -266,7 +266,7 @@ export default function BoardCanvas({
         if (hs) {
           searchHs = { x: rr.x + hs.x * rr.w, y: rr.y + hs.y * rr.h };
           ch.faceToward(searchHs.x, searchHs.y);   // hold the facing for the whole search
-          drawExamineGlow(ctx, searchHs.x, searchHs.y);
+          drawExamineGlow(ctx, searchHs.x, searchHs.y, { still: reducedMotion });
         }
       }
 
@@ -285,7 +285,11 @@ export default function BoardCanvas({
       }
       if (ch && searchHs) {
         const p = project(ch.x, ch.y - 90);
-        drawBubble(ctx, p.x, p.y, { dots: true, scale: searchBubbleScale(searchStartRef.current) });
+        // Reduced motion still searches for the full SEARCH_MS (the server holds
+        // the result), so it gets the bubble too — just held still, with no puff.
+        drawBubble(ctx, p.x, p.y, reducedMotion
+          ? { dots: true, still: true }
+          : { dots: true, scale: searchBubbleScale(searchStartRef.current) });
       }
       raf = requestAnimationFrame(loop);
     };

@@ -47,6 +47,8 @@ const startB = wait(B, "game:start");
 await ask(B, "room:join", { code: created.code, name: "Watson" });
 const viewA = await startA;
 await startB;
+// Both detectives put the case briefing down first: play (and every action) waits on it.
+await Promise.all([ask(A, "case:ready", {}), ask(B, "case:ready", {})]);
 
 check("game is playing", viewA.status === "playing");
 check("softMs is null, NOT 0", viewA.accusation.softMs === null);
@@ -71,13 +73,16 @@ console.log("\n[3] It can still END: the first lock-in opens the rival's window.
 // starts with any — both detectives have to go dig first. Rooms are walked with
 // region:enter rather than hard-coding hotspot ids, so this keeps working if the
 // case data ever moves a clue somewhere else.
+// This suite runs without fast timers, so every search really takes SEARCH_MS on
+// the server: stop the moment there are enough clues rather than searching on.
 async function gatherClues(sock, want = 2) {
+  let found = ((await ask(sock, "state:request", {})).view.you.foundClues || []).length;
   for (const room of ROOM_IDS) {
-    const state = await ask(sock, "state:request", {});
-    if ((state.view.you.foundClues || []).length >= want) break;
+    if (found >= want) break;
     await ask(sock, "region:enter", { room, inCorridor: false });
     for (const h of ROOM_HOTSPOTS[room] || []) {
-      await ask(sock, "hotspot:examine", { hotspotId: h.id });
+      const r = await ask(sock, "hotspot:examine", { hotspotId: h.id });
+      if (r?.found && ++found >= want) break;
     }
   }
   const done = await ask(sock, "state:request", {});

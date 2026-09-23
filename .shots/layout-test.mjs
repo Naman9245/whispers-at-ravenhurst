@@ -12,7 +12,7 @@
 // Run against a normal `npm run dev`.
 import puppeteer from "puppeteer-core";
 import { setTimeout as sleep } from "node:timers/promises";
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+const CHROME = process.env.CHROME_PATH || "C:/Program Files/Google/Chrome/Application/chrome.exe";
 const BASE = "http://localhost:5173/", VW = 1600, VH = 900;
 
 let f = 0; const ok = (l, c) => { console.log(`${c ? "  ✓" : "  ✗ FAIL"} ${l}`); if (!c) f++; };
@@ -97,14 +97,24 @@ try {
   ok("it states the house rules", (brief?.rules || []).some(t => /No time limit/i.test(t)));
   ok("it shows the case number", /CASE Nº/.test(brief?.caseNo || ""));
 
-  // Watson used plain ?menu=skip and must be on the board already -- if the
-  // briefing ever blocks that, every other suite in .shots hangs.
-  ok("?menu=skip alone SKIPS the briefing", await w.evaluate(() => !document.querySelector(".briefing-screen") && !!document.querySelector(".board-canvas")));
+  // Watson used plain ?menu=skip: no reading, acked at once. But play only starts
+  // when BOTH are done — Watson used to be on the board already, searching while
+  // Holmes read, which was a free head start in the race. So Watson waits.
+  // (Every other suite in .shots has BOTH tabs on ?menu=skip, so neither waits.)
+  const wWait = await w.evaluate(() => ({
+    waiting: !!document.querySelector(".briefing-waiting"),
+    typing: !!document.querySelector(".mm-caret"),
+    board: !!document.querySelector(".board-canvas"),
+  }));
+  console.log("   Watson while Holmes reads:", JSON.stringify(wWait));
+  ok("?menu=skip skips the reading, then waits for the rival (no head start)",
+    wWait.waiting && !wWait.typing && !wWait.board);
 
   await byText(h, "Enter the Manor");
   await h.waitForSelector(".board-canvas");
   await sleep(600);
   ok("Enter the Manor reaches the board", await h.evaluate(() => !document.querySelector(".briefing-screen")));
+  ok("and it lets the waiting rival in too", await w.evaluate(() => !document.querySelector(".briefing-screen") && !!document.querySelector(".board-canvas")));
 
   console.log("\n[2] Layout: one hero, one gutter, edges that line up.");
   const bar = await box(h, ".hud-bar"), board = await box(h, ".board-hero");

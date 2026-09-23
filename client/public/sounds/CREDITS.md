@@ -52,4 +52,4 @@ listener) all in `App.jsx`.
 
 Not yet sourced/added: `ambient/wind.mp3` + a thunder layer (the storm bed is rain-only
 for now), `ambient/distant_footsteps.mp3`, `ambient/whisper.mp3`, and the
-`ui/modal_open.mp3` / `ui/modal_close.mp3` pair. See `CLAUDE.md → Sound Assets TODO`.
+`ui/modal_open.mp3` / `ui/modal_close.mp3` pair. Tracked in `ROADMAP.md` (2.4, deferred clips).

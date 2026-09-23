@@ -28,6 +28,8 @@ const startA = wait(A, "game:start");
 const created = await ask(A, "room:create", { name: "Holmes", devMode: true });
 await ask(B, "room:join", { code: created.code, name: "Watson" });
 await startA;
+// Both detectives put the case briefing down first: play (and every action) waits on it.
+await Promise.all([ask(A, "case:ready", {}), ask(B, "case:ready", {})]);
 
 console.log("\n[1] Each suspect has their OWN question set.");
 check(`s3 offers ${questionsFor("s3").length} questions (12 core + 15 own)`, questionsFor("s3").length === 27);
@@ -102,6 +104,7 @@ const room2 = await ask(C1, "room:create", { name: "Lestrade", devMode: true });
 const c1start = wait(C1, "game:start");
 await ask(C2, "room:join", { code: room2.code, name: "Gregson" });
 await c1start;
+await Promise.all([ask(C1, "case:ready", {}), ask(C2, "case:ready", {})]);
 
 const lie = await ask(C1, "suspect:ask", { suspectId: "s3", questionId: "leaving" });
 check("Vale answers the core 'did you step outside' question", lie.ok === true);

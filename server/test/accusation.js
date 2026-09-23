@@ -15,6 +15,7 @@ async function startedRoom() {
   const A = room.addPlayer({ id: "A", name: "Holmes" });
   const B = room.addPlayer({ id: "B", name: "Watson" });
   await room.start();
+  room.beginPlay();                          // skip the briefing: both detectives ready
   A.clues.push("p1-3", "shared-2", "rh-p1"); // real, real, herring
   B.clues.push("p2-3", "p2-4");              // real, real
   return { room, A, B };
@@ -74,14 +75,35 @@ console.log("\n[4] Full scoring sample — two accusations, different scores.");
   check("Holmes speed 2 (fastest correct)", A_.score.speed === 2);
   check("Holmes total 7", A_.score.total === 7);
   check("Watson base 2 (weapon+room only)", B_.score.base === 2);
-  check("Watson reasoning 2", B_.score.reasoning === 2);
+  // p2-4 narrows the weapons and rooms, which Watson got right: +1. p2-3 only
+  // narrows the suspects — the one thing Watson got wrong — so it proves nothing.
+  check("Watson reasoning 1 (only the clue backing a correct answer)", B_.score.reasoning === 1);
   check("Watson speed 0 (not fully correct)", B_.score.speed === 0);
-  check("Watson total 4", B_.score.total === 4);
+  check("Watson total 3", B_.score.total === 3);
   check("winner is Holmes alone", reveal.winners.length === 1 && reveal.winners[0] === "holmes");
 
   check("reveal exposes the solution", reveal.solution.culpritName === "Mr. Sebastian Vale" && reveal.solution.roomLabel === "LIBRARY");
   check("monologue names the culprit, weapon and room",
     reveal.monologue.includes("Sebastian Vale") && reveal.monologue.includes("Silk Cravat") && reveal.monologue.includes("LIBRARY"));
+}
+
+console.log("\n[4b] Reasoning credit is for YOUR answer, not for citing real clues.");
+{
+  const { room, A } = await startedRoom();
+  room.startedAt = Date.now() - 10 * 60_000;
+  A.clues.push("shared-1", "shared-3");
+  // Wrong on all three counts. shared-1 even rules out s1, the suspect named.
+  room.tryLock("A", { culpritId: "s1", weaponId: "w1", roomId: "study", clueIds: ["shared-1", "shared-2", "shared-3"] });
+  const s = room.scoreFor(A);
+  check("an all-wrong accusation earns no reasoning (was +3)", s.base === 0 && s.reasoning === 0);
+}
+{
+  const { room, A } = await startedRoom();
+  room.startedAt = Date.now() - 10 * 60_000;
+  A.clues.push("shared-3");
+  // Right weapon and room, wrong culprit: the weapon and room clues still count.
+  room.tryLock("A", { culpritId: "s1", weaponId: "w5", roomId: "library", clueIds: ["shared-2", "shared-3"] });
+  check("clues proving the parts you got right still count", room.scoreFor(A).reasoning === 2);
 }
 
 console.log("\n[5] A non-submitter forfeits (score 0); the other wins.");

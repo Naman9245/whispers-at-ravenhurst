@@ -69,9 +69,20 @@ export function sanitizeSettings(raw, fallback = DEFAULT_SETTINGS) {
 // proximity check and the reachability test can never drift apart.
 export const EXAMINE_RADIUS = 26;
 
-// Hotspot examination: how long the "searching" animation runs before the result
-// modal opens. Shared so the canvas bubble's puff-out lands exactly on the commit.
+// Hotspot examination: how long a search takes. The SERVER enforces it (the
+// result is not released until it has passed), so a scripted client cannot sweep
+// the manor faster than a detective could; the client's canvas bubble is timed
+// to the same constant so its puff-out lands on the result.
 export const SEARCH_MS = 2500;
+
+// The case briefing: the clock starts when both detectives put the file down, or
+// when this runs out — whichever is first — so one idle reader cannot hold the
+// other at the title card. The server owns the deadline; the client counts to it.
+export const BRIEFING_MAX_MS = 45_000;
+
+// Display names are rendered on the rival's screen. The lobby input and the
+// server's sanitizer share this cap.
+export const NAME_MAX = 16;
 
 // Suspect questioning budget (per suspect, per player) — CORE questions only.
 // Questions unlocked by a clue you found are FREE, so investigating buys

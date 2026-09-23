@@ -1079,6 +1079,11 @@ body {
   color: var(--cream); font-weight: 700;
 }
 .briefing-go { width: 100%; margin-top: 18px; }
+.briefing-waiting {
+  display: block; margin-top: 18px; padding: 12px; text-align: center;
+  font-size: 12px; letter-spacing: 0.08em; color: var(--gold);
+  border: 1px dashed rgba(201,162,63,0.35); border-radius: 6px;
+}
 
 .brief { display: flex; flex-direction: column; gap: 4px; }
 .brief-label {

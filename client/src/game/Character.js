@@ -1,8 +1,8 @@
 // One playable character with free-roam, collision-aware movement. It owns its
 // pixel position (FEET on the floor), facing, animation, and which room it is
-// "anchored" to. Movement is driven by an input vector (WASD/arrows); the
-// connection graph decides which rooms are walkable (current room + neighbours),
-// so you still can't reach a non-connected room.
+// "anchored" to. Movement is driven by an input vector (WASD/arrows); every room
+// opens onto the shared corridor, so walls and doorways (the shared collision
+// geometry) are the only constraint on where you can walk.
 import { roomStanding, ROOM_IDS, isWalkable, roomAt } from "./boardData.js";
 import { frameImg } from "./sprites.js";
 import { MOVE_SPEED } from "@shared/constants.js";

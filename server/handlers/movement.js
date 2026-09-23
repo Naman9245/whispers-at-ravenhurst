@@ -5,16 +5,18 @@
 // never broadcast. NOTE: entry is deliberately not gated on the connection graph
 // — the corridor physically joins all six rooms, so walls + doorways (enforced by
 // the shared collision geometry) are the real constraint.
+import { onIntent } from "../intent.js";
+
 export function registerMovement(io, socket, store) {
-  socket.on("region:enter", ({ room, inCorridor } = {}, cb) => {
+  onIntent(socket, "region:enter", ({ room, inCorridor } = {}, cb) => {
     const gameRoom = store.roomOf(socket);
-    if (!gameRoom) return cb?.({ ok: false, error: "Not in a room." });
+    if (!gameRoom) return cb({ ok: false, error: "Not in a room." });
 
     const result = gameRoom.setRegion(socket.id, { room, inCorridor });
-    if (!result.ok) return cb?.(result);
+    if (!result.ok) return cb(result);
 
     const me = gameRoom.player(socket.id);
-    cb?.(result);
+    cb(result);
 
     // Only a genuine room change is worth a (vague) note; corridor steps are silent.
     if (result.changedRoom) {

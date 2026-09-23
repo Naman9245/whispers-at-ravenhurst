@@ -6,6 +6,7 @@
 // (A 300h zombie once faked a "game won't end at 0:00" bug — the fresh code was
 // fine.) Guarding here makes `npm run dev` always the source of truth.
 import { spawn, execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const PORTS = [3001, 5173]; // server (Express + Socket.io), client (Vite)
 const isWin = process.platform === "win32";
@@ -32,6 +33,27 @@ function listenerPids(port) {
   }
 }
 
+// Is this process one of OURS — a stale server or client from this repo? Only
+// those are zombies. Anything else on the port (another project's Vite on 5173,
+// say) belongs to someone else and must not be SIGKILLed. Judged by the process's
+// command line and working directory, both of which point inside the repo for our
+// own processes (`node --watch index.js` runs with cwd = server/). On Windows
+// there is no cheap equivalent, so the old kill-anything behaviour stays there.
+const REPO = fileURLToPath(new URL("..", import.meta.url)).replace(/[\\/]$/, "");
+function ownedByRepo(pid) {
+  if (isWin) return true;
+  const run = (cmd) => {
+    try { return execSync(cmd, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }); } catch { return ""; }
+  };
+  const args = run(`ps -o command= -p ${pid}`);
+  const cwd = run(`lsof -a -p ${pid} -d cwd -Fn`).split("\n").find((l) => l.startsWith("n"))?.slice(1) || "";
+  return args.includes(REPO) || cwd === REPO || cwd.startsWith(REPO + "/");
+}
+
+function describe(pid) {
+  try { return execSync(`ps -o command= -p ${pid}`, { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { return "unknown"; }
+}
+
 function kill(pid) {
   try {
     if (isWin) execSync(`taskkill /F /T /PID ${pid}`, { stdio: "ignore" });
@@ -48,6 +70,13 @@ function freePorts() {
   for (const port of PORTS) {
     for (const pid of listenerPids(port)) {
       if (!pid || pid === "0" || pid === self) continue;
+      if (!ownedByRepo(pid)) {
+        console.error(
+          `\x1b[31m[dev] port ${port} is in use by another program (pid ${pid}: ${describe(pid)}).\n` +
+            `      It isn't part of this project, so it was left alone — stop it and run again.\x1b[0m`
+        );
+        process.exit(1);
+      }
       const ok = kill(pid);
       killedAny = true;
       console.log(

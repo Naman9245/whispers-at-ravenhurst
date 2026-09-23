@@ -95,9 +95,9 @@ accusation state, and the timers. Status moves **`lobby` → `playing` → `ende
 
 | Subsystem | Methods |
 |-----------|---------|
-| Lifecycle | `addPlayer`, `removePlayer`, `isFull`, `start`, `markReady` |
+| Lifecycle | `addPlayer`, `removePlayer`, `isFull`, `start`, `markReady`, `beginPlay`, `_actionGate` |
 | Movement | `setRegion` |
-| Investigation | `tryExamine`, `cluePoolFor`, `progressCount`, `foundCluesFor` |
+| Investigation | `beginExamine`, `finishExamine`, `endSearch`, `cluePoolFor`, `progressCount`, `foundCluesFor` |
 | Questioning | `tryAsk`, `tryConfront`, `questioningStateFor` |
 | Accusation | `accuseOpensAt`, `tryLock`, `startFinalWindow`, `scoreFor`, `resolve` |
 | Timers | `clearTimers` (owned by the room; cleared on resolve and on reap) |
@@ -146,29 +146,21 @@ depends on that precedence; **Dev Mode is now just the `DEV_SETTINGS` preset**
 > 0:00. Both are guarded with `== null`. Timer: Off still **ends** — the first
 > lock-in arms the rival window. `server/test/timerOff.js` is the regression.
 
-**The briefing does not burn the clock.** `startedAt` is set when the second player
-joins, but play only *begins* once both detectives send **`case:ready`**:
+**The briefing does not burn the clock — and nobody plays behind it.** `startedAt`
+is set provisionally when the second player joins, but play only *begins*
+(`beginPlay()`) once both detectives send **`case:ready`**, or when
+`BRIEFING_MAX_MS` (45s, `briefingEndsAt` in the view) runs out so an idle reader
+can't stall the other. Until then every action — move, examine, question, accuse —
+is refused by `_actionGate()` with `briefing: true`. That gate is the fix for a real
+exploit: play used to start per-client, so whoever put the file down first could
+search and question while their rival was still reading, and could even lock in,
+after which the rival's ack wiped the final-window deadline off their screen.
 
-```js
-markReady(id) {
-  if (this.status !== "playing" || this.playStarted) return false;
-  const p = this.player(id);
-  if (!p) return false;
-  p.ready = true;
-  if (!this.players.every((x) => x.ready)) return false;
-  this.playStarted = true;
-  this.startedAt = Date.now();      // the clock starts HERE, not at join
-  this.finalDeadline = null;
-  return true;
-}
-```
-
-The handler re-arms the soft cap against the new origin. The design is **additive
-on purpose**: a socket that never acks behaves exactly as before, which is why
-every raw-socket server test still passes untouched. A *client* that skips the
-briefing must ack immediately (App does this on `game:start` for `?menu=skip`) or
-its partner waits on an ack that never comes. `server/test/briefingClock.js` pins
-it.
+`beginPlay()` moves the timer origin to *now* and the handler arms the soft cap
+against it (it is not armed at join at all). A *client* that skips the briefing
+must ack immediately (App does this on `game:start` for `?menu=skip`), and every
+raw-socket server test acks both players right after `game:start`, like a real
+client. `server/test/briefingClock.js` and `antiCheat.js` [4] pin it.
 
 ### 2.5 Per-client view filtering (`server/views.js`)
 `buildView()` is the **only** function that turns server state into something sent
@@ -197,9 +189,16 @@ emit a **vague** ambient line to both players, then push fresh views.
   *not* gated on the connection graph — the corridor physically joins all six
   rooms, so walls + doorways (shared collision geometry) are the real constraint.
 - **`investigate.js`** — `hotspot:examine`. Examines one furniture **hotspot** in
-  the player's current room via `tryExamine`; returns the clue placed there for
-  THIS player (if any) or nothing, stripped of the `eliminates` key. The
-  hotspot→clue map never leaves the server until that exact spot is examined.
+  the player's current room: `beginExamine` validates and returns how long to
+  wait, the handler waits it out, then `finishExamine` re-checks everything and
+  returns the clue placed there for THIS player (if any) or nothing, stripped of
+  the `eliminates` key. The hotspot→clue map never leaves the server until that
+  exact spot is examined.
+- **Every handler is registered through `onIntent()`** (`server/intent.js`), which
+  turns a non-object payload into `{}` and a missing/invalid ack into a no-op, and
+  catches anything a handler throws. A `null` payload or a number for a name used
+  to throw inside a socket.io listener — an uncaught exception that took the whole
+  process, every room, down.
 - **`suspects.js`** — `suspect:ask` (budget-capped, one branch at a time) and
   `suspect:confront` (an evidence branch that may carry a behavioral tell).
 - **`accusation.js`** — `case:ready`, `accuse:lock`, plus `resolveGame` and
@@ -239,8 +238,8 @@ Screen order, and where each one comes from:
 |--------|-----------|
 | **Main menu** | `phase === "menu"` (client state; `?menu=skip` starts at the lobby) |
 | **Lobby** | `phase === "lobby"`, or any time there is no `view` |
-| **Case briefing** | `view.status === "playing" && !briefed` (client state, acked with `case:ready`) |
-| **Game stage** | `view.status === "playing" && briefed` |
+| **Case briefing** | `view.status === "playing" && !view.playStarted` — reading, then (once acked with `case:ready`) "waiting for your rival" |
+| **Game stage** | `view.status === "playing" && view.playStarted` |
 | **Reveal** | a `game:reveal` payload arrived *while still in the game* |
 
 Note that "playing" has always been **derived from the server view** rather than
@@ -568,7 +567,7 @@ time. `requiresClue` questions are filtered client-side *and* re-checked in
 - **Investigating buys interrogation leverage.** `QUESTION_CAP` (4) applies to
   **core questions only**; clue-unlocked ones are free.
 - **Action lockout after lock-in — but you can still WALK.** Once `p.accusation` is
-  set, `tryExamine` / `tryAsk` / `tryConfront` short-circuit and the client disables
+  set, `beginExamine` / `tryAsk` / `tryConfront` short-circuit and the client disables
   every action pill. **`setRegion` is deliberately NOT gated**: a locked-in
   detective may pace the manor while their rival finishes, which leaks nothing —
   room/inCorridor are private and the movement chat line is vague on purpose.
@@ -579,12 +578,23 @@ time. `requiresClue` questions are filtered client-side *and* re-checked in
 - **Forfeiting is never a win.** `resolve()` picks winners only among players who
   actually submitted an accusation, so a double forfeit yields `winners: []` and the
   reveal reads "No one cracked the case."
-- **Client-side searching state (no protocol change).** Examining a hotspot enters a
-  2.5s *searching* state in `App`: `BoardCanvas` draws the cloud bubble + the amber
-  ring and input is locked. After `SEARCH_MS` the client fires `net.examine` and
-  opens the result modal — so the opponent only sees the ambient note once the
-  examine **commits**, never that an animation is running. `prefers-reduced-motion`
-  skips it, and a 5s safety timeout resets a wedged search.
+- **The server owns the search time.** Examining a hotspot sends `hotspot:examine`
+  at once and enters a *searching* state in `App`: `BoardCanvas` draws the cloud
+  bubble + the amber ring and input is locked. The server holds the result for
+  `SEARCH_MS` (plus any walk the player hasn't finished — see below), one search
+  per player at a time; the client shows it once both that ack and its own 2.5s
+  animation are done. The opponent only sees the ambient note when the search
+  **completes**. It used to be the client that waited before asking, which a
+  script (or anyone with `prefers-reduced-motion`, which skipped the wait) could
+  simply skip: all 24 hotspots in ~30ms. Reduced motion now holds the bubble still
+  but searches for the same time as everyone else. Fast timers set the server's
+  search time to 0 so the socket suites stay quick.
+- **Room changes can't beat a sprint.** The server can't see feet, but each room
+  change sets `roomReadyAt` — the doorway-to-doorway distance (`doorwayGap`) at top
+  speed, with 20% slack, timed from when the player stepped into the corridor.
+  Nothing is rejected (a client/server desync would be worse than the cheat); a
+  search in the new room just can't finish before then. Honest walkers never
+  notice; a teleporting script pays the walk. `server/test/antiCheat.js` [5] [6].
 - **Sprint is a client-side speed multiplier.** Holding **Shift** doubles the
   per-frame step. No protocol change: `setRegion` only records *which room* a client
   entered and never trusts pixel positions, and the collision geometry is shared, so
@@ -621,7 +631,7 @@ opponent: opp ? {
 - **All moves are server-validated.** `region:enter` is re-checked server-side; the
   collision geometry is enforced client-side every frame from the *shared* module,
   so it cannot drift from the server's notion of a room.
-- **All clue pickups are server-validated.** `tryExamine` reveals the clue at an
+- **All clue pickups are server-validated.** `finishExamine` reveals the clue at an
   examined hotspot only when its room matches the player's current room and the spot
   hasn't been examined; the `eliminates` key is stripped. **The hotspot→clue mapping
   is never serialized** — a player learns what's at a hotspot only by standing there
@@ -650,10 +660,10 @@ opponent: opp ? {
         room:create / room:join
 LOBBY ───────────────────────────▶ PLAYING ───────────────────────────▶ ENDED ──▶ game:reveal
   │     (2nd player → room.start())   │                                   │
-  │                                   │  case:ready ×2 → the CLOCK starts │
+  │                                   │  case:ready ×2 (or 45s) → CLOCK   │
   │                                   │  examine · question · accuse      │
   │                            accuseGate opens ACCUSE            resolve() triggered by:
-  │                                   │                            • both locked in
+  │                                   │                            • everyone left has locked in
   │                            first lock-in →                     • opponent window closes
   │                            startFinalWindow()                  • soft timer expires
   │                                                                  (never, if Timer: Off)
@@ -661,10 +671,10 @@ LOBBY ────────────────────────�
 ```
 
 A session: two clients connect → create/join → on the second join the server
-generates+validates the case, sets `status = "playing"`, and `scheduleForceResolve`
-arms the soft cap. Both clients open on the **case briefing**; each acks with
-`case:ready`, and the second ack moves the timer origin to *now* and re-arms the
-cap. Players investigate/question freely. After `accuseGate`, `ACCUSE` unlocks; the
+generates+validates the case, sets `status = "playing"`, and `armBriefing` sets the
+45s briefing deadline. Both clients open on the **case briefing**; each acks with
+`case:ready`, and the second ack (or the deadline) runs `beginPlay`, which moves the
+timer origin to *now* and arms the soft cap. Players investigate/question freely. After `accuseGate`, `ACCUSE` unlocks; the
 first `accuse:lock` cancels the soft cap and opens the opponent's final window.
 **`resolve()` is computed exactly once** — guarded on `status === "ended"`, it
 returns `null` on later calls, so the soft timer, the window timer, and a second
@@ -675,11 +685,15 @@ both accusations + scores) is pushed to both players in one `game:reveal`.
 | Component | Rule |
 |-----------|------|
 | **Base** | +1 each for a correct culprit, weapon, and room (max 3) |
-| **Reasoning** | +1 per cited clue that genuinely supports the solution, capped at +3 |
+| **Reasoning** | +1 per cited clue that backs a part of the accusation the player got **right**, capped at +3 |
 | **Speed** | among **fully-correct** accusations, earliest +2, the rest +1 |
 
-A clue "supports the solution" only if it eliminates real candidates and never
-contradicts the truth — so citing your own red herring earns nothing. An
+A clue earns reasoning credit (`_backsAccusation`) only if it is real evidence
+(eliminates real candidates, never contradicts the truth — so your own red herring
+earns nothing), does not rule out anything the player accused, and narrows a
+category the player got right. Before, it was judged against the truth alone, so an
+accusation wrong on all three counts could still take the full +3 — even for a clue
+that eliminated the very suspect it named. An
 accusation must cite **2–3 distinct clues the player has actually found**.
 
 ### Socket event reference
@@ -754,7 +768,7 @@ baked case, so it's playable with no key — and the validator runs on every loa
 
 ## 9. Test Map
 
-Run all ten with `cd server && npm test`. `test/run-all.js` starts a fresh server in
+Run all eleven with `cd server && npm test`. `test/run-all.js` starts a fresh server in
 each timer mode the table below lists, refuses to start if :3001 is already taken,
 and is the same command GitHub Actions runs (`.github/workflows/test.yml`).
 
@@ -764,12 +778,13 @@ and is the same command GitHub Actions runs (`.github/workflows/test.yml`).
 | `server/test/accusation.js` | no | gate, scoring, forfeit — clock driven by setting `startedAt` |
 | `server/test/movement.js` | no | pure geometry: reachability, doorways, spawn, flood-fill connectivity, centre-walkable |
 | `server/test/settings.js` | no | `sanitizeSettings` whitelist + Dev Mode / `WHISPERS_FAST_TIMERS` precedence |
-| `server/test/briefingClock.js` | yes (`=1`) | `case:ready` moves the timer origin; a non-acking socket behaves as before |
+| `server/test/briefingClock.js` | yes (`=1`) | `case:ready` from both moves the timer origin and arms the soft cap |
 | `server/test/lobbyFlow.js` | yes (`=1`) | create/join, auto-start, movement, **the privacy boundary** |
 | `server/test/lockout.js` | yes (`=demo`) | post-lock-in: actions rejected, **movement still allowed** |
 | `server/test/hotspots.js` | yes (`=demo`) | hotspot examination end-to-end over sockets |
 | `server/test/interrogation.js` | yes (`=1`) | per-suspect sets, clue unlocks, lies + re-ask, budget |
 | `server/test/timerOff.js` | yes (**no** fast timers) | Timer: Off never force-resolves and never ships `softMs: 0` |
+| `server/test/antiCheat.js` | yes (**no** fast timers) | malformed intents never crash the server, own-room join, lobby host disconnect, the briefing gate, server-paced search + travel, a rival walking out |
 
 Browser e2e lives in `.shots/*.mjs` (puppeteer, two real tabs, run from the repo
 root). Dev-only handles the suites drive: `window.__wrChar` (position),

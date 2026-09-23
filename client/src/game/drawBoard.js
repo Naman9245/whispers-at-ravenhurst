@@ -715,8 +715,8 @@ export function searchBubbleScale(startTime) {
 
 // The pulsing amber ring around the hotspot being examined. DIEGETIC — it marks
 // a piece of furniture, so it lives in world space and scales with the camera.
-export function drawExamineGlow(c, hx, hy) {
-  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 200);
+export function drawExamineGlow(c, hx, hy, { still = false } = {}) {
+  const pulse = still ? 0.5 : 0.5 + 0.5 * Math.sin(Date.now() / 200);
   c.save();
   c.globalAlpha = 0.4 + 0.35 * pulse;
   c.strokeStyle = P.amberLt; c.lineWidth = 3; c.shadowColor = P.amberLt; c.shadowBlur = 14;
@@ -732,10 +732,11 @@ export function drawExamineGlow(c, hx, hy) {
  * (x, y) is the bubble's CENTRE. `dots` renders the three bouncing "thinking"
  * dots; otherwise `text` is drawn, with the body widening to fit.
  */
-export function drawBubble(c, x, y, { text = null, dots = false, scale = 1, maxW = 190 } = {}) {
+// `still` (reduced motion) drops the float and the bouncing dots.
+export function drawBubble(c, x, y, { text = null, dots = false, scale = 1, maxW = 190, still = false } = {}) {
   if (scale <= 0.02) return;   // fully puffed out
   const now = Date.now();
-  const bob = Math.sin(now / 239) * 3;   // gentle ~3px / 1.5s float
+  const bob = still ? 0 : Math.sin(now / 239) * 3;   // gentle ~3px / 1.5s float
 
   c.save();
   c.font = "700 20px 'Courier New', monospace";
@@ -762,7 +763,7 @@ export function drawBubble(c, x, y, { text = null, dots = false, scale = 1, maxW
     // three charcoal dots bouncing left→middle→right (classic "thinking")
     c.fillStyle = "#2a2540";
     for (let i = 0; i < 3; i++) {
-      const dy = -Math.max(0, Math.sin(now / 170 - i * 0.7)) * 4;
+      const dy = still ? 0 : -Math.max(0, Math.sin(now / 170 - i * 0.7)) * 4;
       c.beginPath(); c.arc(-14 + i * 14, dy, 3.2, 0, Math.PI * 2); c.fill();
     }
   } else {

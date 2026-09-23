@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { net } from "../net/socket.js";
 import { playNotebookOpen } from "../game/sound.js";
-import { SETTING_OPTIONS, DEFAULT_SETTINGS } from "@shared/constants.js";
+import { SETTING_OPTIONS, DEFAULT_SETTINGS, NAME_MAX } from "@shared/constants.js";
 
 // Human labels for the setting values. Timers are stored in SECONDS (matching
 // TIMER_PRESETS) but read in minutes, and null genuinely means "no limit" rather
@@ -74,6 +74,14 @@ export default function Lobby({ onError, onBack }) {
     // App's game:start listener takes over from here.
   };
 
+  // Stop waiting: close the room on the server and go back. There used to be no
+  // way out of the waiting screen short of reloading the page.
+  const cancel = () => {
+    net.leaveRoom();
+    setWaitingCode("");
+    setMode("home");
+  };
+
   return (
     <div className="lobby">
       {/* ← back to the main menu (only while nothing is in flight) */}
@@ -108,7 +116,7 @@ export default function Lobby({ onError, onBack }) {
           <div className="lobby-form">
             <label className="lb-label">Your name</label>
             <input className="lb-input" value={name} placeholder="Holmes"
-              maxLength={16} onChange={(e) => setName(e.target.value)} />
+              maxLength={NAME_MAX} onChange={(e) => setName(e.target.value)} />
             {/* Keep this the ONLY .lb-check on the page — twelve e2e suites click
                 `.lb-check input[type="checkbox"]` to turn on short timers. New
                 controls below deliberately use different class names. */}
@@ -161,7 +169,7 @@ export default function Lobby({ onError, onBack }) {
           <div className="lobby-form">
             <label className="lb-label">Your name</label>
             <input className="lb-input" value={name} placeholder="Watson"
-              maxLength={16} onChange={(e) => setName(e.target.value)} />
+              maxLength={NAME_MAX} onChange={(e) => setName(e.target.value)} />
             <label className="lb-label">Room code</label>
             <input className="lb-input code" value={code} placeholder="RAVE1" maxLength={5}
               onChange={(e) => setCode(e.target.value.toUpperCase())} />
@@ -183,6 +191,9 @@ export default function Lobby({ onError, onBack }) {
             <div className="lb-code-display">{waitingCode}</div>
             {devMode && <div className="lb-devtag">DEV MODE</div>}
             <div className="lb-spinner">Waiting for your partner detective…</div>
+            <div className="lb-row">
+              <button className="lb-btn ghost" onClick={cancel}>Cancel</button>
+            </div>
           </div>
         )}
       </div>

@@ -22,6 +22,8 @@ const created = await ask(h, "room:create", { name: "Holmes", devMode: true });
 const ws = wait(w, "game:start");
 await ask(w, "room:join", { code: created.code, name: "Watson" });
 await Promise.all([hs, ws]);
+// Both detectives put the case briefing down first: play (and every action) waits on it.
+await Promise.all([ask(h, "case:ready", {}), ask(w, "case:ready", {})]);
 
 // Holmes gathers 2 clues in the study (two hotspots), then locks in.
 const e1 = await ask(h, "hotspot:examine", { hotspotId: "study_desk" });
